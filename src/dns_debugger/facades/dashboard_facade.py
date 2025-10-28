@@ -55,9 +55,12 @@ class RegistryHealthData:
     is_expiring_soon: bool
     days_until_expiry: Optional[int]
     expiry_date: Optional[str]
+    created_date: Optional[str]
+    updated_date: Optional[str]
     registrar: Optional[str]
     dnssec_enabled: bool
     nameserver_count: int
+    status: list[str]
     error: Optional[str]
 
 
@@ -199,11 +202,18 @@ class DashboardFacade:
                 expiry_date=registration.expires_date.strftime("%Y-%m-%d")
                 if registration.expires_date
                 else None,
+                created_date=registration.created_date.strftime("%Y-%m-%d")
+                if registration.created_date
+                else None,
+                updated_date=registration.updated_date.strftime("%Y-%m-%d")
+                if registration.updated_date
+                else None,
                 registrar=registration.registrar,
                 dnssec_enabled=registration.dnssec,
                 nameserver_count=len(registration.nameservers)
                 if registration.nameservers
                 else 0,
+                status=registration.status if registration.status else [],
                 error=None,
             )
         except Exception as e:
@@ -212,9 +222,12 @@ class DashboardFacade:
                 is_expiring_soon=False,
                 days_until_expiry=None,
                 expiry_date=None,
+                created_date=None,
+                updated_date=None,
                 registrar=None,
                 dnssec_enabled=False,
                 nameserver_count=0,
+                status=[],
                 error=str(e),
             )
 

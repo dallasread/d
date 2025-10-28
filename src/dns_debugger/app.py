@@ -262,8 +262,21 @@ class DashboardPanel(Container):
                     f"  [green]✓ Active ({data.days_until_expiry} days)[/green]\n"
                 )
 
+            # Registration dates
+            if data.created_date:
+                output.append(f"  Created: {data.created_date}\n")
+            if data.updated_date:
+                output.append(f"  Updated: {data.updated_date}\n")
             if data.expiry_date:
                 output.append(f"  Expires: {data.expiry_date}\n")
+
+            # Domain status
+            if data.status:
+                # Show first few status codes
+                status_display = ", ".join(data.status[:2])
+                if len(data.status) > 2:
+                    status_display += f" +{len(data.status) - 2}"
+                output.append(f"  Status: {status_display}\n")
 
             # Registrar
             if data.registrar:
