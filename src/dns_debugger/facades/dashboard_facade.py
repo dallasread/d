@@ -194,7 +194,7 @@ class DashboardFacade:
 
             return RegistryHealthData(
                 is_expired=registration.is_expired,
-                is_expiring_soon=registration.is_expiring_soon(),
+                is_expiring_soon=registration.is_expiring_soon,
                 days_until_expiry=registration.days_until_expiry,
                 expiry_date=registration.expires_date.strftime("%Y-%m-%d")
                 if registration.expires_date
