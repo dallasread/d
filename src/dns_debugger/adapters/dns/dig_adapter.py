@@ -352,7 +352,7 @@ class DigAdapter(DNSPort):
                 ]
 
                 if nameservers:
-                    # Query the authoritative nameserver for RRSIGs
+                    # Query the authoritative nameserver for RRSIGs (use SOA since it always exists)
                     auth_ns = nameservers[0]
                     cmd = [
                         "dig",
@@ -361,7 +361,7 @@ class DigAdapter(DNSPort):
                         "+noall",
                         "+answer",
                         domain,
-                        "A",
+                        "SOA",
                     ]
                     result = subprocess.run(
                         cmd, capture_output=True, text=True, timeout=10, check=True

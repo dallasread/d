@@ -349,11 +349,11 @@ class DogAdapter(DNSPort):
             # Parse DNSSEC records
             ds_records = self._parse_ds_records(ds_response)
 
-            # Try to get RRSIG records for A records
+            # Try to get RRSIG records for SOA (always exists)
             rrsig_records = []
             try:
-                # Query for A record and look for RRSIG in additional section
-                cmd = ["dog", domain, "A", "--json"]
+                # Query for SOA record and look for RRSIG in additional section
+                cmd = ["dog", domain, "SOA", "--json"]
                 result = subprocess.run(
                     cmd, capture_output=True, text=True, timeout=10, check=True
                 )
