@@ -71,17 +71,94 @@ class CertificatePanel(Static):
     def __init__(self, domain: str) -> None:
         super().__init__()
         self.domain = domain
+        self.cert_adapter = None
 
     def on_mount(self) -> None:
         """Load certificate data when the panel is mounted."""
-        self.update(f"[bold cyan]SSL/TLS Certificate for {self.domain}[/bold cyan]\n\n")
-        self.update("[yellow]Certificate checking coming soon...[/yellow]\n")
-        self.update("Will show:\n")
-        self.update("  • Certificate details (subject, issuer)\n")
-        self.update("  • Validity dates\n")
-        self.update("  • Certificate chain\n")
-        self.update("  • Supported TLS versions\n")
-        self.update("  • Cipher suites\n")
+        self.update_cert_info()
+
+    def update_cert_info(self) -> None:
+        """Query and display certificate information."""
+        try:
+            from dns_debugger.adapters.cert.factory import CertificateAdapterFactory
+
+            self.cert_adapter = CertificateAdapterFactory.create()
+            tool_name = self.cert_adapter.get_tool_name()
+
+            output = []
+            output.append(
+                f"[bold cyan]SSL/TLS Certificate for {self.domain}[/bold cyan]\n"
+            )
+            output.append(f"Using: {tool_name}\n\n")
+
+            # Get certificate info
+            tls_info = self.cert_adapter.get_certificate_info(self.domain)
+
+            if tls_info.certificate_chain.leaf_certificate:
+                cert = tls_info.certificate_chain.leaf_certificate
+
+                output.append("[bold yellow]Certificate Details:[/bold yellow]\n")
+                output.append(f"  Subject: {cert.subject.common_name}\n")
+                output.append(f"  Issuer: {cert.issuer.common_name}\n")
+                output.append(f"  Valid From: {cert.not_before.strftime('%Y-%m-%d')}\n")
+                output.append(f"  Valid Until: {cert.not_after.strftime('%Y-%m-%d')}\n")
+
+                if cert.is_expired:
+                    output.append(f"  Status: [red]EXPIRED[/red]\n")
+                elif cert.days_until_expiry < 30:
+                    output.append(
+                        f"  Status: [yellow]Expires in {cert.days_until_expiry} days[/yellow]\n"
+                    )
+                else:
+                    output.append(
+                        f"  Status: [green]Valid ({cert.days_until_expiry} days remaining)[/green]\n"
+                    )
+
+                output.append(f"\n[bold yellow]Public Key:[/bold yellow]\n")
+                output.append(f"  Algorithm: {cert.public_key_algorithm}\n")
+                output.append(f"  Size: {cert.public_key_size} bits\n")
+
+                if cert.subject_alternative_names:
+                    output.append(
+                        f"\n[bold yellow]Subject Alternative Names:[/bold yellow]\n"
+                    )
+                    for san in cert.subject_alternative_names[:5]:  # Limit to first 5
+                        output.append(f"  • {san}\n")
+                    if len(cert.subject_alternative_names) > 5:
+                        output.append(
+                            f"  [dim]... and {len(cert.subject_alternative_names) - 5} more[/dim]\n"
+                        )
+
+                output.append(f"\n[bold yellow]Certificate Chain:[/bold yellow]\n")
+                output.append(
+                    f"  Chain Length: {tls_info.certificate_chain.chain_length}\n"
+                )
+                output.append(
+                    f"  Valid: {'[green]Yes[/green]' if tls_info.certificate_chain.is_valid else '[red]No[/red]'}\n"
+                )
+
+                if tls_info.supported_versions:
+                    output.append(f"\n[bold yellow]TLS Versions:[/bold yellow]\n")
+                    for version in tls_info.supported_versions:
+                        output.append(f"  • {version.value}\n")
+
+                output.append(f"\n[bold yellow]Security Features:[/bold yellow]\n")
+                output.append(
+                    f"  OCSP Stapling: {'[green]Yes[/green]' if tls_info.has_ocsp_stapling else '[dim]No[/dim]'}\n"
+                )
+                output.append(
+                    f"  Self-Signed: {'[yellow]Yes[/yellow]' if cert.is_self_signed else '[green]No[/green]'}\n"
+                )
+            else:
+                output.append("[red]Failed to retrieve certificate[/red]\n")
+
+            self.update("".join(output))
+
+        except Exception as e:
+            self.update(f"[red]Error: {str(e)}[/red]\n\n")
+            self.update(
+                "[dim]Make sure OpenSSL is installed and the domain is accessible[/dim]"
+            )
 
 
 class RegistryPanel(Static):
@@ -90,17 +167,94 @@ class RegistryPanel(Static):
     def __init__(self, domain: str) -> None:
         super().__init__()
         self.domain = domain
+        self.registry_adapter = None
 
     def on_mount(self) -> None:
         """Load registry data when the panel is mounted."""
-        self.update(f"[bold cyan]Domain Registration for {self.domain}[/bold cyan]\n\n")
-        self.update("[yellow]RDAP/WHOIS lookup coming soon...[/yellow]\n")
-        self.update("Will show:\n")
-        self.update("  • Registrar information\n")
-        self.update("  • Registration dates\n")
-        self.update("  • Expiration date\n")
-        self.update("  • Nameservers\n")
-        self.update("  • Contact information\n")
+        self.update_registry_info()
+
+    def update_registry_info(self) -> None:
+        """Query and display domain registration information."""
+        try:
+            from dns_debugger.adapters.registry.factory import RegistryAdapterFactory
+
+            self.registry_adapter = RegistryAdapterFactory.create()
+            source_name = self.registry_adapter.get_source_name()
+
+            output = []
+            output.append(
+                f"[bold cyan]Domain Registration for {self.domain}[/bold cyan]\n"
+            )
+            output.append(f"Using: {source_name}\n\n")
+
+            # Get registration info
+            registration = self.registry_adapter.lookup(self.domain)
+
+            output.append("[bold yellow]Registrar:[/bold yellow]\n")
+            output.append(
+                f"  {registration.registrar or '[dim]Not available[/dim]'}\n\n"
+            )
+
+            output.append("[bold yellow]Registration Dates:[/bold yellow]\n")
+            if registration.created_date:
+                output.append(
+                    f"  Created: {registration.created_date.strftime('%Y-%m-%d')}\n"
+                )
+            if registration.updated_date:
+                output.append(
+                    f"  Updated: {registration.updated_date.strftime('%Y-%m-%d')}\n"
+                )
+            if registration.expires_date:
+                output.append(
+                    f"  Expires: {registration.expires_date.strftime('%Y-%m-%d')}\n"
+                )
+
+                if registration.is_expired:
+                    output.append(f"  Status: [red]EXPIRED[/red]\n")
+                elif registration.is_expiring_soon():
+                    days_left = registration.days_until_expiry
+                    output.append(
+                        f"  Status: [yellow]Expires in {days_left} days[/yellow]\n"
+                    )
+                else:
+                    days_left = registration.days_until_expiry
+                    output.append(
+                        f"  Status: [green]Active ({days_left} days remaining)[/green]\n"
+                    )
+
+            if registration.nameservers:
+                output.append(f"\n[bold yellow]Nameservers:[/bold yellow]\n")
+                for ns in registration.nameservers[:5]:  # Limit to first 5
+                    output.append(f"  • {ns.hostname}\n")
+                    if ns.ip_addresses:
+                        for ip in ns.ip_addresses[:2]:
+                            output.append(f"    [dim]{ip}[/dim]\n")
+                if len(registration.nameservers) > 5:
+                    output.append(
+                        f"  [dim]... and {len(registration.nameservers) - 5} more[/dim]\n"
+                    )
+
+            if registration.status:
+                output.append(f"\n[bold yellow]Domain Status:[/bold yellow]\n")
+                for status in registration.status[:5]:
+                    output.append(f"  • {status}\n")
+
+            output.append(f"\n[bold yellow]Security:[/bold yellow]\n")
+            output.append(
+                f"  DNSSEC: {'[green]Enabled[/green]' if registration.dnssec else '[dim]Disabled[/dim]'}\n"
+            )
+
+            if registration.registrant and registration.registrant.organization:
+                output.append(f"\n[bold yellow]Registrant:[/bold yellow]\n")
+                output.append(f"  {registration.registrant.organization}\n")
+                if registration.registrant.country:
+                    output.append(f"  {registration.registrant.country}\n")
+
+            self.update("".join(output))
+
+        except Exception as e:
+            self.update(f"[red]Error: {str(e)}[/red]\n\n")
+            self.update("[dim]Make sure whodap or python-whois is installed[/dim]")
 
 
 class DNSDebuggerApp(App):
@@ -197,6 +351,12 @@ class DNSDebuggerApp(App):
         if active_pane == "dns":
             dns_panel = self.query_one(DNSPanel)
             dns_panel.update_dns_info()
+        elif active_pane == "cert":
+            cert_panel = self.query_one(CertificatePanel)
+            cert_panel.update_cert_info()
+        elif active_pane == "registry":
+            registry_panel = self.query_one(RegistryPanel)
+            registry_panel.update_registry_info()
 
         self.notify("Refreshed!", severity="information")
 
