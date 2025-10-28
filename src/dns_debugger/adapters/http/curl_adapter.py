@@ -149,6 +149,13 @@ class CurlAdapter(HTTPPort):
             status_code, status_text = self._parse_status_line(current_section[0])
             headers = self._parse_headers(current_section[1:])
 
+        # Use stats JSON for status code if available (more reliable)
+        if stats.get("status_code"):
+            try:
+                status_code = int(stats["status_code"])
+            except (ValueError, TypeError):
+                pass
+
         # Extract specific headers
         content_length = None
         if "content-length" in headers:
@@ -176,6 +183,14 @@ class CurlAdapter(HTTPPort):
             if stderr:
                 raw_parts.append(f"# stderr\n{stderr}")
             raw_output = "\n\n".join(raw_parts) if raw_parts else None
+
+        # Get redirect count from stats if available
+        if stats.get("redirect_count") and not redirect_chain:
+            # If stats shows redirects but we didn't parse them, create placeholder chain
+            try:
+                redirect_count_int = int(stats["redirect_count"])
+            except (ValueError, TypeError):
+                redirect_count_int = 0
 
         return HTTPResponse(
             url=url,

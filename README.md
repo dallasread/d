@@ -18,6 +18,8 @@ All data loads asynchronously with detailed progress indicators and is cached in
 ## Recent Updates
 
 **Latest improvements:**
+- ✅ **HTTP redirect status fix** - Dashboard correctly shows green/pass for successful responses (200 OK) even after following redirects (301/302)
+- ✅ **Improved curl parsing** - Fixed status code extraction to use curl's JSON stats output for accurate final status
 - ✅ **WWW subdomain checking** - HTTP/HTTPS panel now tests both apex domain and www subdomain automatically
 - ✅ **SPF policy explanations** - Human-readable descriptions for SPF mechanisms (-all, ~all, +all, ?all)
 - ✅ **Enhanced registration display** - Registration panel shows created/updated dates and all domain status codes
@@ -147,9 +149,12 @@ The dashboard provides an at-a-glance health overview with color-coded status in
 - Certificate chain validity
 
 **HTTP/HTTPS Card:**
-- Status code and response time
+- Status code and response time for HTTPS requests
 - Success/redirect/error indicators
 - Redirect count
+- Correctly shows green/pass for 200 OK responses, even after following redirects (301→200, 302→200)
+- Yellow/warn for final redirect status (3xx with no further redirect)
+- Red/fail for errors (4xx, 5xx) or connection failures
 
 ### Registration Panel (Tab 1)
 
@@ -220,11 +225,14 @@ HTTP connectivity and response information for both apex domain and www subdomai
 - `http://example.com` and `https://example.com` checked
 - Status code and text for both protocols
 - Response time in milliseconds
-- Success indicators (200-299 status or successful redirect chain)
+- Success indicators:
+  - **Green**: 200-299 final status (including after redirects)
+  - **Yellow**: Redirect status (3xx) with no further redirect
+  - **Red**: Client/server errors (4xx, 5xx) or connection failures
 - Redirect chain display (if applicable):
   - Each redirect step with status code
   - From URL → To URL for each hop
-  - Color-coded status (yellow for redirects, green for success)
+  - Color-coded status (yellow for redirects, green for final success)
 - Server header
 - Content-Type
 - Content-Length
@@ -233,6 +241,9 @@ HTTP connectivity and response information for both apex domain and www subdomai
 - `http://www.example.com` and `https://www.example.com` checked automatically
 - Same comprehensive checks as apex domain
 - Helps verify proper www redirect configuration
+
+**Status Code Handling:**
+The HTTP adapter now correctly uses curl's JSON stats output (`-w` flag) to capture the final status code after following all redirects. This ensures that domains with redirect chains (e.g., `https://example.com` → 301 → `https://www.example.com` → 200) are correctly identified as successful rather than failed.
 
 Both the naked domain and www subdomain are tested for both HTTP and HTTPS protocols to ensure complete coverage of common domain access patterns.
 

@@ -342,18 +342,12 @@ class DashboardFacade:
         http_status = "fail"
         if http_health.error:
             http_status = "fail"  # Connection error
-        elif http_health.is_success or (
-            http_health.is_redirect
-            and http_health.status_code
-            and 200 <= http_health.status_code < 300
-        ):
-            http_status = "pass"  # 2xx or successful redirect chain
+        elif http_health.is_success:
+            http_status = "pass"  # 2xx status code (may have gone through redirects)
         elif http_health.is_redirect:
-            http_status = "warn"  # Redirect but not to 2xx
-        elif http_health.status_code and 200 <= http_health.status_code < 300:
-            http_status = "pass"  # 2xx status code
+            http_status = "warn"  # Final status is still a redirect (3xx)
         elif http_health.status_code and http_health.status_code < 500:
-            http_status = "warn"  # 3xx/4xx
+            http_status = "warn"  # 4xx client error
         else:
             http_status = "fail"  # 5xx or no response
 
