@@ -152,7 +152,6 @@ class DashboardFacade:
         except Exception as e:
             return CertHealthData(
                 is_valid=False,
-                is_expired=False,
                 days_until_expiry=None,
                 issuer_cn=None,
                 expiry_date=None,
@@ -233,7 +232,6 @@ class DashboardFacade:
 
             return DNSSECHealthData(
                 is_secure=validation.is_secure,
-                is_insecure=validation.is_insecure,
                 is_bogus=validation.is_bogus,
                 has_dnskey=has_dnskey,
                 has_ds=has_ds,
@@ -245,7 +243,6 @@ class DashboardFacade:
         except Exception as e:
             return DNSSECHealthData(
                 is_secure=False,
-                is_insecure=False,
                 is_bogus=False,
                 has_dnskey=False,
                 has_ds=False,

@@ -154,7 +154,7 @@ class DashboardPanel(Container):
 
             if data.error:
                 output.append(f"  [red]✗ {data.error}[/red]\n")
-            elif data.is_expired:
+            elif not data.is_valid:
                 output.append(f"  [red]✗ Certificate EXPIRED[/red]\n")
             elif data.days_until_expiry and data.days_until_expiry < 30:
                 output.append(
@@ -241,7 +241,7 @@ class DashboardPanel(Container):
                 section.set_content("".join(output))
                 return
 
-            # Expiration status
+            # Expiration status (note: is_expired is separate from is_expiring_soon)
             if data.is_expired:
                 output.append(f"  [red]✗ Domain EXPIRED[/red]\n")
             elif data.is_expiring_soon and data.days_until_expiry:
@@ -294,10 +294,10 @@ class DashboardPanel(Container):
             # Validation status
             if data.is_secure:
                 output.append(f"  [green]✓ SECURE[/green]\n")
-            elif data.is_insecure:
-                output.append(f"  [dim]○ Not signed[/dim]\n")
             elif data.is_bogus:
                 output.append(f"  [red]✗ BOGUS[/red]\n")
+            elif not data.is_secure and not data.is_bogus:
+                output.append(f"  [dim]○ Not signed[/dim]\n")
             else:
                 output.append(f"  [yellow]? INDETERMINATE[/yellow]\n")
 
@@ -976,10 +976,10 @@ class DNSSECPanel(Static):
             output.append("[bold yellow]Validation Status:[/bold yellow]\n")
             if validation.is_secure:
                 output.append(f"  [green]✓ SECURE[/green]\n")
-            elif validation.is_insecure:
-                output.append(f"  [dim]INSECURE (not signed)[/dim]\n")
             elif validation.is_bogus:
                 output.append(f"  [red]✗ BOGUS (validation failed)[/red]\n")
+            elif not validation.is_secure and not validation.is_bogus:
+                output.append(f"  [dim]INSECURE (not signed)[/dim]\n")
             else:
                 output.append(f"  [yellow]? INDETERMINATE[/yellow]\n")
 
@@ -2353,7 +2353,7 @@ class DNSDebuggerApp(App):
                                 "serial_number": cert.serial_number,
                                 "not_before": cert.not_before.isoformat(),
                                 "not_after": cert.not_after.isoformat(),
-                                "is_expired": cert.is_expired,
+                                "is_valid": not cert.is_expired,
                                 "days_until_expiry": cert.days_until_expiry,
                                 "public_key_algorithm": cert.public_key_algorithm,
                                 "public_key_size": cert.public_key_size,
