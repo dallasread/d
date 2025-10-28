@@ -59,16 +59,18 @@ class DashboardPanel(Container):
         )
 
         with Horizontal(id="dashboard-sections"):
-            with Vertical(id="dashboard-col-1"):
-                yield HealthSection("📋 Registration", "health-registry")
-                yield HealthSection("📡 DNS", "health-dns")
+            # Left side - full height Registration
+            yield HealthSection("📋 Registration", "health-registry")
 
-            with Vertical(id="dashboard-col-2"):
-                yield HealthSection("🔐 DNSSEC", "health-dnssec")
-                yield HealthSection("🔒 Certificate", "health-cert")
+            # Right side - 2x2 grid of smaller sections
+            with Vertical(id="dashboard-right"):
+                with Horizontal(id="dashboard-row-1"):
+                    yield HealthSection("📡 DNS", "health-dns")
+                    yield HealthSection("🔐 DNSSEC", "health-dnssec")
 
-            with Vertical(id="dashboard-col-3"):
-                yield HealthSection("🌐 HTTP/HTTPS", "health-http")
+                with Horizontal(id="dashboard-row-2"):
+                    yield HealthSection("🔒 Certificate", "health-cert")
+                    yield HealthSection("🌐 HTTP/HTTPS", "health-http")
 
     def on_mount(self) -> None:
         """Dashboard is ready but data not loaded."""
@@ -869,18 +871,36 @@ class DNSDebuggerApp(App):
         width: 100%;
     }
 
-    #dashboard-col-1,
-    #dashboard-col-2,
-    #dashboard-col-3 {
-        width: 1fr;
+    #dashboard-sections > #health-registry {
+        width: 40%;
+        height: 100%;
+        border: solid $primary;
+        margin: 0 1 0 0;
+        padding: 1 2;
+    }
+
+    #dashboard-right {
+        width: 60%;
         height: 100%;
     }
 
-    #dashboard-sections HealthSection {
-        border: solid $primary;
-        margin: 0 1;
-        padding: 1 2;
+    #dashboard-row-1,
+    #dashboard-row-2 {
         height: 1fr;
+        width: 100%;
+    }
+
+    #dashboard-row-1 HealthSection,
+    #dashboard-row-2 HealthSection {
+        width: 1fr;
+        height: 100%;
+        border: solid $primary;
+        margin: 0 0 0 1;
+        padding: 1 2;
+    }
+
+    #dashboard-row-1 {
+        margin: 0 0 1 0;
     }
     """
 
@@ -907,7 +927,7 @@ class DNSDebuggerApp(App):
 
     def compose(self) -> ComposeResult:
         """Create the UI layout."""
-        yield Header(show_clock=True)
+        yield Header(show_clock=False)
         yield LoadingIndicator(id="app-loading")
 
         with Container(id="main-container"):
