@@ -789,7 +789,7 @@ class RegistryPanel(Static):
 
                 if registration.is_expired:
                     output.append(f"  Status: [red]EXPIRED[/red]\n")
-                elif registration.is_expiring_soon():
+                elif registration.is_expiring_soon:
                     days_left = registration.days_until_expiry
                     output.append(
                         f"  Status: [yellow]Expires in {days_left} days[/yellow]\n"

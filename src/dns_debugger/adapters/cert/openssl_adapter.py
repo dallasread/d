@@ -326,7 +326,7 @@ class OpenSSLAdapter(CertificatePort):
         self, host: str, port: int = 443, servername: Optional[str] = None
     ) -> tuple[bool, list[str]]:
         """Verify the certificate and chain for a host."""
-        chain = self.get_certificate_chain(host, port, servername)
+        chain, _ = self.get_certificate_chain(host, port, servername)
         return chain.is_valid, chain.validation_errors
 
     def check_ocsp_stapling(self, host: str, port: int = 443) -> bool:

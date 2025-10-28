@@ -82,9 +82,9 @@ class DomainRegistration:
         return datetime.utcnow() > self.expires_date
 
     @property
-    def is_expiring_soon(self, days: int = 30) -> bool:
-        """Check if the domain is expiring soon."""
+    def is_expiring_soon(self) -> bool:
+        """Check if the domain is expiring soon (within 30 days)."""
         days_left = self.days_until_expiry
         if days_left is None:
             return False
-        return 0 < days_left <= days
+        return 0 < days_left <= 30

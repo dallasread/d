@@ -40,7 +40,7 @@ class CertificatePort(ABC):
     @abstractmethod
     def get_certificate_chain(
         self, host: str, port: int = 443, servername: Optional[str] = None
-    ) -> CertificateChain:
+    ) -> tuple[CertificateChain, str]:
         """Get the full certificate chain for a host.
 
         Args:
