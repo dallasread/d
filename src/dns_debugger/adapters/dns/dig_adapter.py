@@ -11,6 +11,16 @@ from dns_debugger.domain.models.dns_record import (
     DNSResponse,
     RecordType,
 )
+from dns_debugger.domain.models.dnssec_info import (
+    DNSSECValidation,
+    DNSSECStatus,
+    DNSSECChain,
+    DNSKEYRecord,
+    DSRecord,
+    RRSIGRecord,
+    DNSSECAlgorithm,
+    DigestType,
+)
 from dns_debugger.domain.ports.dns_port import DNSPort
 
 
@@ -200,3 +210,180 @@ class DigAdapter(DNSPort):
             return match.group(1) if match else None
         except Exception:
             return None
+
+    def validate_dnssec(self, domain: str) -> DNSSECValidation:
+        """Validate DNSSEC for a domain using dig.
+
+        Args:
+            domain: The domain to validate
+
+        Returns:
+            DNSSECValidation with validation results
+        """
+        start_time = datetime.now()
+
+        try:
+            # Query for DNSSEC-related records
+            ds_response = self.query(domain, RecordType.DS)
+            dnskey_response = self.query(domain, RecordType.DNSKEY)
+
+            has_ds = ds_response.is_success and ds_response.record_count > 0
+            has_dnskey = dnskey_response.is_success and dnskey_response.record_count > 0
+
+            # Parse DNSSEC records
+            ds_records = self._parse_ds_records(ds_response)
+            dnskey_records = self._parse_dnskey_records(dnskey_response)
+
+            # Try to check for DNSSEC validation using dig +dnssec
+            rrsig_records = []
+            has_rrsig = False
+            try:
+                cmd = ["dig", "+dnssec", "+noall", "+answer", domain, "A"]
+                result = subprocess.run(
+                    cmd, capture_output=True, text=True, timeout=10, check=True
+                )
+                # Check if RRSIG records are present in output
+                has_rrsig = "RRSIG" in result.stdout
+            except Exception:
+                has_rrsig = False
+
+            # Build DNSSEC chain
+            chain = DNSSECChain(
+                domain=domain,
+                has_ds_record=has_ds,
+                has_dnskey_record=has_dnskey,
+                has_rrsig_record=has_rrsig,
+                ds_records=ds_records,
+                dnskey_records=dnskey_records,
+                rrsig_records=rrsig_records,
+            )
+
+            # Determine validation status
+            if not has_dnskey:
+                status = DNSSECStatus.INSECURE
+            elif chain.has_chain_of_trust:
+                status = DNSSECStatus.SECURE
+            else:
+                status = DNSSECStatus.INDETERMINATE
+
+            validation_time = (datetime.now() - start_time).total_seconds() * 1000
+
+            warnings = []
+            if has_dnskey and not has_ds:
+                warnings.append("Domain has DNSKEY but no DS record in parent zone")
+            if chain.ksk_count == 0 and has_dnskey:
+                warnings.append("No Key Signing Key (KSK) found")
+            if chain.zsk_count == 0 and has_dnskey:
+                warnings.append("No Zone Signing Key (ZSK) found")
+
+            return DNSSECValidation(
+                domain=domain,
+                status=status,
+                validation_time_ms=validation_time,
+                timestamp=datetime.now(),
+                chain=chain,
+                warnings=warnings,
+            )
+
+        except Exception as e:
+            validation_time = (datetime.now() - start_time).total_seconds() * 1000
+            return DNSSECValidation(
+                domain=domain,
+                status=DNSSECStatus.INDETERMINATE,
+                validation_time_ms=validation_time,
+                timestamp=datetime.now(),
+                error_message=f"DNSSEC validation failed: {str(e)}",
+            )
+
+    def _parse_ds_records(self, response: DNSResponse) -> list[DSRecord]:
+        """Parse DS records from DNS response."""
+        ds_records = []
+        for record in response.records:
+            try:
+                # DS record format: key_tag algorithm digest_type digest
+                parts = record.value.split(None, 3)
+                if len(parts) == 4:
+                    key_tag = int(parts[0])
+                    algorithm = self._parse_algorithm(int(parts[1]))
+                    digest_type = self._parse_digest_type(int(parts[2]))
+                    digest = parts[3]
+
+                    ds_records.append(
+                        DSRecord(
+                            key_tag=key_tag,
+                            algorithm=algorithm,
+                            digest_type=digest_type,
+                            digest=digest,
+                            ttl=record.ttl,
+                        )
+                    )
+            except (ValueError, IndexError):
+                continue
+
+        return ds_records
+
+    def _parse_dnskey_records(self, response: DNSResponse) -> list[DNSKEYRecord]:
+        """Parse DNSKEY records from DNS response."""
+        dnskey_records = []
+        for record in response.records:
+            try:
+                # DNSKEY format: flags protocol algorithm public_key
+                parts = record.value.split(None, 3)
+                if len(parts) == 4:
+                    flags = int(parts[0])
+                    protocol = int(parts[1])
+                    algorithm = self._parse_algorithm(int(parts[2]))
+                    public_key = parts[3]
+
+                    # Calculate key tag (simplified)
+                    key_tag = self._calculate_key_tag(flags, protocol, int(parts[2]))
+
+                    dnskey_records.append(
+                        DNSKEYRecord(
+                            flags=flags,
+                            protocol=protocol,
+                            algorithm=algorithm,
+                            key_tag=key_tag,
+                            public_key=public_key,
+                            ttl=record.ttl,
+                        )
+                    )
+            except (ValueError, IndexError):
+                continue
+
+        return dnskey_records
+
+    def _parse_algorithm(self, alg_num: int) -> DNSSECAlgorithm:
+        """Parse DNSSEC algorithm number to enum."""
+        algorithm_map = {
+            1: DNSSECAlgorithm.RSAMD5,
+            2: DNSSECAlgorithm.DH,
+            3: DNSSECAlgorithm.DSA,
+            5: DNSSECAlgorithm.RSASHA1,
+            6: DNSSECAlgorithm.DSA_NSEC3_SHA1,
+            7: DNSSECAlgorithm.RSASHA1_NSEC3_SHA1,
+            8: DNSSECAlgorithm.RSASHA256,
+            10: DNSSECAlgorithm.RSASHA512,
+            12: DNSSECAlgorithm.ECC_GOST,
+            13: DNSSECAlgorithm.ECDSAP256SHA256,
+            14: DNSSECAlgorithm.ECDSAP384SHA384,
+            15: DNSSECAlgorithm.ED25519,
+            16: DNSSECAlgorithm.ED448,
+        }
+        return algorithm_map.get(alg_num, DNSSECAlgorithm.UNKNOWN)
+
+    def _parse_digest_type(self, digest_num: int) -> DigestType:
+        """Parse DS digest type number to enum."""
+        digest_map = {
+            1: DigestType.SHA1,
+            2: DigestType.SHA256,
+            3: DigestType.GOST,
+            4: DigestType.SHA384,
+        }
+        return digest_map.get(digest_num, DigestType.UNKNOWN)
+
+    def _calculate_key_tag(self, flags: int, protocol: int, algorithm: int) -> int:
+        """Calculate a simplified key tag (for display purposes)."""
+        # This is a simplified calculation
+        # Real key tag calculation involves the entire RDATA
+        return (flags + protocol + algorithm) % 65536
