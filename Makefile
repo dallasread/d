@@ -1,4 +1,8 @@
-.PHONY: install dev test lint format clean run help
+.PHONY: install dev test lint format clean run help venv
+
+VENV := .venv
+PYTHON := $(VENV)/bin/python3
+PIP := $(VENV)/bin/pip3
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -48,8 +52,24 @@ clean: ## Clean build artifacts
 build: clean ## Build the package
 	python -m build
 
-run: ## Run the application (example: make run DOMAIN=example.com)
+run: install ## Install and run the application (example: make run DOMAIN=example.com)
 	d $(DOMAIN)
+
+quick-run: ## Quick run with editable install (example: make quick-run DOMAIN=example.com)
+	pip3 install --user -e . && d $(DOMAIN)
+
+venv: ## Create virtual environment
+	python3 -m venv $(VENV)
+	$(PIP) install --upgrade pip
+
+dev-run: venv ## Run directly with Python in venv (example: make dev-run DOMAIN=example.com)
+	@$(PIP) show click > /dev/null 2>&1 || $(PIP) install click
+	@PYTHONPATH=src $(PYTHON) -m dns_debugger $(DOMAIN)
+
+test-adapter: ## Quick test of DNS adapter (example: make test-adapter DOMAIN=example.com)
+	@echo "Testing DNS adapters..."
+	@command -v dog >/dev/null 2>&1 && echo "✓ dog is available" || echo "✗ dog not found"
+	@command -v dig >/dev/null 2>&1 && echo "✓ dig is available" || echo "✗ dig not found"
 
 release: clean build ## Build and upload to PyPI
 	twine upload dist/*
