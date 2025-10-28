@@ -127,14 +127,14 @@ class DashboardPanel(Container):
         except Exception as e:
             section.set_error(str(e))
 
-    async def check_cert_health(self) -> None:
-        """Check SSL/TLS certificate health."""
+    def render_cert_health(self, state) -> None:
+        """Render SSL/TLS certificate health from state."""
         section = self.query_one("#health-cert", HealthSection)
         try:
-            from dns_debugger.adapters.cert.factory import CertificateAdapterFactory
-
-            cert_adapter = CertificateAdapterFactory.create()
-            tls_info = cert_adapter.get_certificate_info(self.domain)
+            tls_info = state.tls_info
+            if not tls_info:
+                section.set_content("No data available")
+                return
 
             output = []
 
@@ -168,19 +168,21 @@ class DashboardPanel(Container):
         except Exception as e:
             section.set_error(str(e))
 
-    async def check_dns_health(self) -> None:
-        """Check DNS records health."""
+    def render_dns_health(self, state) -> None:
+        """Render DNS records health from state."""
         section = self.query_one("#health-dns", HealthSection)
         try:
-            dns_adapter = DNSAdapterFactory.create()
+            if not state.dns_responses:
+                section.set_content("No data available")
+                return
 
             output = []
 
-            # Check key record types
-            a_response = dns_adapter.query(self.domain, RecordType.A)
-            aaaa_response = dns_adapter.query(self.domain, RecordType.AAAA)
-            mx_response = dns_adapter.query(self.domain, RecordType.MX)
-            ns_response = dns_adapter.query(self.domain, RecordType.NS)
+            # Check key record types from state
+            a_response = state.dns_responses.get(RecordType.A.value)
+            aaaa_response = state.dns_responses.get(RecordType.AAAA.value)
+            mx_response = state.dns_responses.get(RecordType.MX.value)
+            ns_response = state.dns_responses.get(RecordType.NS.value)
 
             # A records
             if a_response.is_success and a_response.record_count > 0:
@@ -220,14 +222,14 @@ class DashboardPanel(Container):
         except Exception as e:
             section.set_error(str(e))
 
-    async def check_registry_health(self) -> None:
-        """Check domain registration health."""
+    def render_registry_health(self, state) -> None:
+        """Render domain registration health from state."""
         section = self.query_one("#health-registry", HealthSection)
         try:
-            from dns_debugger.adapters.registry.factory import RegistryAdapterFactory
-
-            registry_adapter = RegistryAdapterFactory.create()
-            registration = registry_adapter.lookup(self.domain)
+            registration = state.registration
+            if not registration:
+                section.set_content("No data available")
+                return
 
             output = []
 
@@ -266,12 +268,14 @@ class DashboardPanel(Container):
         except Exception as e:
             section.set_error(str(e))
 
-    async def check_dnssec_health(self) -> None:
-        """Check DNSSEC health."""
+    def render_dnssec_health(self, state) -> None:
+        """Render DNSSEC health from state."""
         section = self.query_one("#health-dnssec", HealthSection)
         try:
-            dns_adapter = DNSAdapterFactory.create()
-            validation = dns_adapter.validate_dnssec(self.domain)
+            validation = state.dnssec_validation
+            if not validation:
+                section.set_content("No data available")
+                return
 
             output = []
 
@@ -314,12 +318,14 @@ class DashboardPanel(Container):
         except Exception as e:
             section.set_error(str(e))
 
-    async def check_email_health(self) -> None:
-        """Check email configuration health."""
+    def render_email_health(self, state) -> None:
+        """Render email configuration health from state."""
         section = self.query_one("#health-email", HealthSection)
         try:
-            email_adapter = EmailAdapterFactory.create()
-            email_config = email_adapter.get_email_config(self.domain)
+            email_config = state.email_config
+            if not email_config:
+                section.set_content("No data available")
+                return
 
             output = []
 
@@ -479,6 +485,20 @@ class CertificatePanel(Static):
         """Panel mounted - data already loaded via dashboard."""
         pass
 
+    def render_from_state(self, state) -> None:
+        """Render panel from state data."""
+        if not state.tls_info:
+            self.update("[dim]No certificate data available[/dim]")
+            return
+        self._render_cert_data(state.tls_info)
+
+    def _render_cert_data(self, tls_info) -> None:
+        """Render certificate data from TLS info."""
+        # TODO: Implement rendering from state
+        self.update(
+            "[yellow]Certificate panel - rendering from state not yet implemented[/yellow]"
+        )
+
     def update_cert_info(self) -> None:
         """Refresh certificate data (called by refresh action)."""
         self.update("[dim]Refreshing SSL/TLS certificate...[/dim]")
@@ -580,6 +600,12 @@ class RegistryPanel(Static):
     def on_mount(self) -> None:
         """Panel mounted - data already loaded via dashboard."""
         pass
+
+    def render_from_state(self, state) -> None:
+        """Render panel from state data."""
+        self.update(
+            "[yellow]Registry panel - rendering from state not yet implemented[/yellow]"
+        )
 
     def update_registry_info(self) -> None:
         """Refresh registry data (called by refresh action)."""
@@ -684,6 +710,12 @@ class DNSSECPanel(Static):
     def on_mount(self) -> None:
         """Panel mounted - data already loaded via dashboard."""
         pass
+
+    def render_from_state(self, state) -> None:
+        """Render panel from state data."""
+        self.update(
+            "[yellow]DNSSEC panel - rendering from state not yet implemented[/yellow]"
+        )
 
     def update_dnssec_info(self) -> None:
         """Refresh DNSSEC data (called by refresh action)."""
@@ -812,6 +844,12 @@ class HTTPPanel(Static):
         """Panel mounted - data already loaded via dashboard."""
         pass
 
+    def render_from_state(self, state) -> None:
+        """Render panel from state data."""
+        self.update(
+            "[yellow]HTTP panel - rendering from state not yet implemented[/yellow]"
+        )
+
     def update_http_info(self) -> None:
         """Refresh HTTP data (called by refresh action)."""
         self.update("[dim]Refreshing HTTP/HTTPS status...[/dim]")
@@ -900,6 +938,12 @@ class EmailPanel(Static):
     def on_mount(self) -> None:
         """Panel mounted - data already loaded via dashboard."""
         pass
+
+    def render_from_state(self, state) -> None:
+        """Render panel from state data."""
+        self.update(
+            "[yellow]Email panel - rendering from state not yet implemented[/yellow]"
+        )
 
     def update_email_info(self) -> None:
         """Refresh email data (called by refresh action)."""

@@ -6,7 +6,7 @@ from datetime import datetime
 
 from dns_debugger.domain.models.dns_record import DNSResponse
 from dns_debugger.domain.models.dnssec_info import DNSSECValidation
-from dns_debugger.domain.models.tls_info import TLSInfo
+from dns_debugger.domain.models.certificate import TLSInfo
 from dns_debugger.domain.models.http_info import HTTPResponse
 from dns_debugger.domain.models.registration_info import DomainRegistration
 from dns_debugger.domain.models.email_info import EmailConfiguration
