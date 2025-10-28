@@ -1050,6 +1050,69 @@ class DNSSECPanel(VerticalScroll):
             return
         self._render_dnssec_data(state.dnssec_validation)
 
+    def _render_dnssec_chain_visual(self, output: list, chain) -> None:
+        """Render a visual representation of the DNSSEC chain."""
+        output.append("[bold yellow]DNSSEC Chain:[/bold yellow]\n\n")
+
+        # Extract domain parts for hierarchy
+        parts = self.domain.split(".")
+
+        # Build chain visualization from root down to domain
+        if len(parts) >= 2:
+            # Root zone
+            output.append("  [dim].[/dim] (root)\n")
+            output.append("   │\n")
+            output.append("   ├─[dim]DNSKEY[/dim] → [dim]Signs DS records[/dim]\n")
+            output.append("   │\n")
+            output.append("   ↓\n\n")
+
+            # TLD (e.g., .com)
+            tld = parts[-1]
+            output.append(f"  [cyan].{tld}[/cyan] (TLD)\n")
+            output.append("   │\n")
+            if chain.has_ds_record:
+                output.append(
+                    f"   ├─[green]DS record[/green] → Links to {self.domain}\n"
+                )
+            else:
+                output.append(f"   ├─[red]No DS record[/red] → Chain broken\n")
+            output.append("   │\n")
+            output.append("   ↓\n\n")
+
+        # Target domain
+        output.append(f"  [cyan]{self.domain}[/cyan] (target)\n")
+        output.append("   │\n")
+
+        if chain.has_dnskey_record:
+            output.append(
+                f"   ├─[green]DNSKEY records[/green] ({chain.ksk_count} KSK, {chain.zsk_count} ZSK)\n"
+            )
+        else:
+            output.append(f"   ├─[red]No DNSKEY[/red]\n")
+
+        output.append("   │\n")
+
+        if chain.has_rrsig_record:
+            output.append(
+                f"   └─[green]RRSIG signatures[/green] → Records are signed\n"
+            )
+        else:
+            output.append(f"   └─[red]No RRSIG[/red] → Records not signed\n")
+
+        output.append("\n")
+
+        # Summary indicator
+        if chain.has_chain_of_trust:
+            output.append(
+                "  [green]✓ Complete chain of trust from root to domain[/green]\n\n"
+            )
+        elif chain.is_signed:
+            output.append(
+                "  [yellow]⚠ Domain is signed but no DS record in parent[/yellow]\n\n"
+            )
+        else:
+            output.append("  [dim]○ Domain is not DNSSEC signed[/dim]\n\n")
+
     def _render_dnssec_data(self, validation) -> None:
         """Render DNSSEC data from validation."""
         try:
@@ -1078,6 +1141,10 @@ class DNSSECPanel(VerticalScroll):
             # Error message if any
             if validation.error_message:
                 output.append(f"[red]Error: {validation.error_message}[/red]\n\n")
+
+            # Visual chain representation
+            if validation.chain:
+                self._render_dnssec_chain_visual(output, validation.chain)
 
             # Chain of trust
             if validation.chain:
@@ -1119,18 +1186,13 @@ class DNSSECPanel(VerticalScroll):
                     output.append(
                         "[bold yellow]DS Records (in parent zone):[/bold yellow]\n"
                     )
-                    for i, ds in enumerate(chain.ds_records[:3], 1):
+                    for i, ds in enumerate(chain.ds_records, 1):
                         output.append(f"  DS {i}:\n")
                         output.append(f"    Key Tag: {ds.key_tag}\n")
                         output.append(f"    Algorithm: {ds.algorithm.value}\n")
                         output.append(f"    Digest Type: {ds.digest_type.value}\n")
-                        output.append(f"    Digest: {ds.digest[:32]}...\n")
+                        output.append(f"    Digest: {ds.digest}\n")
                         output.append(f"    TTL: {ds.ttl}s\n")
-
-                    if len(chain.ds_records) > 3:
-                        output.append(
-                            f"  [dim]... and {len(chain.ds_records) - 3} more DS records[/dim]\n"
-                        )
                     output.append("\n")
 
                 # Signatures
@@ -1233,18 +1295,13 @@ class DNSSECPanel(VerticalScroll):
                     output.append(
                         "[bold yellow]DS Records (in parent zone):[/bold yellow]\n"
                     )
-                    for i, ds in enumerate(chain.ds_records[:3], 1):
+                    for i, ds in enumerate(chain.ds_records, 1):
                         output.append(f"  DS {i}:\n")
                         output.append(f"    Key Tag: {ds.key_tag}\n")
                         output.append(f"    Algorithm: {ds.algorithm.value}\n")
                         output.append(f"    Digest Type: {ds.digest_type.value}\n")
-                        output.append(f"    Digest: {ds.digest[:32]}...\n")
+                        output.append(f"    Digest: {ds.digest}\n")
                         output.append(f"    TTL: {ds.ttl}s\n")
-
-                    if len(chain.ds_records) > 3:
-                        output.append(
-                            f"  [dim]... and {len(chain.ds_records) - 3} more DS records[/dim]\n"
-                        )
                     output.append("\n")
 
                 # Signatures
