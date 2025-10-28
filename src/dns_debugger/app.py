@@ -2012,9 +2012,11 @@ class DNSDebuggerApp(App):
     #app-loading-status {
         dock: top;
         height: auto;
-        padding: 1;
+        padding: 1 2;
         background: $surface;
         display: none;
+        overflow-y: auto;
+        max-height: 50%;
     }
 
     #app-loading-status.visible {
@@ -2154,10 +2156,57 @@ class DNSDebuggerApp(App):
 
     def on_mount(self) -> None:
         """App mounted - load all data into state."""
+        # Initialize loading tasks
+        self.loading_tasks = {
+            "dns_a": {"label": "DNS: A records", "tool": "dig", "status": "pending"},
+            "dns_aaaa": {
+                "label": "DNS: AAAA records",
+                "tool": "dig",
+                "status": "pending",
+            },
+            "dns_mx": {"label": "DNS: MX records", "tool": "dig", "status": "pending"},
+            "dns_txt": {
+                "label": "DNS: TXT records",
+                "tool": "dig",
+                "status": "pending",
+            },
+            "dns_ns": {"label": "DNS: NS records", "tool": "dig", "status": "pending"},
+            "dnssec": {
+                "label": "DNSSEC: Validation",
+                "tool": "dig +dnssec",
+                "status": "pending",
+            },
+            "certificate": {
+                "label": "Certificate: TLS info",
+                "tool": "openssl s_client",
+                "status": "pending",
+            },
+            "http": {
+                "label": "HTTP: Status check",
+                "tool": "curl -I",
+                "status": "pending",
+            },
+            "https": {
+                "label": "HTTPS: Status check",
+                "tool": "curl -I",
+                "status": "pending",
+            },
+            "registration": {
+                "label": "Registration: Details",
+                "tool": "whois/rdap",
+                "status": "pending",
+            },
+            "email": {
+                "label": "Email: SPF/DKIM/DMARC",
+                "tool": "dig TXT",
+                "status": "pending",
+            },
+        }
+
         # Show loading status
         loading_status = self.query_one("#app-loading-status", Static)
         loading_status.add_class("visible")
-        loading_status.update("[bold cyan]Loading data...[/bold cyan]")
+        self.update_loading_checklist()
 
         # Hide main container while loading
         main_container = self.query_one("#main-container")
@@ -2166,10 +2215,39 @@ class DNSDebuggerApp(App):
         # Fetch all data
         self.run_worker(self.fetch_all_data(), exclusive=True)
 
-    def update_loading_status(self, message: str) -> None:
-        """Update the loading status message."""
+    def update_loading_task(self, task_id: str, status: str) -> None:
+        """Update a specific loading task status."""
+        if task_id in self.loading_tasks:
+            self.loading_tasks[task_id]["status"] = status
+            self.update_loading_checklist()
+
+    def update_loading_checklist(self) -> None:
+        """Update the loading checklist display."""
         loading_status = self.query_one("#app-loading-status", Static)
-        loading_status.update(f"[bold cyan]{message}[/bold cyan]")
+
+        lines = ["[bold cyan]Loading domain data...[/bold cyan]\n"]
+
+        for task_id, task in self.loading_tasks.items():
+            if task["status"] == "pending":
+                icon = "[dim][ ][/dim]"
+                label = f"[dim]{task['label']}[/dim]"
+                tool = f"[dim]({task['tool']} {self.domain})[/dim]"
+            elif task["status"] == "loading":
+                icon = "[yellow][⋯][/yellow]"
+                label = f"[yellow]{task['label']}[/yellow]"
+                tool = f"[dim]({task['tool']} {self.domain})[/dim]"
+            elif task["status"] == "done":
+                icon = "[green][✓][/green]"
+                label = f"[dim]{task['label']}[/dim]"
+                tool = f"[dim]({task['tool']} {self.domain})[/dim]"
+            else:  # error
+                icon = "[red][✗][/red]"
+                label = f"[red]{task['label']}[/red]"
+                tool = f"[dim]({task['tool']} {self.domain})[/dim]"
+
+            lines.append(f"{icon} {label} {tool}")
+
+        loading_status.update("\n".join(lines))
 
     async def fetch_all_data(self) -> None:
         """Fetch all data from all ports and populate state (parallelized)."""
@@ -2177,8 +2255,6 @@ class DNSDebuggerApp(App):
         from concurrent.futures import ThreadPoolExecutor
 
         try:
-            self.update_loading_status("Loading all the things...")
-
             # Create executor for running sync adapter calls in parallel
             executor = ThreadPoolExecutor(max_workers=10)
             loop = asyncio.get_event_loop()
@@ -2228,6 +2304,13 @@ class DNSDebuggerApp(App):
 
             async def fetch_dns_records():
                 dns_responses = {}
+                record_type_map = {
+                    RecordType.A: "dns_a",
+                    RecordType.AAAA: "dns_aaaa",
+                    RecordType.MX: "dns_mx",
+                    RecordType.TXT: "dns_txt",
+                    RecordType.NS: "dns_ns",
+                }
                 for record_type in [
                     RecordType.A,
                     RecordType.AAAA,
@@ -2235,31 +2318,65 @@ class DNSDebuggerApp(App):
                     RecordType.TXT,
                     RecordType.NS,
                 ]:
-                    response = await loop.run_in_executor(
-                        executor, dns_adapter.query, self.domain, record_type
-                    )
-                    dns_responses[record_type.value] = response
+                    task_id = record_type_map[record_type]
+                    self.update_loading_task(task_id, "loading")
+                    try:
+                        response = await loop.run_in_executor(
+                            executor, dns_adapter.query, self.domain, record_type
+                        )
+                        dns_responses[record_type.value] = response
+                        self.update_loading_task(task_id, "done")
+                    except Exception:
+                        self.update_loading_task(task_id, "error")
                 return dns_responses
 
             async def fetch_dnssec_validation():
-                return await loop.run_in_executor(
-                    executor, dns_adapter.validate_dnssec, self.domain
-                )
+                self.update_loading_task("dnssec", "loading")
+                try:
+                    result = await loop.run_in_executor(
+                        executor, dns_adapter.validate_dnssec, self.domain
+                    )
+                    self.update_loading_task("dnssec", "done")
+                    return result
+                except Exception:
+                    self.update_loading_task("dnssec", "error")
+                    raise
 
             async def fetch_tls_info():
-                return await loop.run_in_executor(
-                    executor, cert_adapter.get_certificate_info, self.domain
-                )
+                self.update_loading_task("certificate", "loading")
+                try:
+                    result = await loop.run_in_executor(
+                        executor, cert_adapter.get_certificate_info, self.domain
+                    )
+                    self.update_loading_task("certificate", "done")
+                    return result
+                except Exception:
+                    self.update_loading_task("certificate", "error")
+                    raise
 
             async def fetch_http_response():
-                return await loop.run_in_executor(
-                    executor, http_adapter.check_url, f"http://{self.domain}"
-                )
+                self.update_loading_task("http", "loading")
+                try:
+                    result = await loop.run_in_executor(
+                        executor, http_adapter.check_url, f"http://{self.domain}"
+                    )
+                    self.update_loading_task("http", "done")
+                    return result
+                except Exception:
+                    self.update_loading_task("http", "error")
+                    raise
 
             async def fetch_https_response():
-                return await loop.run_in_executor(
-                    executor, http_adapter.check_url, f"https://{self.domain}"
-                )
+                self.update_loading_task("https", "loading")
+                try:
+                    result = await loop.run_in_executor(
+                        executor, http_adapter.check_url, f"https://{self.domain}"
+                    )
+                    self.update_loading_task("https", "done")
+                    return result
+                except Exception:
+                    self.update_loading_task("https", "error")
+                    raise
 
             async def fetch_http_www_response():
                 # Check www subdomain if this is an apex domain
@@ -2280,14 +2397,28 @@ class DNSDebuggerApp(App):
                 return None
 
             async def fetch_registration():
-                return await loop.run_in_executor(
-                    executor, registry_adapter.lookup, self.domain
-                )
+                self.update_loading_task("registration", "loading")
+                try:
+                    result = await loop.run_in_executor(
+                        executor, registry_adapter.lookup, self.domain
+                    )
+                    self.update_loading_task("registration", "done")
+                    return result
+                except Exception:
+                    self.update_loading_task("registration", "error")
+                    raise
 
             async def fetch_email_config():
-                return await loop.run_in_executor(
-                    executor, email_adapter.get_email_config, self.domain
-                )
+                self.update_loading_task("email", "loading")
+                try:
+                    result = await loop.run_in_executor(
+                        executor, email_adapter.get_email_config, self.domain
+                    )
+                    self.update_loading_task("email", "done")
+                    return result
+                except Exception:
+                    self.update_loading_task("email", "error")
+                    raise
 
             # Execute all fetches in parallel
             results = await asyncio.gather(
@@ -2399,7 +2530,6 @@ class DNSDebuggerApp(App):
                 self.state_manager.state.overall_health = overall_health
 
             # All data loaded - now render all panels
-            self.update_loading_status("Rendering panels...")
             self.call_later(self.render_all_panels)
 
             executor.shutdown(wait=False)
@@ -2459,10 +2589,14 @@ class DNSDebuggerApp(App):
         """Refresh all data by refetching from ports."""
         self.notify("Refreshing all data...", severity="information")
 
-        # Show loading status
+        # Reset all loading tasks to pending
+        for task_id in self.loading_tasks:
+            self.loading_tasks[task_id]["status"] = "pending"
+
+        # Show loading status with checklist
         loading_status = self.query_one("#app-loading-status", Static)
         loading_status.add_class("visible")
-        loading_status.update("[bold cyan]Refreshing data...[/bold cyan]")
+        self.update_loading_checklist()
 
         # Refetch all data and re-render all panels
         self.run_worker(self.fetch_all_data(), exclusive=True)
