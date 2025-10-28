@@ -1100,7 +1100,7 @@ class DNSSECPanel(VerticalScroll):
 
         lines = []
 
-        # Single line: DNSKEY with key=value format including truncated public key
+        # Single line: DNSKEY with fixed-width labels for table alignment
         match_suffix = f" {match_info}" if match_info else ""
         # Strip any spaces from the public key and truncate to 32 chars (16 start + 16 end)
         pubkey_clean = key.public_key.replace(" ", "")
@@ -1109,7 +1109,7 @@ class DNSSECPanel(VerticalScroll):
         else:
             pubkey_display = pubkey_clean
         lines.append(
-            f"  │ [{key_color}]DNSKEY TYPE={key_type} KEYTAG={key.key_tag} ALGO={algo_num} PUBKEY={pubkey_display}{match_suffix}[/{key_color}]\n"
+            f"  │ [{key_color}]DNSKEY  KEYTAG={key.key_tag:<5} TYPE={key_type:<3} ALGO={algo_num:<2} PUBKEY={pubkey_display}{match_suffix}[/{key_color}]\n"
         )
 
         return lines
@@ -1131,11 +1131,11 @@ class DNSSECPanel(VerticalScroll):
 
         lines = []
 
-        # Single line: DS with key=value format including full hash
+        # Single line: DS with fixed-width labels for table alignment
         # Strip any spaces from the digest
         digest_clean = ds.digest.replace(" ", "")
         lines.append(
-            f"  │ [{key_color}]DS KEYTAG={ds.key_tag} ALGO={algo_num} DIGEST={digest_num} HASH={digest_clean}[/{key_color}]\n"
+            f"  │ [{key_color}]DS      KEYTAG={ds.key_tag:<5} ALGO={algo_num:<2} DIGEST={digest_num:<1} HASH={digest_clean}[/{key_color}]\n"
         )
 
         return lines
