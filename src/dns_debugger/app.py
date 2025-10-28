@@ -1289,6 +1289,42 @@ class DNSDebuggerApp(App):
             # Check again in 100ms
             self.set_timer(0.1, self._check_loading_complete)
 
+    def on_tabbed_content_tab_activated(self, event) -> None:
+        """Handle tab activation - load panel data when tab is visited."""
+        tab_id = event.tab.id
+
+        # Load panel data when first visited (defer to next tick)
+        if tab_id == "dns":
+            dns_panel = self.query_one(DNSPanel)
+            if not hasattr(dns_panel, "_loaded"):
+                dns_panel._loaded = True
+                self.call_later(dns_panel.update_dns_info)
+        elif tab_id == "dnssec":
+            dnssec_panel = self.query_one(DNSSECPanel)
+            if not hasattr(dnssec_panel, "_loaded"):
+                dnssec_panel._loaded = True
+                self.call_later(dnssec_panel.update_dnssec_info)
+        elif tab_id == "cert":
+            cert_panel = self.query_one(CertificatePanel)
+            if not hasattr(cert_panel, "_loaded"):
+                cert_panel._loaded = True
+                self.call_later(cert_panel.update_cert_info)
+        elif tab_id == "http":
+            http_panel = self.query_one(HTTPPanel)
+            if not hasattr(http_panel, "_loaded"):
+                http_panel._loaded = True
+                self.call_later(http_panel.update_http_info)
+        elif tab_id == "registry":
+            registry_panel = self.query_one(RegistryPanel)
+            if not hasattr(registry_panel, "_loaded"):
+                registry_panel._loaded = True
+                self.call_later(registry_panel.update_registry_info)
+        elif tab_id == "email":
+            email_panel = self.query_one(EmailPanel)
+            if not hasattr(email_panel, "_loaded"):
+                email_panel._loaded = True
+                self.call_later(email_panel.update_email_info)
+
     def action_switch_tab(self, tab_id: str) -> None:
         """Switch to a specific tab by ID."""
         tabbed_content = self.query_one(TabbedContent)
