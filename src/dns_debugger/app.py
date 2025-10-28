@@ -27,8 +27,10 @@ class DNSPanel(Static):
             self.dns_adapter = DNSAdapterFactory.create()
             tool_name = self.dns_adapter.get_tool_name()
 
-            self.update(f"[bold cyan]DNS Records for {self.domain}[/bold cyan]\n")
-            self.update(f"Using: {tool_name}\n\n")
+            # Build the entire output as a string first
+            output = []
+            output.append(f"[bold cyan]DNS Records for {self.domain}[/bold cyan]\n")
+            output.append(f"Using: {tool_name}\n\n")
 
             # Query multiple record types
             record_types = [
@@ -42,19 +44,22 @@ class DNSPanel(Static):
             for record_type in record_types:
                 response = self.dns_adapter.query(self.domain, record_type)
 
-                self.update(
+                output.append(
                     f"[bold yellow]{record_type.value} Records:[/bold yellow]\n"
                 )
 
                 if response.is_success and response.record_count > 0:
                     for record in response.records:
-                        self.update(
+                        output.append(
                             f"  {record.value} [dim](TTL: {record.ttl})[/dim]\n"
                         )
                 else:
-                    self.update(f"  [dim]No records found[/dim]\n")
+                    output.append(f"  [dim]No records found[/dim]\n")
 
-                self.update("\n")
+                output.append("\n")
+
+            # Update once with all content
+            self.update("".join(output))
 
         except Exception as e:
             self.update(f"[red]Error: {str(e)}[/red]")
