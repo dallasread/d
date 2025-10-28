@@ -444,10 +444,6 @@ class DNSDebuggerApp(App):
             "[bold]L[/bold] - Show raw logs/data (JSON)\n"
             "[bold]H/?[/bold] - Show this help\n"
             "[bold]Tab[/bold] - Switch between panels\n\n"
-            "[bold cyan]Architecture:[/bold cyan]\n"
-            "• DNS: dog (preferred) → dig (fallback)\n"
-            "• Registry: RDAP (preferred) → WHOIS (fallback)\n"
-            "• Certificates: OpenSSL\n\n"
             "[dim]Press Esc to close[/dim]"
         )
         self.push_screen(RawDataScreen("Help", help_text))
