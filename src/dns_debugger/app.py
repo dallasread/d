@@ -1100,10 +1100,16 @@ class DNSSECPanel(VerticalScroll):
 
         lines = []
 
-        # Single line: DNSKEY with key=value format
+        # Single line: DNSKEY with key=value format including truncated public key
         match_suffix = f" {match_info}" if match_info else ""
+        # Strip any spaces from the public key and truncate to 32 chars (16 start + 16 end)
+        pubkey_clean = key.public_key.replace(" ", "")
+        if len(pubkey_clean) > 64:
+            pubkey_display = f"{pubkey_clean[:16]}...{pubkey_clean[-16:]}"
+        else:
+            pubkey_display = pubkey_clean
         lines.append(
-            f"  │ [{key_color}]DNSKEY TYPE={key_type} KEYTAG={key.key_tag} ALGO={algo_num}{match_suffix}[/{key_color}]\n"
+            f"  │ [{key_color}]DNSKEY TYPE={key_type} KEYTAG={key.key_tag} ALGO={algo_num} PUBKEY={pubkey_display}{match_suffix}[/{key_color}]\n"
         )
 
         return lines
@@ -1125,9 +1131,11 @@ class DNSSECPanel(VerticalScroll):
 
         lines = []
 
-        # Single line: DS with key=value format
+        # Single line: DS with key=value format including full hash
+        # Strip any spaces from the digest
+        digest_clean = ds.digest.replace(" ", "")
         lines.append(
-            f"  │ [{key_color}]DS KEYTAG={ds.key_tag} ALGO={algo_num} DIGEST={digest_num}[/{key_color}]\n"
+            f"  │ [{key_color}]DS KEYTAG={ds.key_tag} ALGO={algo_num} DIGEST={digest_num} HASH={digest_clean}[/{key_color}]\n"
         )
 
         return lines
