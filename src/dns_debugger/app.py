@@ -21,6 +21,299 @@ from dns_debugger.adapters.http.factory import HTTPAdapterFactory
 from dns_debugger.domain.models.http_info import HTTPMethod
 
 
+class HealthSection(Static):
+    """A section within the dashboard showing health status."""
+
+    def __init__(self, title: str, section_id: str) -> None:
+        super().__init__(id=section_id)
+        self.title = title
+        self._content = ""
+
+    def on_mount(self) -> None:
+        """Initialize with loading state."""
+        self.update(f"[bold]{self.title}[/bold]\n[dim]Loading...[/dim]")
+
+    def set_content(self, content: str) -> None:
+        """Update section content."""
+        self._content = content
+        self.update(f"[bold]{self.title}[/bold]\n{content}")
+
+    def set_error(self, error: str) -> None:
+        """Set error state."""
+        self.update(f"[bold]{self.title}[/bold]\n[red]Error: {error}[/red]")
+
+
+class DashboardPanel(Container):
+    """Dashboard panel showing overall health status."""
+
+    def __init__(self, domain: str) -> None:
+        super().__init__()
+        self.domain = domain
+        self.loaded = False
+
+    def compose(self) -> ComposeResult:
+        """Compose the dashboard with health sections."""
+        yield Static(
+            f"[bold cyan]Health Dashboard - {self.domain}[/bold cyan]\n",
+            id="dashboard-header",
+        )
+
+        with Vertical(id="dashboard-sections"):
+            yield HealthSection("🌐 HTTP/HTTPS Status", "health-http")
+            yield HealthSection("🔒 SSL/TLS Certificate", "health-cert")
+            yield HealthSection("📡 DNS Records", "health-dns")
+            yield HealthSection("📋 Domain Registration", "health-registry")
+            yield HealthSection("🔐 DNSSEC", "health-dnssec")
+
+        yield Static(
+            "\n[dim]Press number keys 1-5 to jump to detailed tabs[/dim]",
+            id="dashboard-footer",
+        )
+
+    def on_mount(self) -> None:
+        """Dashboard is ready but data not loaded."""
+        pass
+
+    def load_data(self) -> None:
+        """Load all health checks asynchronously."""
+        if not self.loaded:
+            self.loaded = True
+            # Launch all health checks in parallel
+            self.run_worker(self.check_http_health(), exclusive=False, group="health")
+            self.run_worker(self.check_cert_health(), exclusive=False, group="health")
+            self.run_worker(self.check_dns_health(), exclusive=False, group="health")
+            self.run_worker(
+                self.check_registry_health(), exclusive=False, group="health"
+            )
+            self.run_worker(self.check_dnssec_health(), exclusive=False, group="health")
+
+    async def check_http_health(self) -> None:
+        """Check HTTP/HTTPS health."""
+        section = self.query_one("#health-http", HealthSection)
+        try:
+            from dns_debugger.adapters.http.factory import HTTPAdapterFactory
+
+            http_adapter = HTTPAdapterFactory.create()
+
+            # Check HTTPS first
+            https_url = f"https://{self.domain}"
+            https_response = http_adapter.check_url(https_url)
+
+            output = []
+
+            if https_response.error:
+                output.append(f"  [red]✗ HTTPS Failed[/red]: {https_response.error}\n")
+            else:
+                if https_response.is_success:
+                    output.append(
+                        f"  [green]✓ HTTPS: {https_response.status_code}[/green]"
+                    )
+                elif https_response.is_redirect:
+                    output.append(
+                        f"  [yellow]↻ HTTPS: {https_response.status_code}[/yellow] → {https_response.final_url}"
+                    )
+                else:
+                    output.append(f"  [red]✗ HTTPS: {https_response.status_code}[/red]")
+
+                output.append(f" ({https_response.response_time_ms:.0f}ms)\n")
+
+                if https_response.was_redirected:
+                    output.append(f"  Redirects: {https_response.redirect_count}\n")
+
+            output.append(f"\n[dim]Press '5' for HTTP details →[/dim]")
+            section.set_content("".join(output))
+
+        except Exception as e:
+            section.set_error(str(e))
+
+    async def check_cert_health(self) -> None:
+        """Check SSL/TLS certificate health."""
+        section = self.query_one("#health-cert", HealthSection)
+        try:
+            from dns_debugger.adapters.cert.factory import CertificateAdapterFactory
+
+            cert_adapter = CertificateAdapterFactory.create()
+            tls_info = cert_adapter.get_certificate_info(self.domain)
+
+            output = []
+
+            if tls_info.certificate_chain.leaf_certificate:
+                cert = tls_info.certificate_chain.leaf_certificate
+
+                if cert.is_expired:
+                    output.append(f"  [red]✗ Certificate EXPIRED[/red]\n")
+                elif cert.days_until_expiry < 30:
+                    output.append(
+                        f"  [yellow]⚠ Expires in {cert.days_until_expiry} days[/yellow]\n"
+                    )
+                else:
+                    output.append(
+                        f"  [green]✓ Valid for {cert.days_until_expiry} days[/green]\n"
+                    )
+
+                output.append(f"  Issuer: {cert.issuer.common_name}\n")
+                output.append(f"  Expires: {cert.not_after.strftime('%Y-%m-%d')}\n")
+
+                if tls_info.certificate_chain.is_valid:
+                    output.append(f"  Chain: [green]✓ Valid[/green]\n")
+                else:
+                    output.append(f"  Chain: [red]✗ Invalid[/red]\n")
+            else:
+                output.append(f"  [red]✗ No certificate found[/red]\n")
+
+            output.append(f"\n[dim]Press '4' for certificate details →[/dim]")
+            section.set_content("".join(output))
+
+        except Exception as e:
+            section.set_error(str(e))
+
+    async def check_dns_health(self) -> None:
+        """Check DNS records health."""
+        section = self.query_one("#health-dns", HealthSection)
+        try:
+            dns_adapter = DNSAdapterFactory.create()
+
+            output = []
+
+            # Check key record types
+            a_response = dns_adapter.query(self.domain, RecordType.A)
+            aaaa_response = dns_adapter.query(self.domain, RecordType.AAAA)
+            mx_response = dns_adapter.query(self.domain, RecordType.MX)
+            ns_response = dns_adapter.query(self.domain, RecordType.NS)
+
+            # A records
+            if a_response.is_success and a_response.record_count > 0:
+                output.append(
+                    f"  [green]✓ A[/green]: {a_response.record_count} record(s)\n"
+                )
+            else:
+                output.append(f"  [dim]○ A: None[/dim]\n")
+
+            # AAAA records
+            if aaaa_response.is_success and aaaa_response.record_count > 0:
+                output.append(
+                    f"  [green]✓ AAAA[/green]: {aaaa_response.record_count} record(s)\n"
+                )
+            else:
+                output.append(f"  [dim]○ AAAA: None[/dim]\n")
+
+            # MX records
+            if mx_response.is_success and mx_response.record_count > 0:
+                output.append(
+                    f"  [green]✓ MX[/green]: {mx_response.record_count} record(s)\n"
+                )
+            else:
+                output.append(f"  [dim]○ MX: None[/dim]\n")
+
+            # NS records
+            if ns_response.is_success and ns_response.record_count > 0:
+                output.append(
+                    f"  [green]✓ NS[/green]: {ns_response.record_count} record(s)\n"
+                )
+            else:
+                output.append(f"  [red]✗ NS: None[/red]\n")
+
+            output.append(f"\n[dim]Press '2' for DNS details →[/dim]")
+            section.set_content("".join(output))
+
+        except Exception as e:
+            section.set_error(str(e))
+
+    async def check_registry_health(self) -> None:
+        """Check domain registration health."""
+        section = self.query_one("#health-registry", HealthSection)
+        try:
+            from dns_debugger.adapters.registry.factory import RegistryAdapterFactory
+
+            registry_adapter = RegistryAdapterFactory.create()
+            registration = registry_adapter.lookup(self.domain)
+
+            output = []
+
+            # Expiration status
+            if registration.is_expired:
+                output.append(f"  [red]✗ Domain EXPIRED[/red]\n")
+            elif registration.is_expiring_soon():
+                days_left = registration.days_until_expiry
+                output.append(f"  [yellow]⚠ Expires in {days_left} days[/yellow]\n")
+            else:
+                days_left = registration.days_until_expiry
+                output.append(f"  [green]✓ Active ({days_left} days)[/green]\n")
+
+            if registration.expires_date:
+                output.append(
+                    f"  Expires: {registration.expires_date.strftime('%Y-%m-%d')}\n"
+                )
+
+            # Registrar
+            if registration.registrar:
+                output.append(f"  Registrar: {registration.registrar[:30]}\n")
+
+            # DNSSEC at registry level
+            if registration.dnssec:
+                output.append(f"  DNSSEC: [green]✓ Enabled[/green]\n")
+            else:
+                output.append(f"  DNSSEC: [dim]Disabled[/dim]\n")
+
+            # Nameservers
+            if registration.nameservers:
+                output.append(f"  Nameservers: {len(registration.nameservers)}\n")
+
+            output.append(f"\n[dim]Press '1' for registration details →[/dim]")
+            section.set_content("".join(output))
+
+        except Exception as e:
+            section.set_error(str(e))
+
+    async def check_dnssec_health(self) -> None:
+        """Check DNSSEC health."""
+        section = self.query_one("#health-dnssec", HealthSection)
+        try:
+            dns_adapter = DNSAdapterFactory.create()
+            validation = dns_adapter.validate_dnssec(self.domain)
+
+            output = []
+
+            # Validation status
+            if validation.is_secure:
+                output.append(f"  [green]✓ SECURE[/green]\n")
+            elif validation.is_insecure:
+                output.append(f"  [dim]○ Not signed[/dim]\n")
+            elif validation.is_bogus:
+                output.append(f"  [red]✗ BOGUS[/red]\n")
+            else:
+                output.append(f"  [yellow]? INDETERMINATE[/yellow]\n")
+
+            if validation.chain:
+                chain = validation.chain
+
+                if chain.has_dnskey_record:
+                    output.append(f"  DNSKEY: [green]✓ Present[/green]\n")
+                else:
+                    output.append(f"  DNSKEY: [dim]None[/dim]\n")
+
+                if chain.has_ds_record:
+                    output.append(f"  DS Record: [green]✓ Present[/green]\n")
+                else:
+                    output.append(f"  DS Record: [dim]None[/dim]\n")
+
+                if chain.ksk_count > 0 or chain.zsk_count > 0:
+                    output.append(
+                        f"  Keys: {chain.ksk_count} KSK, {chain.zsk_count} ZSK\n"
+                    )
+
+            if validation.has_warnings:
+                output.append(
+                    f"  [yellow]⚠ {len(validation.warnings)} warning(s)[/yellow]\n"
+                )
+
+            output.append(f"\n[dim]Press '3' for DNSSEC details →[/dim]")
+            section.set_content("".join(output))
+
+        except Exception as e:
+            section.set_error(str(e))
+
+
 class DNSPanel(Container):
     """Panel for displaying DNS information."""
 
@@ -704,6 +997,25 @@ class DNSDebuggerApp(App):
     #main-container {
         height: 100%;
     }
+
+    #dashboard-header {
+        padding: 0 0 1 0;
+    }
+
+    #dashboard-sections {
+        height: auto;
+    }
+
+    #dashboard-sections HealthSection {
+        border: solid $primary;
+        margin: 1 0;
+        padding: 1 2;
+        height: auto;
+    }
+
+    #dashboard-footer {
+        padding: 1 0 0 0;
+    }
     """
 
     BINDINGS = [
@@ -712,6 +1024,12 @@ class DNSDebuggerApp(App):
         Binding("l", "show_raw", "Raw Logs", key_display="L"),
         Binding("h", "help", "Help", key_display="H/?"),
         ("question_mark", "help", "Help"),
+        Binding("0", "switch_tab('dashboard')", "Dashboard", show=False),
+        Binding("1", "switch_tab('registry')", "Registration", show=False),
+        Binding("2", "switch_tab('dns')", "DNS", show=False),
+        Binding("3", "switch_tab('dnssec')", "DNSSEC", show=False),
+        Binding("4", "switch_tab('cert')", "Certificate", show=False),
+        Binding("5", "switch_tab('http')", "HTTP", show=False),
     ]
 
     def __init__(self, domain: str, theme: str = "dark") -> None:
@@ -726,7 +1044,10 @@ class DNSDebuggerApp(App):
         yield Header(show_clock=True)
 
         with Container(id="main-container"):
-            with TabbedContent(initial="registry"):
+            with TabbedContent(initial="dashboard"):
+                with TabPane("Dashboard", id="dashboard"):
+                    yield DashboardPanel(self.domain)
+
                 with TabPane("Registration", id="registry"):
                     yield RegistryPanel(self.domain)
 
@@ -750,9 +1071,9 @@ class DNSDebuggerApp(App):
         self.call_later(self._load_initial_panel)
 
     def _load_initial_panel(self) -> None:
-        """Load the Registration panel data on next tick."""
-        registry_panel = self.query_one(RegistryPanel)
-        registry_panel.load_data()
+        """Load the Dashboard panel data on next tick."""
+        dashboard_panel = self.query_one(DashboardPanel)
+        dashboard_panel.load_data()
 
     def on_tabbed_content_tab_activated(
         self, event: TabbedContent.TabActivated
@@ -768,7 +1089,10 @@ class DNSDebuggerApp(App):
         active_pane = tabbed_content.active
 
         # Load data for the active panel if not already loaded
-        if active_pane == "dns":
+        if active_pane == "dashboard":
+            dashboard_panel = self.query_one(DashboardPanel)
+            dashboard_panel.load_data()
+        elif active_pane == "dns":
             dns_panel = self.query_one(DNSPanel)
             dns_panel.load_data()
         elif active_pane == "dnssec":
@@ -784,6 +1108,11 @@ class DNSDebuggerApp(App):
             http_panel = self.query_one(HTTPPanel)
             http_panel.load_data()
 
+    def action_switch_tab(self, tab_id: str) -> None:
+        """Switch to a specific tab by ID."""
+        tabbed_content = self.query_one(TabbedContent)
+        tabbed_content.active = tab_id
+
     def action_refresh(self) -> None:
         """Refresh the current view."""
         # Get the active tab
@@ -791,7 +1120,11 @@ class DNSDebuggerApp(App):
         active_pane = tabbed_content.active
 
         # Refresh the content in the active pane
-        if active_pane == "dns":
+        if active_pane == "dashboard":
+            dashboard_panel = self.query_one(DashboardPanel)
+            dashboard_panel.loaded = False
+            dashboard_panel.load_data()
+        elif active_pane == "dns":
             dns_panel = self.query_one(DNSPanel)
             dns_panel.update_dns_info()
         elif active_pane == "dnssec":
