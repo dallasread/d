@@ -1996,12 +1996,26 @@ class DNSDebuggerApp(App):
         width: 100%;
     }
 
-    #dashboard-sections > #health-registry {
+    #dashboard-left {
         width: 40%;
         height: 100%;
+    }
+
+    #dashboard-left HealthSection {
+        width: 100%;
         border: solid $primary;
         margin: 0 1 0 0;
         padding: 1 2;
+    }
+
+    #health-overall {
+        height: auto;
+        margin: 0 1 1 0;
+    }
+
+    #health-registry {
+        height: 1fr;
+        margin: 0 1 0 0;
     }
 
     #dashboard-right {
