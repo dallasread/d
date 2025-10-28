@@ -340,15 +340,22 @@ class DashboardFacade:
 
         # Evaluate each component
         http_status = "fail"
-        if not http_health.error:
-            if http_health.is_success or (
-                http_health.is_redirect
-                and http_health.status_code
-                and 200 <= http_health.status_code < 300
-            ):
-                http_status = "pass"
-            elif http_health.is_redirect:
-                http_status = "warn"
+        if http_health.error:
+            http_status = "fail"  # Connection error
+        elif http_health.is_success or (
+            http_health.is_redirect
+            and http_health.status_code
+            and 200 <= http_health.status_code < 300
+        ):
+            http_status = "pass"  # 2xx or successful redirect chain
+        elif http_health.is_redirect:
+            http_status = "warn"  # Redirect but not to 2xx
+        elif http_health.status_code and 200 <= http_health.status_code < 300:
+            http_status = "pass"  # 2xx status code
+        elif http_health.status_code and http_health.status_code < 500:
+            http_status = "warn"  # 3xx/4xx
+        else:
+            http_status = "fail"  # 5xx or no response
 
         cert_status = "fail"
         if not cert_health.error:
