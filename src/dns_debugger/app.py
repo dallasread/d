@@ -349,27 +349,6 @@ class DNSDebuggerApp(App):
                 with TabPane("Registration", id="registry"):
                     yield RegistryPanel(self.domain)
 
-                with TabPane("About", id="about"):
-                    yield Static(
-                        "[bold cyan]DNS Debugger[/bold cyan]\n\n"
-                        "A powerful TUI for debugging:\n"
-                        "  • DNS records and resolution\n"
-                        "  • SSL/TLS certificates\n"
-                        "  • Domain registration (RDAP/WHOIS)\n\n"
-                        "[bold]Keyboard Shortcuts:[/bold]\n"
-                        "  Q - Quit\n"
-                        "  R - Refresh current view\n"
-                        "  L - Show raw logs/data (JSON)\n"
-                        "  H/? - Show help\n"
-                        "  Tab - Switch between panels\n\n"
-                        "[bold]Architecture:[/bold]\n"
-                        "  Uses hexagonal architecture with adapters\n"
-                        "  • DNS: dog (preferred) → dig (fallback)\n"
-                        "  • Registry: RDAP (preferred) → WHOIS (fallback)\n"
-                        "  • Certificates: OpenSSL / cryptography\n\n"
-                        "[dim]Version 0.1.0[/dim]"
-                    )
-
         yield Footer()
 
     def action_refresh(self) -> None:
@@ -458,10 +437,20 @@ class DNSDebuggerApp(App):
 
     def action_help(self) -> None:
         """Show help information."""
-        # Switch to the About tab which has help info
-        tabbed_content = self.query_one(TabbedContent)
-        tabbed_content.active = "about"
-        self.notify("Showing help", severity="information")
+        help_text = (
+            "[bold cyan]DNS Debugger - Keyboard Shortcuts[/bold cyan]\n\n"
+            "[bold]Q[/bold] - Quit application\n"
+            "[bold]R[/bold] - Refresh current view\n"
+            "[bold]L[/bold] - Show raw logs/data (JSON)\n"
+            "[bold]H/?[/bold] - Show this help\n"
+            "[bold]Tab[/bold] - Switch between panels\n\n"
+            "[bold cyan]Architecture:[/bold cyan]\n"
+            "• DNS: dog (preferred) → dig (fallback)\n"
+            "• Registry: RDAP (preferred) → WHOIS (fallback)\n"
+            "• Certificates: OpenSSL\n\n"
+            "[dim]Press Esc to close[/dim]"
+        )
+        self.push_screen(RawDataScreen("Help", help_text))
 
     def action_quit(self) -> None:
         """Quit the application."""
