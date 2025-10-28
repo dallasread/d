@@ -52,23 +52,23 @@ class DashboardPanel(Container):
         self.loaded = False
 
     def compose(self) -> ComposeResult:
-        """Compose the dashboard with health sections."""
+        """Compose the dashboard with health sections in columns."""
         yield Static(
-            f"[bold cyan]Health Dashboard - {self.domain}[/bold cyan]\n",
+            f"[bold cyan]Health Dashboard - {self.domain}[/bold cyan]  [dim]Press 0-5 to jump to tabs[/dim]",
             id="dashboard-header",
         )
 
-        with Vertical(id="dashboard-sections"):
-            yield HealthSection("🌐 HTTP/HTTPS Status", "health-http")
-            yield HealthSection("🔒 SSL/TLS Certificate", "health-cert")
-            yield HealthSection("📡 DNS Records", "health-dns")
-            yield HealthSection("📋 Domain Registration", "health-registry")
-            yield HealthSection("🔐 DNSSEC", "health-dnssec")
+        with Horizontal(id="dashboard-sections"):
+            with Vertical(id="dashboard-col-1"):
+                yield HealthSection("📋 Registration", "health-registry")
+                yield HealthSection("📡 DNS", "health-dns")
 
-        yield Static(
-            "\n[dim]Press number keys 1-5 to jump to detailed tabs[/dim]",
-            id="dashboard-footer",
-        )
+            with Vertical(id="dashboard-col-2"):
+                yield HealthSection("🔐 DNSSEC", "health-dnssec")
+                yield HealthSection("🔒 Certificate", "health-cert")
+
+            with Vertical(id="dashboard-col-3"):
+                yield HealthSection("🌐 HTTP/HTTPS", "health-http")
 
     def on_mount(self) -> None:
         """Dashboard is ready but data not loaded."""
@@ -120,7 +120,7 @@ class DashboardPanel(Container):
                 if https_response.was_redirected:
                     output.append(f"  Redirects: {https_response.redirect_count}\n")
 
-            output.append(f"\n[dim]Press '5' for HTTP details →[/dim]")
+            output.append(f"[dim]→ Press 5[/dim]")
             section.set_content("".join(output))
 
         except Exception as e:
@@ -161,7 +161,7 @@ class DashboardPanel(Container):
             else:
                 output.append(f"  [red]✗ No certificate found[/red]\n")
 
-            output.append(f"\n[dim]Press '4' for certificate details →[/dim]")
+            output.append(f"[dim]→ Press 4[/dim]")
             section.set_content("".join(output))
 
         except Exception as e:
@@ -213,7 +213,7 @@ class DashboardPanel(Container):
             else:
                 output.append(f"  [red]✗ NS: None[/red]\n")
 
-            output.append(f"\n[dim]Press '2' for DNS details →[/dim]")
+            output.append(f"[dim]→ Press 2[/dim]")
             section.set_content("".join(output))
 
         except Exception as e:
@@ -259,7 +259,7 @@ class DashboardPanel(Container):
             if registration.nameservers:
                 output.append(f"  Nameservers: {len(registration.nameservers)}\n")
 
-            output.append(f"\n[dim]Press '1' for registration details →[/dim]")
+            output.append(f"[dim]→ Press 1[/dim]")
             section.set_content("".join(output))
 
         except Exception as e:
@@ -307,7 +307,7 @@ class DashboardPanel(Container):
                     f"  [yellow]⚠ {len(validation.warnings)} warning(s)[/yellow]\n"
                 )
 
-            output.append(f"\n[dim]Press '3' for DNSSEC details →[/dim]")
+            output.append(f"[dim]→ Press 3[/dim]")
             section.set_content("".join(output))
 
         except Exception as e:
@@ -1003,18 +1003,22 @@ class DNSDebuggerApp(App):
     }
 
     #dashboard-sections {
-        height: auto;
+        height: 1fr;
+        width: 100%;
+    }
+
+    #dashboard-col-1,
+    #dashboard-col-2,
+    #dashboard-col-3 {
+        width: 1fr;
+        height: 100%;
     }
 
     #dashboard-sections HealthSection {
         border: solid $primary;
-        margin: 1 0;
+        margin: 0 1;
         padding: 1 2;
-        height: auto;
-    }
-
-    #dashboard-footer {
-        padding: 1 0 0 0;
+        height: 1fr;
     }
     """
 
