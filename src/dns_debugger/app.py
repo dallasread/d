@@ -2244,6 +2244,7 @@ class DNSDebuggerApp(App):
         active_pane = tabbed_content.active
 
         raw_data = None
+        raw_output = None  # Raw tool output (whois, dig, etc.)
         title = ""
 
         if active_pane == "dns":
@@ -2369,8 +2370,43 @@ class DNSDebuggerApp(App):
         elif active_pane == "registry":
             registry_panel = self.query_one(RegistryPanel)
             if registry_panel.last_registration:
-                # Use the raw_data from registration if available
-                raw_data = registry_panel.last_registration.raw_data
+                registration = registry_panel.last_registration
+                # Convert to JSON structure
+                raw_data = {
+                    "domain": registration.domain,
+                    "registrar": registration.registrar,
+                    "created_date": registration.created_date.isoformat()
+                    if registration.created_date
+                    else None,
+                    "updated_date": registration.updated_date.isoformat()
+                    if registration.updated_date
+                    else None,
+                    "expires_date": registration.expires_date.isoformat()
+                    if registration.expires_date
+                    else None,
+                    "nameservers": [
+                        {"hostname": ns.hostname, "ip_addresses": ns.ip_addresses}
+                        for ns in registration.nameservers
+                    ]
+                    if registration.nameservers
+                    else [],
+                    "status": registration.status,
+                    "dnssec": registration.dnssec,
+                    "registrant": {
+                        "organization": registration.registrant.organization
+                        if registration.registrant
+                        else None,
+                        "country": registration.registrant.country
+                        if registration.registrant
+                        else None,
+                    }
+                    if registration.registrant
+                    else None,
+                }
+                # Pass raw WHOIS output if available
+                raw_output = (
+                    registration.raw_data if hasattr(registration, "raw_data") else None
+                )
                 title = f"Registration Raw Data - {registry_panel.domain}"
         elif active_pane == "email":
             email_panel = self.query_one(EmailPanel)
@@ -2432,7 +2468,7 @@ class DNSDebuggerApp(App):
                 title = f"Email Raw Data - {email_panel.domain}"
 
         if raw_data:
-            self.push_screen(RawDataScreen(title, raw_data))
+            self.push_screen(RawDataScreen(title, raw_data, raw_output))
         else:
             self.notify(
                 "No raw data available yet. Try refreshing first.", severity="warning"
