@@ -214,11 +214,20 @@ class DashboardPanel(Container):
             else:
                 output.append(f"  [yellow]○ MX: None[/yellow]\n")
 
-            # NS records
+            # NS records (only critical for apex domains)
             if data.ns_count > 0:
                 output.append(f"  [green]✓ NS[/green]: {data.ns_count} record(s)\n")
             else:
-                output.append(f"  [red]✗ NS: None[/red]\n")
+                # Missing NS is only critical for apex domains
+                # Subdomains (like www.example.com) can inherit NS from parent
+                domain = state.domain if hasattr(state, "domain") else ""
+                is_apex = (
+                    domain and not domain.startswith("www.") and domain.count(".") <= 1
+                )
+                if is_apex:
+                    output.append(f"  [red]✗ NS: None[/red]\n")
+                else:
+                    output.append(f"  [dim]○ NS: None (inherits from parent)[/dim]\n")
 
             section.set_content("".join(output))
 
@@ -1936,6 +1945,8 @@ class DNSDebuggerApp(App):
         Binding("l", "show_raw", "Raw Logs", key_display="L"),
         Binding("h", "help", "Help", key_display="H/?"),
         ("question_mark", "help", "Help"),
+        Binding("tab", "next_tab", "Next Tab", show=False),
+        Binding("shift+tab", "previous_tab", "Previous Tab", show=False),
         Binding("0", "switch_tab('dashboard')", "Dashboard", show=False),
         Binding("1", "switch_tab('registry')", "Registration", show=False),
         Binding("2", "switch_tab('dns')", "DNS", show=False),
@@ -2003,7 +2014,7 @@ class DNSDebuggerApp(App):
     def update_loading_status(self, message: str) -> None:
         """Update the loading status message."""
         loading_status = self.query_one("#app-loading-status", Static)
-        loading_status.update(f"[bold cyan]Loading:[/bold cyan] {message}")
+        loading_status.update(f"[bold cyan]{message}[/bold cyan]")
 
     async def fetch_all_data(self) -> None:
         """Fetch all data from all ports and populate state (parallelized)."""
@@ -2011,7 +2022,7 @@ class DNSDebuggerApp(App):
         from concurrent.futures import ThreadPoolExecutor
 
         try:
-            self.update_loading_status("Fetching all data in parallel...")
+            self.update_loading_status("Loading all the things...")
 
             # Create executor for running sync adapter calls in parallel
             executor = ThreadPoolExecutor(max_workers=10)
@@ -2094,6 +2105,24 @@ class DNSDebuggerApp(App):
                 return await loop.run_in_executor(
                     executor, http_adapter.check_url, f"https://{self.domain}"
                 )
+
+            async def fetch_http_www_response():
+                # Check www subdomain if this is an apex domain
+                if not self.domain.startswith("www."):
+                    www_domain = f"www.{self.domain}"
+                    return await loop.run_in_executor(
+                        executor, http_adapter.check_url, f"http://{www_domain}"
+                    )
+                return None
+
+            async def fetch_https_www_response():
+                # Check www subdomain if this is an apex domain
+                if not self.domain.startswith("www."):
+                    www_domain = f"www.{self.domain}"
+                    return await loop.run_in_executor(
+                        executor, http_adapter.check_url, f"https://{www_domain}"
+                    )
+                return None
 
             async def fetch_registration():
                 return await loop.run_in_executor(
@@ -2225,6 +2254,16 @@ class DNSDebuggerApp(App):
         """Switch to a specific tab by ID."""
         tabbed_content = self.query_one(TabbedContent)
         tabbed_content.active = tab_id
+
+    def action_next_tab(self) -> None:
+        """Switch to the next tab (uses TabbedContent's built-in navigation)."""
+        tabbed_content = self.query_one(TabbedContent)
+        tabbed_content.action_next_tab()
+
+    def action_previous_tab(self) -> None:
+        """Switch to the previous tab (uses TabbedContent's built-in navigation)."""
+        tabbed_content = self.query_one(TabbedContent)
+        tabbed_content.action_previous_tab()
 
     def action_refresh(self) -> None:
         """Refresh all data by refetching from ports."""
@@ -2403,10 +2442,15 @@ class DNSDebuggerApp(App):
                     if registration.registrant
                     else None,
                 }
-                # Pass raw WHOIS output if available
-                raw_output = (
-                    registration.raw_data if hasattr(registration, "raw_data") else None
-                )
+                # Pass raw WHOIS output if available (convert dict to string)
+                raw_output = None
+                if hasattr(registration, "raw_data") and registration.raw_data:
+                    if isinstance(registration.raw_data, dict):
+                        raw_output = json.dumps(
+                            registration.raw_data, indent=2, default=str
+                        )
+                    else:
+                        raw_output = str(registration.raw_data)
                 title = f"Registration Raw Data - {registry_panel.domain}"
         elif active_pane == "email":
             email_panel = self.query_one(EmailPanel)

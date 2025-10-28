@@ -27,8 +27,10 @@ class OpenSSLAdapter(CertificatePort):
 
         sni = servername or host
 
-        # Get certificate chain
-        cert_chain = self.get_certificate_chain(host, port, servername)
+        # Get certificate chain and raw output
+        cert_chain, raw_chain_output = self.get_certificate_chain(
+            host, port, servername
+        )
 
         # Get supported versions and cipher suites
         supported_versions = self._get_supported_tls_versions(host, port)
@@ -49,12 +51,17 @@ class OpenSSLAdapter(CertificatePort):
             supports_sni=True,  # Assume SNI support for modern hosts
             connection_time_ms=connection_time,
             timestamp=datetime.now(),
+            raw_data={"raw_output": raw_chain_output} if raw_chain_output else None,
         )
 
     def get_certificate_chain(
         self, host: str, port: int = 443, servername: Optional[str] = None
-    ) -> CertificateChain:
-        """Get the full certificate chain for a host."""
+    ) -> tuple[CertificateChain, str]:
+        """Get the full certificate chain for a host.
+
+        Returns:
+            Tuple of (CertificateChain, raw_output)
+        """
         sni = servername or host
 
         try:
@@ -90,21 +97,30 @@ class OpenSSLAdapter(CertificatePort):
                 ]
                 validation_errors.extend(error_lines)
 
-            return CertificateChain(
+            chain = CertificateChain(
                 certificates=certificates,
                 is_valid=is_valid,
                 validation_errors=validation_errors,
             )
 
+            # Return both chain and raw output
+            return chain, result.stdout
+
         except subprocess.TimeoutExpired:
-            return CertificateChain(
-                certificates=[],
-                is_valid=False,
-                validation_errors=["Connection timeout"],
+            return (
+                CertificateChain(
+                    certificates=[],
+                    is_valid=False,
+                    validation_errors=["Connection timeout"],
+                ),
+                "",
             )
         except Exception as e:
-            return CertificateChain(
-                certificates=[], is_valid=False, validation_errors=[str(e)]
+            return (
+                CertificateChain(
+                    certificates=[], is_valid=False, validation_errors=[str(e)]
+                ),
+                "",
             )
 
     def _parse_certificate_chain(self, output: str) -> list[Certificate]:

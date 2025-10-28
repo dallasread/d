@@ -130,3 +130,4 @@ class TLSInfo:
     supports_sni: bool
     connection_time_ms: float
     timestamp: datetime
+    raw_data: Optional[dict] = None

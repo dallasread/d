@@ -155,6 +155,7 @@ class DNSSECValidation:
     chain: Optional[DNSSECChain] = None
     error_message: Optional[str] = None
     warnings: list[str] = None
+    raw_data: Optional[dict] = None
 
     def __post_init__(self) -> None:
         """Initialize mutable defaults."""

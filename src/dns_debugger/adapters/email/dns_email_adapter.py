@@ -46,16 +46,27 @@ class DNSEmailAdapter(EmailPort):
     def get_email_config(self, domain: str) -> EmailConfiguration:
         """Get complete email configuration for a domain."""
         # Query MX records
-        mx_records = self._get_mx_records(domain)
+        mx_records, mx_raw = self._get_mx_records(domain)
 
         # Query SPF
-        spf_record = self._get_spf_record(domain)
+        spf_record, spf_raw = self._get_spf_record(domain)
 
         # Query DMARC
-        dmarc_record = self._get_dmarc_record(domain)
+        dmarc_record, dmarc_raw = self._get_dmarc_record(domain)
 
         # Check common DKIM selectors
-        dkim_records = self._check_dkim_selectors(domain)
+        dkim_records, dkim_raw = self._check_dkim_selectors(domain)
+
+        # Collect raw outputs
+        raw_outputs = []
+        if mx_raw:
+            raw_outputs.append(f"# MX Records\n{mx_raw}")
+        if spf_raw:
+            raw_outputs.append(f"# SPF Record\n{spf_raw}")
+        if dmarc_raw:
+            raw_outputs.append(f"# DMARC Record\n{dmarc_raw}")
+        if dkim_raw:
+            raw_outputs.append(f"# DKIM Records\n{dkim_raw}")
 
         return EmailConfiguration(
             domain=domain,
@@ -64,11 +75,19 @@ class DNSEmailAdapter(EmailPort):
             dmarc_record=dmarc_record,
             dkim_selectors_checked=self.COMMON_DKIM_SELECTORS,
             dkim_records=dkim_records,
+            raw_data={"raw_output": "\n\n".join(raw_outputs)} if raw_outputs else None,
         )
 
-    def _get_mx_records(self, domain: str) -> list[MXRecord]:
-        """Get and parse MX records."""
+    def _get_mx_records(self, domain: str) -> tuple[list[MXRecord], str]:
+        """Get and parse MX records.
+
+        Returns:
+            Tuple of (mx_records, raw_output)
+        """
         response = self.dns_adapter.query(domain, RecordType.MX)
+        raw_output = (
+            response.raw_data.get("raw_output", "") if response.raw_data else ""
+        )
 
         mx_records = []
         for record in response.records:
@@ -99,18 +118,25 @@ class DNSEmailAdapter(EmailPort):
 
         # Sort by priority
         mx_records.sort(key=lambda x: x.priority)
-        return mx_records
+        return mx_records, raw_output
 
-    def _get_spf_record(self, domain: str) -> Optional[SPFRecord]:
-        """Get and parse SPF record."""
+    def _get_spf_record(self, domain: str) -> tuple[Optional[SPFRecord], str]:
+        """Get and parse SPF record.
+
+        Returns:
+            Tuple of (spf_record, raw_output)
+        """
         response = self.dns_adapter.query(domain, RecordType.TXT)
+        raw_output = (
+            response.raw_data.get("raw_output", "") if response.raw_data else ""
+        )
 
         for record in response.records:
             value = record.value.strip('"')
             if value.startswith("v=spf1"):
-                return self._parse_spf(domain, value)
+                return self._parse_spf(domain, value), raw_output
 
-        return None
+        return None, raw_output
 
     def _parse_spf(self, domain: str, record: str) -> SPFRecord:
         """Parse SPF record."""
@@ -149,18 +175,25 @@ class DNSEmailAdapter(EmailPort):
             exists=exists,
         )
 
-    def _get_dmarc_record(self, domain: str) -> Optional[DMARCRecord]:
-        """Get and parse DMARC record."""
+    def _get_dmarc_record(self, domain: str) -> tuple[Optional[DMARCRecord], str]:
+        """Get and parse DMARC record.
+
+        Returns:
+            Tuple of (dmarc_record, raw_output)
+        """
         # DMARC records are at _dmarc.domain.com
         dmarc_domain = f"_dmarc.{domain}"
         response = self.dns_adapter.query(dmarc_domain, RecordType.TXT)
+        raw_output = (
+            response.raw_data.get("raw_output", "") if response.raw_data else ""
+        )
 
         for record in response.records:
             value = record.value.strip('"')
             if value.startswith("v=DMARC1"):
-                return self._parse_dmarc(domain, value)
+                return self._parse_dmarc(domain, value), raw_output
 
-        return None
+        return None, raw_output
 
     def _parse_dmarc(self, domain: str, record: str) -> DMARCRecord:
         """Parse DMARC record."""
@@ -226,23 +259,39 @@ class DNSEmailAdapter(EmailPort):
             raw_record=record,
         )
 
-    def _check_dkim_selectors(self, domain: str) -> list[DKIMRecord]:
-        """Check common DKIM selectors."""
+    def _check_dkim_selectors(self, domain: str) -> tuple[list[DKIMRecord], str]:
+        """Check common DKIM selectors.
+
+        Returns:
+            Tuple of (dkim_records, raw_output)
+        """
         dkim_records = []
+        raw_outputs = []
 
         for selector in self.COMMON_DKIM_SELECTORS:
-            dkim_record = self._check_dkim_selector(domain, selector)
+            dkim_record, raw = self._check_dkim_selector(domain, selector)
             dkim_records.append(dkim_record)
+            if raw:
+                raw_outputs.append(raw)
 
-        return dkim_records
+        return dkim_records, "\n\n".join(raw_outputs) if raw_outputs else ""
 
-    def _check_dkim_selector(self, domain: str, selector: str) -> DKIMRecord:
-        """Check a specific DKIM selector."""
+    def _check_dkim_selector(
+        self, domain: str, selector: str
+    ) -> tuple[DKIMRecord, str]:
+        """Check a specific DKIM selector.
+
+        Returns:
+            Tuple of (dkim_record, raw_output)
+        """
         # DKIM records are at selector._domainkey.domain.com
         dkim_domain = f"{selector}._domainkey.{domain}"
 
         try:
             response = self.dns_adapter.query(dkim_domain, RecordType.TXT)
+            raw_output = (
+                response.raw_data.get("raw_output", "") if response.raw_data else ""
+            )
 
             if response.is_success and response.record_count > 0:
                 # Found a DKIM record
@@ -260,22 +309,27 @@ class DNSEmailAdapter(EmailPort):
                             elif part.startswith("k="):
                                 key_type = part[2:]
 
-                        return DKIMRecord(
-                            selector=selector,
-                            domain=domain,
-                            public_key=public_key,
-                            key_type=key_type,
-                            exists=True,
-                            raw_record=value,
+                        return (
+                            DKIMRecord(
+                                selector=selector,
+                                domain=domain,
+                                public_key=public_key,
+                                key_type=key_type,
+                                exists=True,
+                                raw_record=value,
+                            ),
+                            f"# DKIM selector: {selector}\n{raw_output}"
+                            if raw_output
+                            else "",
                         )
         except Exception:
             pass
 
-        return DKIMRecord(selector=selector, domain=domain, exists=False)
+        return DKIMRecord(selector=selector, domain=domain, exists=False), ""
 
     def check_dkim(self, domain: str, selector: str) -> bool:
         """Check if a specific DKIM selector exists."""
-        dkim_record = self._check_dkim_selector(domain, selector)
+        dkim_record, _ = self._check_dkim_selector(domain, selector)
         return dkim_record.exists
 
     def get_tool_name(self) -> str:

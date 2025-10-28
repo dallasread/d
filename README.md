@@ -15,6 +15,17 @@ DNS Debugger (`d`) is an interactive terminal application that provides a compre
 
 All data loads asynchronously with detailed progress indicators and is cached in a global state for instant panel switching. Press `R` to refresh all data.
 
+## Recent Updates
+
+**Latest improvements:**
+- ✅ **Tab key navigation** - Use Tab/Shift+Tab to cycle through panels (same as arrow keys)
+- ✅ **Raw tool output toggle** - Press T in raw logs view to switch between JSON and actual tool output (dig, openssl, curl, whois)
+- ✅ **Smart NS record warnings** - Missing NS records only show as errors for apex domains; subdomains show informational message
+- ✅ **HTTP/HTTPS dual testing** - Both protocols tested with full redirect chain analysis
+- ✅ **Email panel fixes** - Complete email security configuration display with SPF/DKIM/DMARC
+- ✅ **Parallel data fetching** - 5-10x performance improvement with concurrent queries
+- ✅ **DNS record filtering** - Proper type-based filtering prevents record cross-contamination
+
 ## Installation
 
 ### Quick Install
@@ -63,7 +74,7 @@ python -m dns_debugger example.com
 |-----|--------|
 | `Q` | Quit application |
 | `R` | Refresh all data (shows loading progress) |
-| `L` | Show raw JSON logs for current panel |
+| `L` | Show raw logs for current panel (toggle JSON/raw tool output with T) |
 | `H` or `?` | Show help information |
 | `0` | Jump to Dashboard (overview) |
 | `1` | Jump to Registration panel |
@@ -72,8 +83,25 @@ python -m dns_debugger example.com
 | `4` | Jump to Certificate panel |
 | `5` | Jump to HTTP/HTTPS panel |
 | `6` | Jump to Email panel |
-| `Tab` | Switch between panels |
+| `Tab` / `Shift+Tab` | Cycle forward/backward through panels |
+| `←` / `→` | Navigate between panels |
 | `Esc` | Close modals/popups |
+| `T` | Toggle between JSON and raw tool output (in raw logs view) |
+
+## Performance
+
+DNS Debugger is optimized for fast data loading:
+
+- **Parallel Data Fetching**: All data sources (DNS, WHOIS, certificates, HTTP, etc.) are queried simultaneously using `asyncio.gather()` with ThreadPoolExecutor
+- **Typical load time**: 5-10 seconds for complete domain analysis
+- **State Caching**: Once loaded, all data is cached in memory for instant panel switching
+- **No Re-fetching**: Switching between panels uses cached data - only explicit refresh (R key) fetches new data
+
+**Performance improvements:**
+- 5-10x faster than sequential fetching
+- 10 concurrent workers for parallel operations
+- Graceful handling of slow/timeout responses
+- Independent fetching prevents one slow query from blocking others
 
 ## Features
 
@@ -93,7 +121,8 @@ The dashboard provides an at-a-glance health overview with color-coded status in
 
 **DNS Card:**
 - A, AAAA, MX, NS record counts
-- Color indicators (green: present, dim: none, red: missing NS)
+- Color indicators (green: present, dim: none, red: missing NS for apex domains only)
+- Subdomains show dimmed NS status as they inherit from parent zone
 
 **Email Card:**
 - MX record status
@@ -143,7 +172,7 @@ Each record shows:
 - TTL (Time To Live)
 - Type-specific data
 
-**Note:** Records are now properly filtered to prevent cross-contamination (e.g., CNAME records won't appear in NS section).
+**Note:** Records are properly filtered by type to prevent cross-contamination (e.g., CNAME records won't appear in NS section). Each record type is queried and displayed independently.
 
 ### DNSSEC Panel (Tab 3)
 
@@ -179,15 +208,21 @@ SSL/TLS certificate details:
 
 ### HTTP/HTTPS Panel (Tab 5)
 
-HTTP connectivity and response information:
-- HTTPS status code and text
+HTTP connectivity and response information for both protocols:
+
+**HTTP and HTTPS checks:**
+- Status code and text for both protocols
 - Response time in milliseconds
-- Redirect chain (if applicable):
+- Success indicators (200-299 status or successful redirect chain)
+- Redirect chain display (if applicable):
   - Each redirect step with status code
-  - Final destination URL
+  - From URL → To URL for each hop
+  - Color-coded status (yellow for redirects, green for success)
 - Server header
 - Content-Type
 - Content-Length
+
+Both `http://` and `https://` versions of the domain are tested to ensure proper configuration and redirects.
 
 ### Email Panel (Tab 6)
 
@@ -225,11 +260,21 @@ Comprehensive email security configuration:
 
 ### Raw Logs (Press L)
 
-Press `L` on any panel to view the raw JSON data structure:
+Press `L` on any panel to view both structured data and raw tool output:
+
+**JSON View (default):**
 - Complete domain models
 - All fields and metadata
 - Timestamps and query information
 - Useful for debugging and API integration
+
+**Raw Tool Output (press T to toggle):**
+- Original output from command-line tools
+- `dig` output for DNS/DNSSEC queries
+- `openssl s_client` output for certificates
+- `curl`/`wget` output for HTTP requests
+- `whois` output for registration data
+- Useful for debugging tool-specific issues
 
 The raw data is preserved from the cached state, ensuring consistency with displayed information.
 

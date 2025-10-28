@@ -59,7 +59,7 @@ class CurlAdapter(HTTPPort):
 
             # Parse curl output
             response = self._parse_curl_output(
-                url, result.stdout, result.stderr, start_time
+                url, result.stdout, result.stderr, start_time, result
             )
             return response
 
@@ -97,7 +97,7 @@ class CurlAdapter(HTTPPort):
             )
 
     def _parse_curl_output(
-        self, url: str, stdout: str, stderr: str, start_time: datetime
+        self, url: str, stdout: str, stderr: str, start_time: datetime, result=None
     ) -> HTTPResponse:
         """Parse curl output into HTTPResponse."""
         query_time = (datetime.now() - start_time).total_seconds() * 1000
@@ -167,6 +167,16 @@ class CurlAdapter(HTTPPort):
         if stderr and "curl:" in stderr:
             error = stderr.strip()
 
+        # Build raw output
+        raw_output = None
+        if result:
+            raw_parts = []
+            if stdout:
+                raw_parts.append(f"# stdout\n{stdout}")
+            if stderr:
+                raw_parts.append(f"# stderr\n{stderr}")
+            raw_output = "\n\n".join(raw_parts) if raw_parts else None
+
         return HTTPResponse(
             url=url,
             final_url=final_url,
@@ -180,6 +190,7 @@ class CurlAdapter(HTTPPort):
             server=server,
             timestamp=datetime.now(),
             error=error,
+            raw_data={"raw_output": raw_output} if raw_output else None,
         )
 
     def _parse_status_line(self, line: str) -> tuple[int, str]:

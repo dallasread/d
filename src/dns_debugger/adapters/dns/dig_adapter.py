@@ -59,6 +59,7 @@ class DigAdapter(DNSPort):
                 resolver_used=resolver_used,
                 timestamp=datetime.now(),
                 has_dnssec=False,
+                raw_data={"raw_output": result.stdout},
             )
 
         except subprocess.CalledProcessError as e:
@@ -237,6 +238,7 @@ class DigAdapter(DNSPort):
             # Try to check for DNSSEC validation using dig +dnssec
             rrsig_records = []
             has_rrsig = False
+            dnssec_output = ""
             try:
                 cmd = ["dig", "+dnssec", "+noall", "+answer", domain, "A"]
                 result = subprocess.run(
@@ -244,6 +246,7 @@ class DigAdapter(DNSPort):
                 )
                 # Check if RRSIG records are present in output
                 has_rrsig = "RRSIG" in result.stdout
+                dnssec_output = result.stdout
             except Exception:
                 has_rrsig = False
 
@@ -276,6 +279,19 @@ class DigAdapter(DNSPort):
             if chain.zsk_count == 0 and has_dnskey:
                 warnings.append("No Zone Signing Key (ZSK) found")
 
+            # Collect raw outputs
+            raw_outputs = []
+            if ds_response.raw_data and "raw_output" in ds_response.raw_data:
+                raw_outputs.append(
+                    f"# DS Records\n{ds_response.raw_data['raw_output']}"
+                )
+            if dnskey_response.raw_data and "raw_output" in dnskey_response.raw_data:
+                raw_outputs.append(
+                    f"# DNSKEY Records\n{dnskey_response.raw_data['raw_output']}"
+                )
+            if dnssec_output:
+                raw_outputs.append(f"# DNSSEC Validation\n{dnssec_output}")
+
             return DNSSECValidation(
                 domain=domain,
                 status=status,
@@ -283,6 +299,9 @@ class DigAdapter(DNSPort):
                 timestamp=datetime.now(),
                 chain=chain,
                 warnings=warnings,
+                raw_data={"raw_output": "\n\n".join(raw_outputs)}
+                if raw_outputs
+                else None,
             )
 
         except Exception as e:

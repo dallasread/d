@@ -67,6 +67,7 @@ class DNSResponse:
     timestamp: datetime
     has_dnssec: bool = False
     error: Optional[str] = None
+    raw_data: Optional[dict] = None
 
     @property
     def is_success(self) -> bool:

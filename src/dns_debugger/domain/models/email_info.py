@@ -131,6 +131,7 @@ class EmailConfiguration:
     dkim_selectors_checked: list[str] = None
     dkim_records: list[DKIMRecord] = None
     timestamp: datetime = None
+    raw_data: Optional[dict] = None
 
     def __post_init__(self) -> None:
         """Initialize mutable defaults."""

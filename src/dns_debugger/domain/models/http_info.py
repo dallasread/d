@@ -43,6 +43,7 @@ class HTTPResponse:
     server: Optional[str]
     timestamp: datetime
     error: Optional[str] = None
+    raw_data: Optional[dict] = None
 
     @property
     def is_success(self) -> bool:
