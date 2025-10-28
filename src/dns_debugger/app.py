@@ -314,7 +314,7 @@ class DashboardPanel(Container):
             section.set_error(str(e))
 
 
-class DNSPanel(Container):
+class DNSPanel(Static):
     """Panel for displaying DNS information."""
 
     def __init__(self, domain: str) -> None:
@@ -322,35 +322,14 @@ class DNSPanel(Container):
         self.domain = domain
         self.dns_adapter = None
         self.last_responses = {}  # Store raw responses for logs
-        self.loaded = False
-
-    def compose(self) -> ComposeResult:
-        """Compose the panel with a loading indicator and content area."""
-        yield LoadingIndicator(id="loading")
-        yield Static("", id="content")
 
     def on_mount(self) -> None:
-        """Show initial loading state without fetching data."""
-        loading = self.query_one("#loading", LoadingIndicator)
-        content = self.query_one("#content", Static)
-        loading.display = False
-        content.update("[dim]Switch to this tab to load DNS records[/dim]")
-
-    def load_data(self) -> None:
-        """Load DNS data when the panel is first viewed."""
-        if not self.loaded:
-            loading = self.query_one("#loading", LoadingIndicator)
-            content = self.query_one("#content", Static)
-            loading.display = True
-            content.update("")
-            self.run_worker(self.fetch_dns_data(), exclusive=True)
+        """Panel mounted - data already loaded via dashboard."""
+        pass
 
     def update_dns_info(self) -> None:
         """Refresh DNS data (called by refresh action)."""
-        loading = self.query_one("#loading", LoadingIndicator)
-        content = self.query_one("#content", Static)
-        loading.display = True
-        content.update("")
+        self.update("[dim]Refreshing DNS records...[/dim]")
         self.run_worker(self.fetch_dns_data(), exclusive=True)
 
     async def fetch_dns_data(self) -> None:
@@ -414,21 +393,13 @@ class DNSPanel(Container):
                 output.append("\n")
 
             # Update once with all content
-            content = self.query_one("#content", Static)
-            content.update("".join(output))
-            self.loaded = True
-            loading = self.query_one("#loading", LoadingIndicator)
-            loading.display = False
+            self.update("".join(output))
 
         except Exception as e:
-            content = self.query_one("#content", Static)
-            content.update(f"[red]Error: {str(e)}[/red]")
-            self.loaded = True
-            loading = self.query_one("#loading", LoadingIndicator)
-            loading.display = False
+            self.update(f"[red]Error: {str(e)}[/red]")
 
 
-class CertificatePanel(Container):
+class CertificatePanel(Static):
     """Panel for displaying certificate information."""
 
     def __init__(self, domain: str) -> None:
@@ -436,35 +407,14 @@ class CertificatePanel(Container):
         self.domain = domain
         self.cert_adapter = None
         self.last_tls_info = None  # Store raw TLS info for logs
-        self.loaded = False
-
-    def compose(self) -> ComposeResult:
-        """Compose the panel with a loading indicator and content area."""
-        yield LoadingIndicator(id="loading")
-        yield Static("", id="content")
 
     def on_mount(self) -> None:
-        """Show initial loading state without fetching data."""
-        loading = self.query_one("#loading", LoadingIndicator)
-        content = self.query_one("#content", Static)
-        loading.display = False
-        content.update("[dim]Switch to this tab to load certificate info[/dim]")
-
-    def load_data(self) -> None:
-        """Load certificate data when the panel is first viewed."""
-        if not self.loaded:
-            loading = self.query_one("#loading", LoadingIndicator)
-            content = self.query_one("#content", Static)
-            loading.display = True
-            content.update("")
-            self.run_worker(self.fetch_cert_data(), exclusive=True)
+        """Panel mounted - data already loaded via dashboard."""
+        pass
 
     def update_cert_info(self) -> None:
         """Refresh certificate data (called by refresh action)."""
-        loading = self.query_one("#loading", LoadingIndicator)
-        content = self.query_one("#content", Static)
-        loading.display = True
-        content.update("")
+        self.update("[dim]Refreshing SSL/TLS certificate...[/dim]")
         self.run_worker(self.fetch_cert_data(), exclusive=True)
 
     async def fetch_cert_data(self) -> None:
@@ -543,23 +493,15 @@ class CertificatePanel(Container):
             else:
                 output.append("[red]Failed to retrieve certificate[/red]\n")
 
-            content = self.query_one("#content", Static)
-            content.update("".join(output))
-            self.loaded = True
-            loading = self.query_one("#loading", LoadingIndicator)
-            loading.display = False
+            self.update("".join(output))
 
         except Exception as e:
-            content = self.query_one("#content", Static)
-            content.update(
+            self.update(
                 f"[red]Error: {str(e)}[/red]\n\n[dim]Make sure OpenSSL is installed and the domain is accessible[/dim]"
             )
-            self.loaded = True
-            loading = self.query_one("#loading", LoadingIndicator)
-            loading.display = False
 
 
-class RegistryPanel(Container):
+class RegistryPanel(Static):
     """Panel for displaying domain registration information."""
 
     def __init__(self, domain: str) -> None:
@@ -567,35 +509,14 @@ class RegistryPanel(Container):
         self.domain = domain
         self.registry_adapter = None
         self.last_registration = None  # Store raw registration for logs
-        self.loaded = False
-
-    def compose(self) -> ComposeResult:
-        """Compose the panel with a loading indicator and content area."""
-        yield LoadingIndicator(id="loading")
-        yield Static("", id="content")
 
     def on_mount(self) -> None:
-        """Show initial loading state without fetching data."""
-        loading = self.query_one("#loading", LoadingIndicator)
-        content = self.query_one("#content", Static)
-        loading.display = False
-        content.update("[dim]Switch to this tab to load registration info[/dim]")
-
-    def load_data(self) -> None:
-        """Load registry data when the panel is first viewed."""
-        if not self.loaded:
-            loading = self.query_one("#loading", LoadingIndicator)
-            content = self.query_one("#content", Static)
-            loading.display = True
-            content.update("")
-            self.run_worker(self.fetch_registry_data(), exclusive=True)
+        """Panel mounted - data already loaded via dashboard."""
+        pass
 
     def update_registry_info(self) -> None:
         """Refresh registry data (called by refresh action)."""
-        loading = self.query_one("#loading", LoadingIndicator)
-        content = self.query_one("#content", Static)
-        loading.display = True
-        content.update("")
+        self.update("[dim]Refreshing domain registration info...[/dim]")
         self.run_worker(self.fetch_registry_data(), exclusive=True)
 
     async def fetch_registry_data(self) -> None:
@@ -676,23 +597,15 @@ class RegistryPanel(Container):
                 if registration.registrant.country:
                     output.append(f"  {registration.registrant.country}\n")
 
-            content = self.query_one("#content", Static)
-            content.update("".join(output))
-            self.loaded = True
-            loading = self.query_one("#loading", LoadingIndicator)
-            loading.display = False
+            self.update("".join(output))
 
         except Exception as e:
-            content = self.query_one("#content", Static)
-            content.update(
+            self.update(
                 f"[red]Error: {str(e)}[/red]\n\n[dim]Make sure 'whois' command is installed (brew install whois / apt-get install whois)[/dim]"
             )
-            self.loaded = True
-            loading = self.query_one("#loading", LoadingIndicator)
-            loading.display = False
 
 
-class DNSSECPanel(Container):
+class DNSSECPanel(Static):
     """Panel for displaying DNSSEC information."""
 
     def __init__(self, domain: str) -> None:
@@ -700,35 +613,14 @@ class DNSSECPanel(Container):
         self.domain = domain
         self.dns_adapter = None
         self.last_validation = None  # Store validation for logs
-        self.loaded = False
-
-    def compose(self) -> ComposeResult:
-        """Compose the panel with a loading indicator and content area."""
-        yield LoadingIndicator(id="loading")
-        yield Static("", id="content")
 
     def on_mount(self) -> None:
-        """Show initial loading state without fetching data."""
-        loading = self.query_one("#loading", LoadingIndicator)
-        content = self.query_one("#content", Static)
-        loading.display = False
-        content.update("[dim]Switch to this tab to load DNSSEC info[/dim]")
-
-    def load_data(self) -> None:
-        """Load DNSSEC data when the panel is first viewed."""
-        if not self.loaded:
-            loading = self.query_one("#loading", LoadingIndicator)
-            content = self.query_one("#content", Static)
-            loading.display = True
-            content.update("")
-            self.run_worker(self.fetch_dnssec_data(), exclusive=True)
+        """Panel mounted - data already loaded via dashboard."""
+        pass
 
     def update_dnssec_info(self) -> None:
         """Refresh DNSSEC data (called by refresh action)."""
-        loading = self.query_one("#loading", LoadingIndicator)
-        content = self.query_one("#content", Static)
-        loading.display = True
-        content.update("")
+        self.update("[dim]Validating DNSSEC...[/dim]")
         self.run_worker(self.fetch_dnssec_data(), exclusive=True)
 
     async def fetch_dnssec_data(self) -> None:
@@ -832,23 +724,15 @@ class DNSSECPanel(Container):
                     output.append(f"  [yellow]⚠[/yellow] {warning}\n")
                 output.append("\n")
 
-            content = self.query_one("#content", Static)
-            content.update("".join(output))
-            self.loaded = True
-            loading = self.query_one("#loading", LoadingIndicator)
-            loading.display = False
+            self.update("".join(output))
 
         except Exception as e:
-            content = self.query_one("#content", Static)
-            content.update(
+            self.update(
                 f"[red]Error: {str(e)}[/red]\n\n[dim]Make sure 'dog' or 'dig' is installed[/dim]"
             )
-            self.loaded = True
-            loading = self.query_one("#loading", LoadingIndicator)
-            loading.display = False
 
 
-class HTTPPanel(Container):
+class HTTPPanel(Static):
     """Panel for displaying HTTP/HTTPS information."""
 
     def __init__(self, domain: str) -> None:
@@ -856,35 +740,14 @@ class HTTPPanel(Container):
         self.domain = domain
         self.http_adapter = None
         self.last_response = None  # Store raw response for logs
-        self.loaded = False
-
-    def compose(self) -> ComposeResult:
-        """Compose the panel with a loading indicator and content area."""
-        yield LoadingIndicator(id="loading")
-        yield Static("", id="content")
 
     def on_mount(self) -> None:
-        """Show initial loading state without fetching data."""
-        loading = self.query_one("#loading", LoadingIndicator)
-        content = self.query_one("#content", Static)
-        loading.display = False
-        content.update("[dim]Switch to this tab to load HTTP info[/dim]")
-
-    def load_data(self) -> None:
-        """Load HTTP data when the panel is first viewed."""
-        if not self.loaded:
-            loading = self.query_one("#loading", LoadingIndicator)
-            content = self.query_one("#content", Static)
-            loading.display = True
-            content.update("")
-            self.run_worker(self.fetch_http_data(), exclusive=True)
+        """Panel mounted - data already loaded via dashboard."""
+        pass
 
     def update_http_info(self) -> None:
         """Refresh HTTP data (called by refresh action)."""
-        loading = self.query_one("#loading", LoadingIndicator)
-        content = self.query_one("#content", Static)
-        loading.display = True
-        content.update("")
+        self.update("[dim]Refreshing HTTP/HTTPS status...[/dim]")
         self.run_worker(self.fetch_http_data(), exclusive=True)
 
     async def fetch_http_data(self) -> None:
@@ -950,20 +813,12 @@ class HTTPPanel(Container):
 
                 output.append("\n")
 
-            content = self.query_one("#content", Static)
-            content.update("".join(output))
-            self.loaded = True
-            loading = self.query_one("#loading", LoadingIndicator)
-            loading.display = False
+            self.update("".join(output))
 
         except Exception as e:
-            content = self.query_one("#content", Static)
-            content.update(
+            self.update(
                 f"[red]Error: {str(e)}[/red]\n\n[dim]Make sure 'curl' or 'wget' is installed[/dim]"
             )
-            self.loaded = True
-            loading = self.query_one("#loading", LoadingIndicator)
-            loading.display = False
 
 
 class DNSDebuggerApp(App):
@@ -996,6 +851,13 @@ class DNSDebuggerApp(App):
 
     #main-container {
         height: 100%;
+    }
+
+    #app-loading {
+        dock: top;
+        height: auto;
+        padding: 1;
+        background: $surface;
     }
 
     #dashboard-header {
@@ -1046,6 +908,7 @@ class DNSDebuggerApp(App):
     def compose(self) -> ComposeResult:
         """Create the UI layout."""
         yield Header(show_clock=True)
+        yield LoadingIndicator(id="app-loading")
 
         with Container(id="main-container"):
             with TabbedContent(initial="dashboard"):
@@ -1070,47 +933,40 @@ class DNSDebuggerApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
-        """Load the initial DNS panel when app starts."""
-        # Defer loading to next tick to not block UI rendering
-        self.call_later(self._load_initial_panel)
+        """Load all data when app starts."""
+        # Show loading indicator
+        loading = self.query_one("#app-loading", LoadingIndicator)
+        loading.display = True
 
-    def _load_initial_panel(self) -> None:
-        """Load the Dashboard panel data on next tick."""
+        # Hide main container while loading
+        main_container = self.query_one("#main-container")
+        main_container.display = False
+
+        # Defer loading to next tick to not block UI rendering
+        self.call_later(self._load_all_data)
+
+    def _load_all_data(self) -> None:
+        """Load the Dashboard which will load all health checks."""
         dashboard_panel = self.query_one(DashboardPanel)
         dashboard_panel.load_data()
 
-    def on_tabbed_content_tab_activated(
-        self, event: TabbedContent.TabActivated
-    ) -> None:
-        """Load data when a tab is activated."""
-        # Defer loading to next tick to not block UI thread
-        self.call_later(self._load_active_panel)
+        # Monitor when all workers complete
+        self.set_timer(0.1, self._check_loading_complete)
 
-    def _load_active_panel(self) -> None:
-        """Load data for the currently active panel on next tick."""
-        # Get the active pane ID from the TabbedContent widget
-        tabbed_content = self.query_one(TabbedContent)
-        active_pane = tabbed_content.active
+    def _check_loading_complete(self) -> None:
+        """Check if all loading is complete and hide loading indicator."""
+        dashboard_panel = self.query_one(DashboardPanel)
 
-        # Load data for the active panel if not already loaded
-        if active_pane == "dashboard":
-            dashboard_panel = self.query_one(DashboardPanel)
-            dashboard_panel.load_data()
-        elif active_pane == "dns":
-            dns_panel = self.query_one(DNSPanel)
-            dns_panel.load_data()
-        elif active_pane == "dnssec":
-            dnssec_panel = self.query_one(DNSSECPanel)
-            dnssec_panel.load_data()
-        elif active_pane == "registry":
-            registry_panel = self.query_one(RegistryPanel)
-            registry_panel.load_data()
-        elif active_pane == "cert":
-            cert_panel = self.query_one(CertificatePanel)
-            cert_panel.load_data()
-        elif active_pane == "http":
-            http_panel = self.query_one(HTTPPanel)
-            http_panel.load_data()
+        # Check if dashboard has finished loading (all workers done)
+        if dashboard_panel.loaded:
+            loading = self.query_one("#app-loading", LoadingIndicator)
+            loading.display = False
+
+            main_container = self.query_one("#main-container")
+            main_container.display = True
+        else:
+            # Check again in 100ms
+            self.set_timer(0.1, self._check_loading_complete)
 
     def action_switch_tab(self, tab_id: str) -> None:
         """Switch to a specific tab by ID."""
