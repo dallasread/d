@@ -1268,12 +1268,12 @@ class DNSSECPanel(VerticalScroll):
                     for i, key in enumerate(chain.dnskey_records[:3], 1):
                         key_type = "KSK" if key.is_key_signing_key else "ZSK"
                         output.append(
-                            f"  Key {i} ({key_type}) [bold][{key.key_tag}][/bold]:\n"
+                            f"  Key {i} ({key_type}) [bold][[{key.key_tag}]][/bold]:\n"
                         )
-                        output.append(f"    Flags: {key.flags}\n")
+                        output.append(
+                            f"    Flags: {key.flags}, Key Tag: {key.key_tag}, TTL: {key.ttl}s\n"
+                        )
                         output.append(f"    Algorithm: {key.algorithm.value}\n")
-                        output.append(f"    Key Tag: {key.key_tag}\n")
-                        output.append(f"    TTL: {key.ttl}s\n")
 
                     if len(chain.dnskey_records) > 3:
                         output.append(
@@ -1379,12 +1379,12 @@ class DNSSECPanel(VerticalScroll):
                     for i, key in enumerate(chain.dnskey_records[:3], 1):
                         key_type = "KSK" if key.is_key_signing_key else "ZSK"
                         output.append(
-                            f"  Key {i} ({key_type}) [bold][{key.key_tag}][/bold]:\n"
+                            f"  Key {i} ({key_type}) [bold][[{key.key_tag}]][/bold]:\n"
                         )
-                        output.append(f"    Flags: {key.flags}\n")
+                        output.append(
+                            f"    Flags: {key.flags}, Key Tag: {key.key_tag}, TTL: {key.ttl}s\n"
+                        )
                         output.append(f"    Algorithm: {key.algorithm.value}\n")
-                        output.append(f"    Key Tag: {key.key_tag}\n")
-                        output.append(f"    TTL: {key.ttl}s\n")
 
                     if len(chain.dnskey_records) > 3:
                         output.append(
