@@ -2273,49 +2273,61 @@ class DNSDebuggerApp(App):
 
     def on_mount(self) -> None:
         """App mounted - load all data into state."""
-        # Initialize loading tasks
+        # Initialize loading tasks with full commands
         self.loading_tasks = {
-            "dns_a": {"label": "DNS: A records", "tool": "dig", "status": "pending"},
+            "dns_a": {
+                "label": "DNS: A records",
+                "tool": f"dig {self.domain} A",
+                "status": "pending",
+            },
             "dns_aaaa": {
                 "label": "DNS: AAAA records",
-                "tool": "dig",
+                "tool": f"dig {self.domain} AAAA",
                 "status": "pending",
             },
-            "dns_mx": {"label": "DNS: MX records", "tool": "dig", "status": "pending"},
+            "dns_mx": {
+                "label": "DNS: MX records",
+                "tool": f"dig {self.domain} MX",
+                "status": "pending",
+            },
             "dns_txt": {
                 "label": "DNS: TXT records",
-                "tool": "dig",
+                "tool": f"dig {self.domain} TXT",
                 "status": "pending",
             },
-            "dns_ns": {"label": "DNS: NS records", "tool": "dig", "status": "pending"},
+            "dns_ns": {
+                "label": "DNS: NS records",
+                "tool": f"dig {self.domain} NS",
+                "status": "pending",
+            },
             "dnssec": {
                 "label": "DNSSEC: Validation",
-                "tool": "dig +dnssec",
+                "tool": f"dig {self.domain} +dnssec +multiline",
                 "status": "pending",
             },
             "certificate": {
                 "label": "Certificate: TLS info",
-                "tool": "openssl s_client",
+                "tool": f"openssl s_client -connect {self.domain}:443 -servername {self.domain}",
                 "status": "pending",
             },
             "http": {
                 "label": "HTTP: Status check",
-                "tool": "curl -I",
+                "tool": f"curl -I http://{self.domain}",
                 "status": "pending",
             },
             "https": {
                 "label": "HTTPS: Status check",
-                "tool": "curl -I",
+                "tool": f"curl -I https://{self.domain}",
                 "status": "pending",
             },
             "registration": {
                 "label": "Registration: Details",
-                "tool": "whois/rdap",
+                "tool": f"whois {self.domain}",
                 "status": "pending",
             },
             "email": {
                 "label": "Email: SPF/DKIM/DMARC",
-                "tool": "dig TXT",
+                "tool": f"dig {self.domain} TXT",
                 "status": "pending",
             },
         }
@@ -2348,19 +2360,19 @@ class DNSDebuggerApp(App):
             if task["status"] == "pending":
                 icon = "[dim][ ][/dim]"
                 label = f"[dim]{task['label']}[/dim]"
-                tool = f"[dim]({task['tool']} {self.domain})[/dim]"
+                tool = f"[dim]({task['tool']})[/dim]"
             elif task["status"] == "loading":
                 icon = "[yellow][⋯][/yellow]"
                 label = f"[yellow]{task['label']}[/yellow]"
-                tool = f"[dim]({task['tool']} {self.domain})[/dim]"
+                tool = f"[dim]({task['tool']})[/dim]"
             elif task["status"] == "done":
                 icon = "[green][✓][/green]"
                 label = f"[dim]{task['label']}[/dim]"
-                tool = f"[dim]({task['tool']} {self.domain})[/dim]"
+                tool = f"[dim]({task['tool']})[/dim]"
             else:  # error
                 icon = "[red][✗][/red]"
                 label = f"[red]{task['label']}[/red]"
-                tool = f"[dim]({task['tool']} {self.domain})[/dim]"
+                tool = f"[dim]({task['tool']})[/dim]"
 
             lines.append(f"{icon} {label} {tool}")
 
