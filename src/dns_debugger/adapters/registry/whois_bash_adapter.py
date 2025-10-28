@@ -46,9 +46,28 @@ class WHOISBashAdapter(RegistryPort):
         """Parse whois text output into DomainRegistration model."""
         lines = output.split("\n")
 
+        # Skip IANA TLD info - only parse domain registration section
+        # Look for the actual domain name in the output to know where to start
+        domain_section_start = 0
+        domain_upper = domain.upper()
+        for i, line in enumerate(lines):
+            # Find where the actual domain registration starts
+            # Look for "Domain Name: <domain>" which indicates start of registry/registrar data
+            if (
+                f"Domain Name: {domain_upper}" in line
+                or f"domain: {domain.lower()}" in line
+            ):
+                domain_section_start = i
+                break
+
+        # Only parse lines from the domain section onwards
+        relevant_lines = (
+            lines[domain_section_start:] if domain_section_start > 0 else lines
+        )
+
         # Extract registrar
         registrar = self._extract_field(
-            lines,
+            relevant_lines,
             [
                 "Registrar:",
                 "registrar:",
@@ -58,19 +77,24 @@ class WHOISBashAdapter(RegistryPort):
             ],
         )
 
-        # Extract nameservers
+        # Extract nameservers - only from domain section
         nameservers = []
         ns_patterns = ["Name Server:", "nserver:", "Nameserver:", "nameserver:"]
-        for line in lines:
+        for line in relevant_lines:
             for pattern in ns_patterns:
                 if pattern in line:
                     ns = line.split(pattern, 1)[1].strip().lower()
-                    if ns and ns not in [n.hostname for n in nameservers]:
+                    # Filter out TLD servers (they contain 'gtld-servers' or similar)
+                    if (
+                        ns
+                        and "gtld-servers" not in ns
+                        and ns not in [n.hostname for n in nameservers]
+                    ):
                         nameservers.append(Nameserver(hostname=ns, ip_addresses=[]))
 
-        # Extract dates
+        # Extract dates (use relevant_lines)
         created_date = self._extract_date(
-            lines,
+            relevant_lines,
             [
                 "Creation Date:",
                 "created:",
@@ -80,7 +104,7 @@ class WHOISBashAdapter(RegistryPort):
         )
 
         updated_date = self._extract_date(
-            lines,
+            relevant_lines,
             [
                 "Updated Date:",
                 "changed:",
@@ -90,7 +114,7 @@ class WHOISBashAdapter(RegistryPort):
         )
 
         expires_date = self._extract_date(
-            lines,
+            relevant_lines,
             [
                 "Registry Expiry Date:",
                 "Expiration Date:",
@@ -101,10 +125,10 @@ class WHOISBashAdapter(RegistryPort):
             ],
         )
 
-        # Extract status
+        # Extract status (use relevant_lines)
         status = []
         status_patterns = ["Domain Status:", "Status:", "domain status:", "status:"]
-        for line in lines:
+        for line in relevant_lines:
             for pattern in status_patterns:
                 if pattern in line:
                     status_value = line.split(pattern, 1)[1].strip()
@@ -113,9 +137,9 @@ class WHOISBashAdapter(RegistryPort):
                     if status_value and status_value not in status:
                         status.append(status_value)
 
-        # Check DNSSEC
+        # Check DNSSEC (use relevant_lines)
         dnssec = False
-        dnssec_line = self._extract_field(lines, ["DNSSEC:", "dnssec:"])
+        dnssec_line = self._extract_field(relevant_lines, ["DNSSEC:", "dnssec:"])
         if dnssec_line:
             dnssec = "signed" in dnssec_line.lower() or "yes" in dnssec_line.lower()
 
