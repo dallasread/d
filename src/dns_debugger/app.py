@@ -815,15 +815,11 @@ class RegistryPanel(Static):
 
             if registration.nameservers:
                 output.append(f"\n[bold yellow]Nameservers:[/bold yellow]\n")
-                for ns in registration.nameservers[:5]:
+                for ns in registration.nameservers:
                     output.append(f"  • {ns.hostname}\n")
                     if ns.ip_addresses:
                         for ip in ns.ip_addresses[:2]:
                             output.append(f"    [dim]{ip}[/dim]\n")
-                if len(registration.nameservers) > 5:
-                    output.append(
-                        f"  [dim]... and {len(registration.nameservers) - 5} more[/dim]\n"
-                    )
 
             if registration.status:
                 output.append(f"\n[bold yellow]Domain Status:[/bold yellow]\n")
@@ -904,15 +900,11 @@ class RegistryPanel(Static):
 
             if registration.nameservers:
                 output.append(f"\n[bold yellow]Nameservers:[/bold yellow]\n")
-                for ns in registration.nameservers[:5]:  # Limit to first 5
+                for ns in registration.nameservers:
                     output.append(f"  • {ns.hostname}\n")
                     if ns.ip_addresses:
                         for ip in ns.ip_addresses[:2]:
                             output.append(f"    [dim]{ip}[/dim]\n")
-                if len(registration.nameservers) > 5:
-                    output.append(
-                        f"  [dim]... and {len(registration.nameservers) - 5} more[/dim]\n"
-                    )
 
             if registration.status:
                 output.append(f"\n[bold yellow]Domain Status:[/bold yellow]\n")
