@@ -137,7 +137,7 @@ class DashboardPanel(Container):
             )
             output.append(f"  [dim]{data.summary_message}[/dim]\n\n")
 
-            # Component status summary
+            # Component status summary (in logical request order)
             output.append("[bold]Component Status:[/bold]\n")
 
             def status_indicator(status):
@@ -148,12 +148,14 @@ class DashboardPanel(Container):
                 else:
                     return "[red]✗[/red]"
 
-            output.append(f"  {status_indicator(data.http_status)} HTTP/HTTPS\n")
-            output.append(f"  {status_indicator(data.cert_status)} Certificate\n")
-            output.append(f"  {status_indicator(data.dns_status)} DNS\n")
-            output.append(f"  {status_indicator(data.registry_status)} Registration\n")
-            output.append(f"  {status_indicator(data.dnssec_status)} DNSSEC\n")
-            output.append(f"  {status_indicator(data.email_status)} Email\n")
+            output.append(f"  {status_indicator(data.dns_status)} DNS [2]\n")
+            output.append(
+                f"  {status_indicator(data.registry_status)} Registration [1]\n"
+            )
+            output.append(f"  {status_indicator(data.http_status)} HTTP/HTTPS [5]\n")
+            output.append(f"  {status_indicator(data.cert_status)} Certificate [4]\n")
+            output.append(f"  {status_indicator(data.email_status)} Email [6]\n")
+            output.append(f"  {status_indicator(data.dnssec_status)} DNSSEC [3]\n")
 
             section.set_content("".join(output))
 
