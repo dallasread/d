@@ -1512,10 +1512,22 @@ class EmailPanel(Static):
 
                 if spf.is_strict:
                     output.append(f"  Policy: [green]✓ Strict (-all)[/green]\n")
+                    output.append(
+                        f"    [dim]Rejects unauthorized senders (recommended)[/dim]\n"
+                    )
                 elif spf.all_mechanism == "~all":
                     output.append(f"  Policy: [yellow]○ Soft Fail (~all)[/yellow]\n")
+                    output.append(
+                        f"    [dim]Marks unauthorized as suspicious (transitional)[/dim]\n"
+                    )
                 elif spf.all_mechanism == "+all":
                     output.append(f"  Policy: [red]✗ Allow All (+all)[/red]\n")
+                    output.append(
+                        f"    [dim]Allows anyone to send (not recommended)[/dim]\n"
+                    )
+                elif spf.all_mechanism == "?all":
+                    output.append(f"  Policy: [dim]○ Neutral (?all)[/dim]\n")
+                    output.append(f"    [dim]No policy enforcement[/dim]\n")
                 elif spf.all_mechanism:
                     output.append(f"  Policy: {spf.all_mechanism}\n")
                 else:
@@ -1705,10 +1717,22 @@ class EmailPanel(Static):
 
                 if spf.is_strict:
                     output.append(f"  Policy: [green]✓ Strict (-all)[/green]\n")
+                    output.append(
+                        f"    [dim]Rejects unauthorized senders (recommended)[/dim]\n"
+                    )
                 elif spf.all_mechanism == "~all":
                     output.append(f"  Policy: [yellow]○ Soft Fail (~all)[/yellow]\n")
+                    output.append(
+                        f"    [dim]Marks unauthorized as suspicious (transitional)[/dim]\n"
+                    )
                 elif spf.all_mechanism == "+all":
                     output.append(f"  Policy: [red]✗ Allow All (+all)[/red]\n")
+                    output.append(
+                        f"    [dim]Allows anyone to send (not recommended)[/dim]\n"
+                    )
+                elif spf.all_mechanism == "?all":
+                    output.append(f"  Policy: [dim]○ Neutral (?all)[/dim]\n")
+                    output.append(f"    [dim]No policy enforcement[/dim]\n")
                 elif spf.all_mechanism:
                     output.append(f"  Policy: {spf.all_mechanism}\n")
                 else:
