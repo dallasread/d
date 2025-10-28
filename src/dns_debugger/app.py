@@ -70,33 +70,25 @@ class DashboardPanel(Container):
                 yield HealthSection("🏥 Overall Health", "health-overall")
                 # Registration below
                 yield HealthSection(
-                    "📋 Registration [dim]→ press [/dim][dim][1][/dim]",
+                    "📋 Registration [dim][1][/dim]",
                     "health-registry",
                 )
 
             # Right side - 3 rows of sections
             with Vertical(id="dashboard-right"):
                 with Horizontal(id="dashboard-row-1"):
-                    yield HealthSection(
-                        "📡 DNS [dim]→ press [/dim][dim][2][/dim]", "health-dns"
-                    )
-                    yield HealthSection(
-                        "📧 Email [dim]→ press [/dim][dim][6][/dim]", "health-email"
-                    )
+                    yield HealthSection("📡 DNS [dim][2][/dim]", "health-dns")
+                    yield HealthSection("📧 Email [dim][6][/dim]", "health-email")
 
                 with Horizontal(id="dashboard-row-2"):
+                    yield HealthSection("🔐 DNSSEC [dim][3][/dim]", "health-dnssec")
                     yield HealthSection(
-                        "🔐 DNSSEC [dim]→ press [/dim][dim][3][/dim]", "health-dnssec"
-                    )
-                    yield HealthSection(
-                        "🔒 Certificate [dim]→ press [/dim][dim][4][/dim]",
+                        "🔒 Certificate [dim][4][/dim]",
                         "health-cert",
                     )
 
                 with Horizontal(id="dashboard-row-3"):
-                    yield HealthSection(
-                        "🌐 HTTP/HTTPS [dim]→ press [/dim][dim][5][/dim]", "health-http"
-                    )
+                    yield HealthSection("🌐 HTTP/HTTPS [dim][5][/dim]", "health-http")
 
     def on_mount(self) -> None:
         """Dashboard is ready but data not loaded."""
@@ -464,7 +456,7 @@ class DashboardPanel(Container):
             section.set_error(str(e))
 
 
-class DNSPanel(Static):
+class DNSPanel(VerticalScroll):
     """Panel for displaying DNS information.
 
     This panel shows detailed DNS records for the domain including:
@@ -493,14 +485,19 @@ class DNSPanel(Static):
         self.dns_adapter = None
         self.last_responses = {}  # Store raw responses for logs
 
+    def compose(self) -> ComposeResult:
+        """Create scrollable content area."""
+        yield Static(id="dns-content")
+
     def on_mount(self) -> None:
         """Panel mounted - will be populated from state."""
         pass
 
     def render_from_state(self, state) -> None:
         """Render panel from state data."""
+        content = self.query_one("#dns-content", Static)
         if not state.dns_responses:
-            self.update("[dim]No DNS data available[/dim]")
+            content.update("[dim]No DNS data available[/dim]")
             return
 
         self._render_dns_data(state.dns_responses)
@@ -568,13 +565,15 @@ class DNSPanel(Static):
 
                 output.append("\n")
 
-            self.update("".join(output))
+            content = self.query_one("#dns-content", Static)
+            content.update("".join(output))
 
         except Exception as e:
-            self.update(f"[red]Error: {str(e)}[/red]")
+            content = self.query_one("#dns-content", Static)
+            content.update(f"[red]Error: {str(e)}[/red]")
 
 
-class CertificatePanel(Static):
+class CertificatePanel(VerticalScroll):
     """Panel for displaying SSL/TLS certificate information.
 
     This panel shows comprehensive certificate details including:
@@ -606,14 +605,19 @@ class CertificatePanel(Static):
         self.cert_adapter = None
         self.last_tls_info = None  # Store raw TLS info for logs
 
+    def compose(self) -> ComposeResult:
+        """Create scrollable content area."""
+        yield Static(id="cert-content")
+
     def on_mount(self) -> None:
         """Panel mounted - data already loaded via dashboard."""
         pass
 
     def render_from_state(self, state) -> None:
         """Render panel from state data."""
+        content = self.query_one("#cert-content", Static)
         if not state.tls_info:
-            self.update("[dim]No certificate data available[/dim]")
+            content.update("[dim]No certificate data available[/dim]")
             return
         self._render_cert_data(state.tls_info)
 
@@ -685,10 +689,12 @@ class CertificatePanel(Static):
             else:
                 output.append("[red]Failed to retrieve certificate[/red]\n")
 
-            self.update("".join(output))
+            content = self.query_one("#cert-content", Static)
+            content.update("".join(output))
 
         except Exception as e:
-            self.update(
+            content = self.query_one("#cert-content", Static)
+            content.update(
                 f"[red]Error: {str(e)}[/red]\n\n[dim]Make sure OpenSSL is installed and the domain is accessible[/dim]"
             )
 
@@ -780,7 +786,7 @@ class CertificatePanel(Static):
             )
 
 
-class RegistryPanel(Static):
+class RegistryPanel(VerticalScroll):
     """Panel for displaying domain registration (WHOIS/RDAP) information.
 
     This panel shows detailed domain registration data including:
@@ -814,14 +820,19 @@ class RegistryPanel(Static):
         self.registry_adapter = None
         self.last_registration = None  # Store raw registration for logs
 
+    def compose(self) -> ComposeResult:
+        """Create scrollable content area."""
+        yield Static(id="registry-content")
+
     def on_mount(self) -> None:
         """Panel mounted - data already loaded via dashboard."""
         pass
 
     def render_from_state(self, state) -> None:
         """Render panel from state data."""
+        content = self.query_one("#registry-content", Static)
         if not state.registration:
-            self.update("[dim]No registration data available[/dim]")
+            content.update("[dim]No registration data available[/dim]")
             return
         self._render_registration_data(state.registration)
 
@@ -891,10 +902,12 @@ class RegistryPanel(Static):
                 if registration.registrant.country:
                     output.append(f"  {registration.registrant.country}\n")
 
-            self.update("".join(output))
+            content = self.query_one("#registry-content", Static)
+            content.update("".join(output))
 
         except Exception as e:
-            self.update(
+            content = self.query_one("#registry-content", Static)
+            content.update(
                 f"[red]Error: {str(e)}[/red]\n\n[dim]Make sure 'whois' command is installed (brew install whois / apt-get install whois)[/dim]"
             )
 
@@ -984,7 +997,7 @@ class RegistryPanel(Static):
             )
 
 
-class DNSSECPanel(Static):
+class DNSSECPanel(VerticalScroll):
     """Panel for displaying DNSSEC validation and key information.
 
     This panel shows comprehensive DNSSEC data including:
@@ -1019,14 +1032,19 @@ class DNSSECPanel(Static):
         self.dns_adapter = None
         self.last_validation = None  # Store validation for logs
 
+    def compose(self) -> ComposeResult:
+        """Create scrollable content area."""
+        yield Static(id="dnssec-content")
+
     def on_mount(self) -> None:
         """Panel mounted - data already loaded via dashboard."""
         pass
 
     def render_from_state(self, state) -> None:
         """Render panel from state data."""
+        content = self.query_one("#dnssec-content", Static)
         if not state.dnssec_validation:
-            self.update("[dim]No DNSSEC data available[/dim]")
+            content.update("[dim]No DNSSEC data available[/dim]")
             return
         self._render_dnssec_data(state.dnssec_validation)
 
@@ -1125,10 +1143,12 @@ class DNSSECPanel(Static):
                     output.append(f"  [yellow]⚠[/yellow] {warning}\n")
                 output.append("\n")
 
-            self.update("".join(output))
+            content = self.query_one("#dnssec-content", Static)
+            content.update("".join(output))
 
         except Exception as e:
-            self.update(
+            content = self.query_one("#dnssec-content", Static)
+            content.update(
                 f"[red]Error: {str(e)}[/red]\n\n[dim]Make sure 'dog' or 'dig' is installed[/dim]"
             )
 
@@ -1485,7 +1505,7 @@ class HTTPPanel(VerticalScroll):
             )
 
 
-class EmailPanel(Static):
+class EmailPanel(VerticalScroll):
     """Panel for displaying email security and authentication configuration.
 
     This panel shows comprehensive email authentication data including:
@@ -1531,14 +1551,19 @@ class EmailPanel(Static):
         self.email_adapter = None
         self.last_email_config = None  # Store raw config for logs
 
+    def compose(self) -> ComposeResult:
+        """Create scrollable content area."""
+        yield Static(id="email-content")
+
     def on_mount(self) -> None:
         """Panel mounted - data already loaded via dashboard."""
         pass
 
     def render_from_state(self, state) -> None:
         """Render panel from state data."""
+        content = self.query_one("#email-content", Static)
         if not state.email_config:
-            self.update("[dim]No email configuration data available[/dim]")
+            content.update("[dim]No email configuration data available[/dim]")
             return
         self._render_email_data(state.email_config)
 
@@ -1655,7 +1680,7 @@ class EmailPanel(Static):
             if email_config.has_dmarc:
                 dmarc = email_config.dmarc_record
                 output.append(
-                    f"  Record: [dim]{dmarc.record[:80]}{'...' if len(dmarc.record) > 80 else ''}[/dim]\n"
+                    f"  Record: [dim]{dmarc.raw_record[:80] if dmarc.raw_record else 'N/A'}{'...' if dmarc.raw_record and len(dmarc.raw_record) > 80 else ''}[/dim]\n"
                 )
 
                 # Policy
@@ -1731,10 +1756,12 @@ class EmailPanel(Static):
                         f"  [yellow]○ Consider adding DKIM for enhanced security[/yellow]\n"
                     )
 
-            self.update("".join(output))
+            content = self.query_one("#email-content", Static)
+            content.update("".join(output))
 
         except Exception as e:
-            self.update(
+            content = self.query_one("#email-content", Static)
+            content.update(
                 f"[red]Error: {str(e)}[/red]\n\n[dim]Make sure DNS tools are available[/dim]"
             )
 
@@ -1860,7 +1887,7 @@ class EmailPanel(Static):
             if email_config.has_dmarc:
                 dmarc = email_config.dmarc_record
                 output.append(
-                    f"  Record: [dim]{dmarc.record[:80]}{'...' if len(dmarc.record) > 80 else ''}[/dim]\n"
+                    f"  Record: [dim]{dmarc.raw_record[:80] if dmarc.raw_record else 'N/A'}{'...' if dmarc.raw_record and len(dmarc.raw_record) > 80 else ''}[/dim]\n"
                 )
 
                 # Policy
@@ -2647,7 +2674,7 @@ class DNSDebuggerApp(App):
                     ],
                     "dmarc_record": {
                         "domain": email_config.dmarc_record.domain,
-                        "record": email_config.dmarc_record.record,
+                        "raw_record": email_config.dmarc_record.raw_record,
                         "policy": email_config.dmarc_record.policy.value,
                         "subdomain_policy": email_config.dmarc_record.subdomain_policy.value
                         if email_config.dmarc_record.subdomain_policy
