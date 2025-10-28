@@ -8,6 +8,8 @@ from textual.widgets import Header, Footer, Static, TabbedContent, TabPane, Labe
 from dns_debugger.adapters.dns.factory import DNSAdapterFactory
 from dns_debugger.domain.models.dns_record import RecordType
 from dns_debugger.screens.raw_data_screen import RawDataScreen
+from dns_debugger.adapters.http.factory import HTTPAdapterFactory
+from dns_debugger.domain.models.http_info import HTTPMethod
 
 
 class DNSPanel(Static):
@@ -288,6 +290,89 @@ class RegistryPanel(Static):
             )
 
 
+class HTTPPanel(Static):
+    """Panel for displaying HTTP/HTTPS information."""
+
+    def __init__(self, domain: str) -> None:
+        super().__init__()
+        self.domain = domain
+        self.http_adapter = None
+        self.last_response = None  # Store raw response for logs
+
+    def on_mount(self) -> None:
+        """Load HTTP data when the panel is mounted."""
+        self.update_http_info()
+
+    def update_http_info(self) -> None:
+        """Query and display HTTP information."""
+        try:
+            self.http_adapter = HTTPAdapterFactory.create()
+            tool_name = self.http_adapter.get_tool_name()
+
+            output = []
+            output.append(f"[bold cyan]HTTP/HTTPS for {self.domain}[/bold cyan]\n")
+            output.append(f"Using: {tool_name}\n\n")
+
+            # Test both HTTP and HTTPS
+            for protocol in ["https", "http"]:
+                url = f"{protocol}://{self.domain}"
+                output.append(
+                    f"[bold yellow]{protocol.upper()}://{self.domain}[/bold yellow]\n"
+                )
+
+                response = self.http_adapter.check_url(url)
+                self.last_response = response  # Store for logs
+
+                if response.error:
+                    output.append(f"  [red]Error: {response.error}[/red]\n")
+                else:
+                    # Status
+                    if response.is_success:
+                        status_color = "green"
+                    elif response.is_redirect:
+                        status_color = "yellow"
+                    elif response.is_client_error or response.is_server_error:
+                        status_color = "red"
+                    else:
+                        status_color = "white"
+
+                    output.append(
+                        f"  Status: [{status_color}]{response.status_code} {response.status_text}[/{status_color}]\n"
+                    )
+                    output.append(
+                        f"  Response Time: {response.response_time_ms:.2f}ms\n"
+                    )
+
+                    # Redirect chain
+                    if response.was_redirected:
+                        output.append(
+                            f"\n  [bold]Redirect Chain ({response.redirect_count} redirect(s)):[/bold]\n"
+                        )
+                        for i, redirect in enumerate(response.redirect_chain, 1):
+                            output.append(
+                                f"    {i}. {redirect.status_code} → {redirect.to_url}\n"
+                            )
+                        output.append(f"    Final: {response.final_url}\n")
+
+                    # Headers
+                    if response.server:
+                        output.append(f"  Server: {response.server}\n")
+                    if response.content_type:
+                        output.append(f"  Content-Type: {response.content_type}\n")
+                    if response.content_length is not None:
+                        output.append(
+                            f"  Content-Length: {response.content_length} bytes\n"
+                        )
+
+                output.append("\n")
+
+            self.update("".join(output))
+
+        except Exception as e:
+            self.update(f"[red]Error: {str(e)}[/red]\n\n")
+            self.update("[dim]Make sure 'curl' or 'wget' is installed[/dim]")
+
+
 class DNSDebuggerApp(App):
     """Main DNS Debugger TUI application."""
 
@@ -345,6 +430,9 @@ class DNSDebuggerApp(App):
                 with TabPane("DNS", id="dns"):
                     yield DNSPanel(self.domain)
 
+                with TabPane("HTTP", id="http"):
+                    yield HTTPPanel(self.domain)
+
                 with TabPane("Certificate", id="cert"):
                     yield CertificatePanel(self.domain)
 
@@ -363,6 +451,9 @@ class DNSDebuggerApp(App):
         if active_pane == "dns":
             dns_panel = self.query_one(DNSPanel)
             dns_panel.update_dns_info()
+        elif active_pane == "http":
+            http_panel = self.query_one(HTTPPanel)
+            http_panel.update_http_info()
         elif active_pane == "cert":
             cert_panel = self.query_one(CertificatePanel)
             cert_panel.update_cert_info()
@@ -385,6 +476,35 @@ class DNSDebuggerApp(App):
             if dns_panel.last_responses:
                 raw_data = dns_panel.last_responses
                 title = f"DNS Raw Data - {dns_panel.domain}"
+        elif active_pane == "http":
+            http_panel = self.query_one(HTTPPanel)
+            if http_panel.last_response:
+                resp = http_panel.last_response
+                raw_data = {
+                    "url": resp.url,
+                    "final_url": resp.final_url,
+                    "status_code": resp.status_code,
+                    "status_text": resp.status_text,
+                    "response_time_ms": resp.response_time_ms,
+                    "was_redirected": resp.was_redirected,
+                    "redirect_count": resp.redirect_count,
+                    "redirect_chain": [
+                        {
+                            "from_url": r.from_url,
+                            "to_url": r.to_url,
+                            "status_code": r.status_code,
+                            "location_header": r.location_header,
+                        }
+                        for r in resp.redirect_chain
+                    ],
+                    "headers": resp.headers,
+                    "content_length": resp.content_length,
+                    "content_type": resp.content_type,
+                    "server": resp.server,
+                    "timestamp": resp.timestamp.isoformat(),
+                    "error": resp.error,
+                }
+                title = f"HTTP Raw Data - {http_panel.domain}"
         elif active_pane == "cert":
             cert_panel = self.query_one(CertificatePanel)
             if cert_panel.last_tls_info:
