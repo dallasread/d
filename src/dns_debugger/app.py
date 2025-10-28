@@ -62,20 +62,20 @@ class DashboardPanel(Container):
 
         with Horizontal(id="dashboard-sections"):
             # Left side - full height Registration
-            yield HealthSection("📋 Registration", "health-registry")
+            yield HealthSection("📋 Registration [dim]→ 1[/dim]", "health-registry")
 
             # Right side - 3 rows of sections
             with Vertical(id="dashboard-right"):
                 with Horizontal(id="dashboard-row-1"):
-                    yield HealthSection("📡 DNS", "health-dns")
-                    yield HealthSection("📧 Email", "health-email")
+                    yield HealthSection("📡 DNS [dim]→ 2[/dim]", "health-dns")
+                    yield HealthSection("📧 Email [dim]→ 6[/dim]", "health-email")
 
                 with Horizontal(id="dashboard-row-2"):
-                    yield HealthSection("🔐 DNSSEC", "health-dnssec")
-                    yield HealthSection("🔒 Certificate", "health-cert")
+                    yield HealthSection("🔐 DNSSEC [dim]→ 3[/dim]", "health-dnssec")
+                    yield HealthSection("🔒 Certificate [dim]→ 4[/dim]", "health-cert")
 
                 with Horizontal(id="dashboard-row-3"):
-                    yield HealthSection("🌐 HTTP/HTTPS", "health-http")
+                    yield HealthSection("🌐 HTTP/HTTPS [dim]→ 5[/dim]", "health-http")
 
     def on_mount(self) -> None:
         """Dashboard is ready but data not loaded."""
@@ -121,7 +121,6 @@ class DashboardPanel(Container):
                 if https_response.was_redirected:
                     output.append(f"  Redirects: {https_response.redirect_count}\n")
 
-            output.append(f"[dim]→ Press 5[/dim]")
             section.set_content("".join(output))
 
         except Exception as e:
@@ -162,7 +161,6 @@ class DashboardPanel(Container):
             else:
                 output.append(f"  [red]✗ No certificate found[/red]\n")
 
-            output.append(f"[dim]→ Press 4[/dim]")
             section.set_content("".join(output))
 
         except Exception as e:
@@ -216,7 +214,6 @@ class DashboardPanel(Container):
             else:
                 output.append(f"  [red]✗ NS: None[/red]\n")
 
-            output.append(f"[dim]→ Press 2[/dim]")
             section.set_content("".join(output))
 
         except Exception as e:
@@ -262,7 +259,6 @@ class DashboardPanel(Container):
             if registration.nameservers:
                 output.append(f"  Nameservers: {len(registration.nameservers)}\n")
 
-            output.append(f"[dim]→ Press 1[/dim]")
             section.set_content("".join(output))
 
         except Exception as e:
@@ -312,7 +308,6 @@ class DashboardPanel(Container):
                     f"  [yellow]⚠ {len(validation.warnings)} warning(s)[/yellow]\n"
                 )
 
-            output.append(f"[dim]→ Press 3[/dim]")
             section.set_content("".join(output))
 
         except Exception as e:
@@ -381,7 +376,6 @@ class DashboardPanel(Container):
             else:
                 output.append(f"  Score: [red]{score}/100[/red]\n")
 
-            output.append(f"[dim]→ Press 6[/dim]")
             section.set_content("".join(output))
 
         except Exception as e:
