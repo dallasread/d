@@ -1,5 +1,7 @@
 """Main Textual application for DNS Debugger."""
 
+import json
+
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
@@ -1234,13 +1236,25 @@ class HTTPPanel(Static):
 
     def render_from_state(self, state) -> None:
         """Render panel from state data."""
-        if not state.http_response and not state.https_response:
+        if (
+            not state.http_response
+            and not state.https_response
+            and not state.http_www_response
+            and not state.https_www_response
+        ):
             self.update("[dim]No HTTP/HTTPS data available[/dim]")
             return
-        self._render_http_data(state.http_response, state.https_response)
+        self._render_http_data(
+            state.http_response,
+            state.https_response,
+            state.http_www_response,
+            state.https_www_response,
+        )
 
-    def _render_http_data(self, http_response, https_response) -> None:
-        """Render HTTP and HTTPS data from responses."""
+    def _render_http_data(
+        self, http_response, https_response, http_www_response, https_www_response
+    ) -> None:
+        """Render HTTP and HTTPS data from responses for both apex and www subdomain."""
         try:
             # Store https for raw logs (backwards compatibility)
             self.last_response = https_response or http_response
@@ -1251,17 +1265,17 @@ class HTTPPanel(Static):
             )
             output.append(f"Using: HTTP data from state\n\n")
 
-            # Helper to render one protocol
-            def render_protocol(protocol, response):
+            # Helper to render one protocol for a specific domain/subdomain
+            def render_protocol(protocol, domain_label, response):
                 if not response:
                     output.append(
-                        f"[bold yellow]{protocol}://{self.domain}[/bold yellow]\n"
+                        f"[bold yellow]{protocol}://{domain_label}[/bold yellow]\n"
                     )
                     output.append(f"  [dim]Not checked[/dim]\n\n")
                     return
 
                 output.append(
-                    f"[bold yellow]{protocol}://{self.domain}[/bold yellow]\n"
+                    f"[bold yellow]{protocol}://{domain_label}[/bold yellow]\n"
                 )
 
                 if response.error:
@@ -1320,9 +1334,15 @@ class HTTPPanel(Static):
 
                 output.append("\n")
 
-            # Render both protocols
-            render_protocol("HTTP", http_response)
-            render_protocol("HTTPS", https_response)
+            # Render apex domain (naked domain)
+            output.append("[bold]Apex Domain:[/bold]\n")
+            render_protocol("HTTP", self.domain, http_response)
+            render_protocol("HTTPS", self.domain, https_response)
+
+            # Render www subdomain
+            output.append("[bold]WWW Subdomain:[/bold]\n")
+            render_protocol("HTTP", f"www.{self.domain}", http_www_response)
+            render_protocol("HTTPS", f"www.{self.domain}", https_www_response)
 
             self.update("".join(output))
 
@@ -2176,6 +2196,8 @@ class DNSDebuggerApp(App):
                 fetch_tls_info(),
                 fetch_http_response(),
                 fetch_https_response(),
+                fetch_http_www_response(),
+                fetch_https_www_response(),
                 fetch_registration(),
                 fetch_email_config(),
                 return_exceptions=True,
@@ -2194,6 +2216,8 @@ class DNSDebuggerApp(App):
                 tls_info,
                 http_response,
                 https_response,
+                http_www_response,
+                https_www_response,
                 registration,
                 email_config,
             ) = results
@@ -2221,8 +2245,11 @@ class DNSDebuggerApp(App):
                 self.state_manager.update_dnssec(validation)
             if not isinstance(tls_info, Exception):
                 self.state_manager.update_tls(tls_info)
-            if not isinstance(http_response, Exception) or not isinstance(
-                https_response, Exception
+            if (
+                not isinstance(http_response, Exception)
+                or not isinstance(https_response, Exception)
+                or not isinstance(http_www_response, Exception)
+                or not isinstance(https_www_response, Exception)
             ):
                 self.state_manager.update_http(
                     http_response=http_response
@@ -2230,6 +2257,12 @@ class DNSDebuggerApp(App):
                     else None,
                     https_response=https_response
                     if not isinstance(https_response, Exception)
+                    else None,
+                    http_www_response=http_www_response
+                    if not isinstance(http_www_response, Exception)
+                    else None,
+                    https_www_response=https_www_response
+                    if not isinstance(https_www_response, Exception)
                     else None,
                 )
             if not isinstance(registration, Exception):

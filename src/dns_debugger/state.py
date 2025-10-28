@@ -39,8 +39,10 @@ class AppState:
     tls_last_updated: Optional[datetime] = None
 
     # HTTP data
-    http_response: Optional[HTTPResponse] = None  # HTTPS response
-    https_response: Optional[HTTPResponse] = None  # Explicit HTTPS
+    http_response: Optional[HTTPResponse] = None  # HTTP response
+    https_response: Optional[HTTPResponse] = None  # HTTPS response
+    http_www_response: Optional[HTTPResponse] = None  # HTTP www response
+    https_www_response: Optional[HTTPResponse] = None  # HTTPS www response
     http_last_updated: Optional[datetime] = None
 
     # Registration data
@@ -104,13 +106,21 @@ class StateManager:
         self.state.tls_last_updated = datetime.now()
 
     def update_http(
-        self, http_response: HTTPResponse = None, https_response: HTTPResponse = None
+        self,
+        http_response: HTTPResponse = None,
+        https_response: HTTPResponse = None,
+        http_www_response: HTTPResponse = None,
+        https_www_response: HTTPResponse = None,
     ) -> None:
-        """Update HTTP/HTTPS responses."""
+        """Update HTTP/HTTPS responses for both apex and www subdomain."""
         if http_response is not None:
             self.state.http_response = http_response
         if https_response is not None:
             self.state.https_response = https_response
+        if http_www_response is not None:
+            self.state.http_www_response = http_www_response
+        if https_www_response is not None:
+            self.state.https_www_response = https_www_response
         self.state.http_last_updated = datetime.now()
 
     def update_registration(self, registration: DomainRegistration) -> None:

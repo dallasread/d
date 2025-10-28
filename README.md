@@ -18,6 +18,10 @@ All data loads asynchronously with detailed progress indicators and is cached in
 ## Recent Updates
 
 **Latest improvements:**
+- ✅ **WWW subdomain checking** - HTTP/HTTPS panel now tests both apex domain and www subdomain automatically
+- ✅ **SPF policy explanations** - Human-readable descriptions for SPF mechanisms (-all, ~all, +all, ?all)
+- ✅ **Enhanced registration display** - Registration panel shows created/updated dates and all domain status codes
+- ✅ **Improved nameserver parsing** - Fixed WHOIS parser to exclude TLD registry servers (gtld-servers.net)
 - ✅ **Tab key navigation** - Use Tab/Shift+Tab to cycle through panels (same as arrow keys)
 - ✅ **Raw tool output toggle** - Press T in raw logs view to switch between JSON and actual tool output (dig, openssl, curl, whois)
 - ✅ **Smart NS record warnings** - Missing NS records only show as errors for apex domains; subdomains show informational message
@@ -151,12 +155,14 @@ The dashboard provides an at-a-glance health overview with color-coded status in
 
 Detailed WHOIS/RDAP information:
 - Registrar name
-- Registration dates (created, updated, expires)
+- Registration dates (created, updated, expires) displayed prominently
 - Expiration status with countdown
-- Nameserver list with IP addresses
-- Domain status codes
+- Full nameserver list with IP addresses (filtered to exclude TLD registry servers)
+- Complete domain status codes (clientTransferProhibited, serverDeleteProhibited, etc.)
 - DNSSEC status
 - Registrant organization and country
+
+**Note:** The WHOIS parser correctly filters out IANA TLD registry servers (gtld-servers.net) to show only your domain's actual authoritative nameservers.
 
 ### DNS Panel (Tab 2)
 
@@ -208,9 +214,10 @@ SSL/TLS certificate details:
 
 ### HTTP/HTTPS Panel (Tab 5)
 
-HTTP connectivity and response information for both protocols:
+HTTP connectivity and response information for both apex domain and www subdomain:
 
-**HTTP and HTTPS checks:**
+**Apex Domain Tests:**
+- `http://example.com` and `https://example.com` checked
 - Status code and text for both protocols
 - Response time in milliseconds
 - Success indicators (200-299 status or successful redirect chain)
@@ -222,7 +229,12 @@ HTTP connectivity and response information for both protocols:
 - Content-Type
 - Content-Length
 
-Both `http://` and `https://` versions of the domain are tested to ensure proper configuration and redirects.
+**WWW Subdomain Tests:**
+- `http://www.example.com` and `https://www.example.com` checked automatically
+- Same comprehensive checks as apex domain
+- Helps verify proper www redirect configuration
+
+Both the naked domain and www subdomain are tested for both HTTP and HTTPS protocols to ensure complete coverage of common domain access patterns.
 
 ### Email Panel (Tab 6)
 
@@ -238,7 +250,11 @@ Comprehensive email security configuration:
 
 **SPF (Sender Policy Framework):**
 - Full SPF record
-- Policy enforcement level (-all, ~all, +all)
+- Policy enforcement level with human-readable explanations:
+  - `-all` (Strict): Rejects unauthorized senders (recommended)
+  - `~all` (Soft Fail): Marks unauthorized as suspicious (transitional)
+  - `+all` (Allow All): Allows anyone to send (not recommended)
+  - `?all` (Neutral): No policy enforcement
 - Mechanism count
 - Recommendations if missing
 
