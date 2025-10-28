@@ -20,6 +20,7 @@ from dns_debugger.screens.raw_data_screen import RawDataScreen
 from dns_debugger.adapters.http.factory import HTTPAdapterFactory
 from dns_debugger.domain.models.http_info import HTTPMethod
 from dns_debugger.adapters.email.factory import EmailAdapterFactory
+from dns_debugger.state import StateManager
 
 
 class HealthSection(Static):
@@ -391,36 +392,36 @@ class DNSPanel(Static):
         self.last_responses = {}  # Store raw responses for logs
 
     def on_mount(self) -> None:
-        """Panel mounted - data already loaded via dashboard."""
+        """Panel mounted - will be populated from state."""
         pass
 
-    def update_dns_info(self) -> None:
-        """Refresh DNS data (called by refresh action)."""
-        self.update("[dim]Refreshing DNS records...[/dim]")
-        self.run_worker(self.fetch_dns_data(), exclusive=True)
+    def render_from_state(self, state) -> None:
+        """Render panel from state data."""
+        if not state.dns_responses:
+            self.update("[dim]No DNS data available[/dim]")
+            return
 
-    async def fetch_dns_data(self) -> None:
-        """Async worker to fetch DNS information."""
+        self._render_dns_data(state.dns_responses)
+
+    def _render_dns_data(self, dns_responses: dict) -> None:
+        """Render DNS data from responses dict."""
         try:
-            self.dns_adapter = DNSAdapterFactory.create()
-            tool_name = self.dns_adapter.get_tool_name()
-
-            # Build the entire output as a string first
             output = []
             output.append(f"[bold cyan]DNS Records for {self.domain}[/bold cyan]\n")
-            output.append(f"Using: {tool_name}\n\n")
+            output.append(f"Using: DNS queries\n\n")
 
-            # Query multiple record types
-            record_types = [
+            # Iterate through record types
+            for record_type in [
                 RecordType.A,
                 RecordType.AAAA,
                 RecordType.MX,
                 RecordType.TXT,
                 RecordType.NS,
-            ]
+            ]:
+                response = dns_responses.get(record_type.value)
 
-            for record_type in record_types:
-                response = self.dns_adapter.query(self.domain, record_type)
+                if not response:
+                    continue
 
                 # Store raw response for logs
                 self.last_responses[record_type.value] = {
@@ -459,7 +460,6 @@ class DNSPanel(Static):
 
                 output.append("\n")
 
-            # Update once with all content
             self.update("".join(output))
 
         except Exception as e:
