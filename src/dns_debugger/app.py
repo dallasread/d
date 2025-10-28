@@ -1135,50 +1135,50 @@ class DNSSECPanel(VerticalScroll):
 
         output.append("   │\n")
 
-        if chain.has_rrsig_record:
+        if chain.has_rrsig_record and chain.rrsig_records:
             # Show which key tags are used in signatures with details
-            if chain.rrsig_records:
-                # Group RRSIGs by key tag
-                rrsigs_by_key = {}
-                for sig in chain.rrsig_records:
-                    if sig.key_tag not in rrsigs_by_key:
-                        rrsigs_by_key[sig.key_tag] = []
-                    rrsigs_by_key[sig.key_tag].append(sig)
+            # Group RRSIGs by key tag
+            rrsigs_by_key = {}
+            for sig in chain.rrsig_records:
+                if sig.key_tag not in rrsigs_by_key:
+                    rrsigs_by_key[sig.key_tag] = []
+                rrsigs_by_key[sig.key_tag].append(sig)
 
-                output.append(f"   └─[green]RRSIG signatures:[/green]\n")
-                for key_tag in sorted(rrsigs_by_key.keys()):
-                    sigs = rrsigs_by_key[key_tag]
-                    # Show record types covered by this key
-                    types_covered = sorted(set(sig.type_covered for sig in sigs))
-                    types_str = ", ".join(types_covered[:5])  # Show first 5
-                    if len(types_covered) > 5:
-                        types_str += f" +{len(types_covered) - 5} more"
+            output.append(f"   └─[green]RRSIG signatures:[/green]\n")
+            for key_tag in sorted(rrsigs_by_key.keys()):
+                sigs = rrsigs_by_key[key_tag]
+                # Show record types covered by this key
+                types_covered = sorted(set(sig.type_covered for sig in sigs))
+                types_str = ", ".join(types_covered[:5])  # Show first 5
+                if len(types_covered) > 5:
+                    types_str += f" +{len(types_covered) - 5} more"
 
-                    # Get expiration info from first sig
-                    first_sig = sigs[0]
-                    days_left = first_sig.days_until_expiry
+                # Get expiration info from first sig
+                first_sig = sigs[0]
+                days_left = first_sig.days_until_expiry
 
-                    output.append(
-                        f"      [green]Key [[{key_tag}]][/green] signs: {types_str}\n"
-                    )
-                    if days_left > 30:
-                        output.append(
-                            f"      [dim]Expires in {days_left} days, Algo: {first_sig.algorithm.value.split()[0]}[/dim]\n"
-                        )
-                    elif days_left > 0:
-                        output.append(
-                            f"      [yellow]Expires in {days_left} days, Algo: {first_sig.algorithm.value.split()[0]}[/yellow]\n"
-                        )
-                    else:
-                        output.append(
-                            f"      [red]EXPIRED, Algo: {first_sig.algorithm.value.split()[0]}[/red]\n"
-                        )
-            else:
                 output.append(
-                    f"   └─[green]RRSIG signatures[/green] → Records are signed\n"
+                    f"      [green]Key [[{key_tag}]][/green] signs: {types_str}\n"
                 )
+                if days_left > 30:
+                    output.append(
+                        f"      [dim]Expires in {days_left} days, Algo: {first_sig.algorithm.value.split()[0]}[/dim]\n"
+                    )
+                elif days_left > 0:
+                    output.append(
+                        f"      [yellow]Expires in {days_left} days, Algo: {first_sig.algorithm.value.split()[0]}[/yellow]\n"
+                    )
+                else:
+                    output.append(
+                        f"      [red]EXPIRED, Algo: {first_sig.algorithm.value.split()[0]}[/red]\n"
+                    )
+        elif chain.is_signed:
+            # Domain has DNSKEY records, so it's signed even if we don't have all RRSIGs
+            output.append(
+                f"   └─[green]RRSIG signatures present[/green] → Zone is signed\n"
+            )
         else:
-            output.append(f"   └─[red]No RRSIG[/red] → Records not signed\n")
+            output.append(f"   └─[dim]No RRSIG records[/dim] → Zone not signed\n")
 
         output.append("\n")
 
