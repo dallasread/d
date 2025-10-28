@@ -1254,47 +1254,26 @@ class DNSDebuggerApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
-        """Load all data when app starts."""
-        # Show loading indicator
+        """App mounted - hide loading indicator and show content."""
+        # Hide loading indicator immediately
         loading = self.query_one("#app-loading", LoadingIndicator)
-        loading.display = True
+        loading.display = False
 
-        # Hide main container while loading
+        # Show main container
         main_container = self.query_one("#main-container")
-        main_container.display = False
-
-        # Defer loading to next tick to not block UI rendering
-        self.call_later(self._load_all_data)
-
-    def _load_all_data(self) -> None:
-        """Load the Dashboard which will load all health checks."""
-        dashboard_panel = self.query_one(DashboardPanel)
-        dashboard_panel.load_data()
-
-        # Monitor when all workers complete
-        self.set_timer(0.1, self._check_loading_complete)
-
-    def _check_loading_complete(self) -> None:
-        """Check if all loading is complete and hide loading indicator."""
-        dashboard_panel = self.query_one(DashboardPanel)
-
-        # Check if dashboard has finished loading (all workers done)
-        if dashboard_panel.loaded:
-            loading = self.query_one("#app-loading", LoadingIndicator)
-            loading.display = False
-
-            main_container = self.query_one("#main-container")
-            main_container.display = True
-        else:
-            # Check again in 100ms
-            self.set_timer(0.1, self._check_loading_complete)
+        main_container.display = True
 
     def on_tabbed_content_tab_activated(self, event) -> None:
         """Handle tab activation - load panel data when tab is visited."""
         tab_id = event.tab.id
 
         # Load panel data when first visited (defer to next tick)
-        if tab_id == "dns":
+        if tab_id == "dashboard":
+            dashboard_panel = self.query_one(DashboardPanel)
+            if not hasattr(dashboard_panel, "_loaded"):
+                dashboard_panel._loaded = True
+                self.call_later(dashboard_panel.load_data)
+        elif tab_id == "dns":
             dns_panel = self.query_one(DNSPanel)
             if not hasattr(dns_panel, "_loaded"):
                 dns_panel._loaded = True
