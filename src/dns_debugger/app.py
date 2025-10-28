@@ -59,7 +59,7 @@ class DashboardPanel(Container):
     def compose(self) -> ComposeResult:
         """Compose the dashboard with health sections in columns."""
         yield Static(
-            f"[bold cyan]Health Dashboard - {self.domain}[/bold cyan]  [dim]Press 0-5 to jump to tabs[/dim]",
+            f"[bold cyan]Health Dashboard - {self.domain}[/bold cyan]  [dim]Press [/dim][dim][0][/dim][dim]-[/dim][dim][5][/dim][dim] to jump to tabs[/dim]",
             id="dashboard-header",
         )
 
@@ -70,26 +70,32 @@ class DashboardPanel(Container):
                 yield HealthSection("🏥 Overall Health", "health-overall")
                 # Registration below
                 yield HealthSection(
-                    "📋 Registration [dim]→ press 1[/dim]", "health-registry"
+                    "📋 Registration [dim]→ press [/dim][dim][1][/dim]",
+                    "health-registry",
                 )
 
             # Right side - 3 rows of sections
             with Vertical(id="dashboard-right"):
                 with Horizontal(id="dashboard-row-1"):
-                    yield HealthSection("📡 DNS [dim]→ press 2[/dim]", "health-dns")
-                    yield HealthSection("📧 Email [dim]→ press 6[/dim]", "health-email")
+                    yield HealthSection(
+                        "📡 DNS [dim]→ press [/dim][dim][2][/dim]", "health-dns"
+                    )
+                    yield HealthSection(
+                        "📧 Email [dim]→ press [/dim][dim][6][/dim]", "health-email"
+                    )
 
                 with Horizontal(id="dashboard-row-2"):
                     yield HealthSection(
-                        "🔐 DNSSEC [dim]→ press 3[/dim]", "health-dnssec"
+                        "🔐 DNSSEC [dim]→ press [/dim][dim][3][/dim]", "health-dnssec"
                     )
                     yield HealthSection(
-                        "🔒 Certificate [dim]→ press 4[/dim]", "health-cert"
+                        "🔒 Certificate [dim]→ press [/dim][dim][4][/dim]",
+                        "health-cert",
                     )
 
                 with Horizontal(id="dashboard-row-3"):
                     yield HealthSection(
-                        "🌐 HTTP/HTTPS [dim]→ press 5[/dim]", "health-http"
+                        "🌐 HTTP/HTTPS [dim]→ press [/dim][dim][5][/dim]", "health-http"
                     )
 
     def on_mount(self) -> None:
