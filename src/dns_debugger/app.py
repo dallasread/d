@@ -1071,7 +1071,7 @@ class DNSSECPanel(VerticalScroll):
             output.append(f"  [cyan].{tld}[/cyan] (TLD)\n")
             output.append("   │\n")
             if chain.has_ds_record and chain.ds_records:
-                # Show each DS record with key tag
+                # Show each DS record with key tag and details
                 for ds in chain.ds_records:
                     algo_short = ds.algorithm.value.split()[
                         0
@@ -1080,8 +1080,9 @@ class DNSSECPanel(VerticalScroll):
                         0
                     ]  # e.g., "SHA-256" from "SHA-256 (2)"
                     output.append(
-                        f"   ├─[green]DS {ds.key_tag}[/green] ({algo_short}/{digest_short}) → Points to DNSKEY {ds.key_tag}\n"
+                        f"   ├─[green]DS [[{ds.key_tag}]][/green] ({algo_short}/{digest_short}, TTL={ds.ttl}s)\n"
                     )
+                    output.append(f"   │  [dim]Digest: {ds.digest[:48]}...[/dim]\n")
             else:
                 output.append(f"   ├─[red]No DS record[/red] → Chain broken\n")
             output.append("   │\n")
@@ -1108,11 +1109,17 @@ class DNSSECPanel(VerticalScroll):
                     )
                     if matching_ds:
                         output.append(
-                            f"   ├─[green]DNSKEY {ksk.key_tag}[/green] (KSK, {algo_short}) [green]← Matches DS {ksk.key_tag}[/green]\n"
+                            f"   ├─[green]DNSKEY [[{ksk.key_tag}]][/green] (KSK, {algo_short}, flags={ksk.flags}, TTL={ksk.ttl}s)\n"
+                        )
+                        output.append(
+                            f"   │  [green]← Matches DS {ksk.key_tag}[/green]\n"
                         )
                     else:
                         output.append(
-                            f"   ├─[yellow]DNSKEY {ksk.key_tag}[/yellow] (KSK, {algo_short}) [yellow]⚠ No matching DS[/yellow]\n"
+                            f"   ├─[yellow]DNSKEY [[{ksk.key_tag}]][/yellow] (KSK, {algo_short}, flags={ksk.flags}, TTL={ksk.ttl}s)\n"
+                        )
+                        output.append(
+                            f"   │  [yellow]⚠ No matching DS record[/yellow]\n"
                         )
 
             # Show ZSK keys (signed by KSK)
@@ -1120,21 +1127,52 @@ class DNSSECPanel(VerticalScroll):
                 for zsk in zsk_keys:
                     algo_short = zsk.algorithm.value.split()[0]
                     output.append(
-                        f"   ├─[cyan]DNSKEY {zsk.key_tag}[/cyan] (ZSK, {algo_short}) → Signs zone records\n"
+                        f"   ├─[cyan]DNSKEY [[{zsk.key_tag}]][/cyan] (ZSK, {algo_short}, flags={zsk.flags}, TTL={zsk.ttl}s)\n"
                     )
+                    output.append(f"   │  [cyan]→ Signs zone records[/cyan]\n")
         else:
             output.append(f"   ├─[red]No DNSKEY[/red]\n")
 
         output.append("   │\n")
 
         if chain.has_rrsig_record:
-            # Show which key tags are used in signatures
+            # Show which key tags are used in signatures with details
             if chain.rrsig_records:
-                sig_key_tags = sorted(set(sig.key_tag for sig in chain.rrsig_records))
-                sig_tags_str = ", ".join(str(tag) for tag in sig_key_tags)
-                output.append(
-                    f"   └─[green]RRSIG signatures[/green] using keys: {sig_tags_str}\n"
-                )
+                # Group RRSIGs by key tag
+                rrsigs_by_key = {}
+                for sig in chain.rrsig_records:
+                    if sig.key_tag not in rrsigs_by_key:
+                        rrsigs_by_key[sig.key_tag] = []
+                    rrsigs_by_key[sig.key_tag].append(sig)
+
+                output.append(f"   └─[green]RRSIG signatures:[/green]\n")
+                for key_tag in sorted(rrsigs_by_key.keys()):
+                    sigs = rrsigs_by_key[key_tag]
+                    # Show record types covered by this key
+                    types_covered = sorted(set(sig.type_covered for sig in sigs))
+                    types_str = ", ".join(types_covered[:5])  # Show first 5
+                    if len(types_covered) > 5:
+                        types_str += f" +{len(types_covered) - 5} more"
+
+                    # Get expiration info from first sig
+                    first_sig = sigs[0]
+                    days_left = first_sig.days_until_expiry
+
+                    output.append(
+                        f"      [green]Key [[{key_tag}]][/green] signs: {types_str}\n"
+                    )
+                    if days_left > 30:
+                        output.append(
+                            f"      [dim]Expires in {days_left} days, Algo: {first_sig.algorithm.value.split()[0]}[/dim]\n"
+                        )
+                    elif days_left > 0:
+                        output.append(
+                            f"      [yellow]Expires in {days_left} days, Algo: {first_sig.algorithm.value.split()[0]}[/yellow]\n"
+                        )
+                    else:
+                        output.append(
+                            f"      [red]EXPIRED, Algo: {first_sig.algorithm.value.split()[0]}[/red]\n"
+                        )
             else:
                 output.append(
                     f"   └─[green]RRSIG signatures[/green] → Records are signed\n"
@@ -1229,7 +1267,9 @@ class DNSSECPanel(VerticalScroll):
 
                     for i, key in enumerate(chain.dnskey_records[:3], 1):
                         key_type = "KSK" if key.is_key_signing_key else "ZSK"
-                        output.append(f"  Key {i} ({key_type}):\n")
+                        output.append(
+                            f"  Key {i} ({key_type}) [bold][{key.key_tag}][/bold]:\n"
+                        )
                         output.append(f"    Flags: {key.flags}\n")
                         output.append(f"    Algorithm: {key.algorithm.value}\n")
                         output.append(f"    Key Tag: {key.key_tag}\n")
@@ -1338,7 +1378,9 @@ class DNSSECPanel(VerticalScroll):
 
                     for i, key in enumerate(chain.dnskey_records[:3], 1):
                         key_type = "KSK" if key.is_key_signing_key else "ZSK"
-                        output.append(f"  Key {i} ({key_type}):\n")
+                        output.append(
+                            f"  Key {i} ({key_type}) [bold][{key.key_tag}][/bold]:\n"
+                        )
                         output.append(f"    Flags: {key.flags}\n")
                         output.append(f"    Algorithm: {key.algorithm.value}\n")
                         output.append(f"    Key Tag: {key.key_tag}\n")
