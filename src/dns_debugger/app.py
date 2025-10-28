@@ -1050,166 +1050,306 @@ class DNSSECPanel(VerticalScroll):
             return
         self._render_dnssec_data(state.dnssec_validation)
 
+    def _keytag_to_color(self, key_tag: int) -> str:
+        """Map a key tag to a consistent color for visual identification.
+
+        Uses a hash of the key tag to select from a palette of distinct colors.
+        This makes it easy to visually match DS records with DNSKEY records.
+        """
+        # Use a palette of distinct, terminal-friendly colors
+        colors = [
+            "bright_blue",
+            "bright_magenta",
+            "bright_cyan",
+            "bright_green",
+            "bright_yellow",
+            "bright_red",
+            "blue",
+            "magenta",
+            "cyan",
+        ]
+        # Hash the key tag to get a consistent color
+        color_index = key_tag % len(colors)
+        return colors[color_index]
+
     def _render_dnssec_chain_visual(self, output: list, chain) -> None:
-        """Render a visual representation of the DNSSEC chain with key tag relationships."""
-        output.append("[bold yellow]DNSSEC Chain:[/bold yellow]\n\n")
+        """Render a DNSViz-style visualization of the DNSSEC validation chain.
 
-        # Extract domain parts for hierarchy
-        parts = self.domain.split(".")
+        Shows the DNSSEC chain for the target domain with:
+        - DS records from parent zone (proves parent trusts this zone)
+        - DNSKEY records for this zone (KSK and ZSK)
+        - RRSIG records (signatures covering zone data)
+        - Key relationships and matching between DS and DNSKEY
+        - Color-coded key tags for easy visual matching
+        """
+        output.append("[bold yellow]DNSSEC Chain of Trust:[/bold yellow]\n\n")
 
-        # Build chain visualization from root down to domain
-        if len(parts) >= 2:
-            # Root zone
-            output.append("  [dim].[/dim] (root)\n")
-            output.append("   │\n")
-            output.append("   ├─[dim]DNSKEY[/dim] → [dim]Signs DS records[/dim]\n")
-            output.append("   │\n")
-            output.append("   ↓\n\n")
+        # Extract domain hierarchy (e.g., "www.example.com" -> ["com", "example", "www"])
+        parts = self.domain.rstrip(".").split(".")
+        parts.reverse()  # Start from TLD
 
-            # TLD (e.g., .com)
-            tld = parts[-1]
-            output.append(f"  [cyan].{tld}[/cyan] (TLD)\n")
-            output.append("   │\n")
-            if chain.has_ds_record and chain.ds_records:
-                # Show each DS record with key tag and details
-                for ds in chain.ds_records:
-                    algo_short = ds.algorithm.value.split()[
-                        0
-                    ]  # e.g., "RSASHA256" from "RSASHA256 (8)"
-                    digest_short = ds.digest_type.value.split()[
-                        0
-                    ]  # e.g., "SHA-256" from "SHA-256 (2)"
-                    output.append(
-                        f"   ├─[green]DS [[{ds.key_tag}]][/green] ({algo_short}/{digest_short}, TTL={ds.ttl}s)\n"
-                    )
-                    output.append(f"   │  [dim]Digest: {ds.digest[:48]}...[/dim]\n")
+        # Helper function to render a zone's keys and signatures
+        def render_zone_keys(zone_name: str, is_target: bool = False):
+            """Render DNSKEY, DS, and RRSIG records for a specific zone."""
+
+            # Zone header
+            if zone_name == ".":
+                output.append("  [bold cyan].[/bold cyan] [dim](root zone)[/dim]\n")
             else:
-                output.append(f"   ├─[red]No DS record[/red] → Chain broken\n")
-            output.append("   │\n")
-            output.append("   ↓\n\n")
+                label = (
+                    "[bold cyan]target zone[/bold cyan]"
+                    if is_target
+                    else "[dim]delegated zone[/dim]"
+                )
+                output.append(f"  [bold cyan]{zone_name}[/bold cyan] {label}\n")
 
-        # Target domain
-        output.append(f"  [cyan]{self.domain}[/cyan] (target)\n")
-        output.append("   │\n")
+            output.append(
+                "  ├─────────────────────────────────────────────────────────\n"
+            )
 
-        if chain.has_dnskey_record and chain.dnskey_records:
-            # Group keys by type for clarity
-            ksk_keys = [k for k in chain.dnskey_records if k.is_key_signing_key]
-            zsk_keys = [k for k in chain.dnskey_records if k.is_zone_signing_key]
+            # For target domain, show its DNSKEY records
+            if is_target and chain.has_dnskey_record and chain.dnskey_records:
+                output.append("  │ [bold]DNSKEY Records:[/bold]\n")
 
-            # Show KSK keys (referenced by DS records)
-            if ksk_keys:
+                # Group by key type
+                ksk_keys = [k for k in chain.dnskey_records if k.is_key_signing_key]
+                zsk_keys = [k for k in chain.dnskey_records if k.is_zone_signing_key]
+
+                # Show KSK keys first
                 for ksk in ksk_keys:
-                    algo_short = ksk.algorithm.value.split()[0]
-                    # Check if this KSK is referenced by a DS record
-                    matching_ds = (
-                        [ds for ds in chain.ds_records if ds.key_tag == ksk.key_tag]
-                        if chain.ds_records
-                        else []
+                    algo_name = ksk.algorithm.value.split()[0]
+                    algo_num = ksk.algorithm.value.split("(")[1].rstrip(")")
+
+                    # Check if DS matches this KSK
+                    matching_ds = [
+                        ds
+                        for ds in (chain.ds_records or [])
+                        if ds.key_tag == ksk.key_tag
+                    ]
+                    match_indicator = (
+                        "[green]✓[/green]" if matching_ds else "[yellow]⚠[/yellow]"
                     )
+
+                    # Color-code the key tag for easy visual matching
+                    key_color = self._keytag_to_color(ksk.key_tag)
+
+                    output.append(
+                        f"  │  {match_indicator} [green]KSK[/green] [bold {key_color}]Key Tag: {ksk.key_tag}[/bold {key_color}]\n"
+                    )
+                    output.append(
+                        f"  │     Flags: {ksk.flags} | Protocol: {ksk.protocol} | Algorithm: {algo_name} ({algo_num})\n"
+                    )
+                    output.append(f"  │     TTL: {ksk.ttl}s\n")
+                    output.append(
+                        f"  │     Public Key: [dim]{ksk.public_key[:64]}...[/dim]\n"
+                    )
+
                     if matching_ds:
                         output.append(
-                            f"   ├─[green]DNSKEY [[{ksk.key_tag}]][/green] (KSK, {algo_short}, flags={ksk.flags}, TTL={ksk.ttl}s)\n"
-                        )
-                        output.append(
-                            f"   │  [green]← Matches DS {ksk.key_tag}[/green]\n"
+                            f"  │     [green]→ Secured by DS record [{key_color}]{ksk.key_tag}[/{key_color}] in parent zone[/green]\n"
                         )
                     else:
                         output.append(
-                            f"   ├─[yellow]DNSKEY [[{ksk.key_tag}]][/yellow] (KSK, {algo_short}, flags={ksk.flags}, TTL={ksk.ttl}s)\n"
+                            f"  │     [yellow]→ No matching DS in parent (chain may be broken)[/yellow]\n"
+                        )
+                    output.append("  │\n")
+
+                # Show ZSK keys
+                for zsk in zsk_keys:
+                    algo_name = zsk.algorithm.value.split()[0]
+                    algo_num = zsk.algorithm.value.split("(")[1].rstrip(")")
+
+                    # Color-code the key tag for easy visual matching
+                    key_color = self._keytag_to_color(zsk.key_tag)
+
+                    output.append(
+                        f"  │  • [cyan]ZSK[/cyan] [bold {key_color}]Key Tag: {zsk.key_tag}[/bold {key_color}]\n"
+                    )
+                    output.append(
+                        f"  │     Flags: {zsk.flags} | Protocol: {zsk.protocol} | Algorithm: {algo_name} ({algo_num})\n"
+                    )
+                    output.append(f"  │     TTL: {zsk.ttl}s\n")
+                    output.append(
+                        f"  │     Public Key: [dim]{zsk.public_key[:64]}...[/dim]\n"
+                    )
+                    output.append(
+                        f"  │     [cyan]→ Signs zone resource records[/cyan]\n"
+                    )
+                    output.append("  │\n")
+
+            elif is_target:
+                output.append("  │ [red]✗ No DNSKEY records found[/red]\n")
+                output.append("  │\n")
+
+            # Show RRSIG records
+            if is_target and chain.has_rrsig_record and chain.rrsig_records:
+                output.append("  │ [bold]RRSIG Signatures:[/bold]\n")
+
+                # Group by key tag
+                rrsigs_by_key = {}
+                for sig in chain.rrsig_records:
+                    if sig.key_tag not in rrsigs_by_key:
+                        rrsigs_by_key[sig.key_tag] = []
+                    rrsigs_by_key[sig.key_tag].append(sig)
+
+                for key_tag in sorted(rrsigs_by_key.keys()):
+                    sigs = rrsigs_by_key[key_tag]
+                    first_sig = sigs[0]
+
+                    # Determine which key this is (KSK or ZSK)
+                    signing_key = next(
+                        (
+                            k
+                            for k in (chain.dnskey_records or [])
+                            if k.key_tag == key_tag
+                        ),
+                        None,
+                    )
+                    key_type = (
+                        "KSK"
+                        if signing_key and signing_key.is_key_signing_key
+                        else "ZSK"
+                    )
+
+                    # List covered types
+                    types_covered = sorted(set(sig.type_covered for sig in sigs))
+                    types_str = ", ".join(types_covered[:8])
+                    if len(types_covered) > 8:
+                        types_str += f" +{len(types_covered) - 8} more"
+
+                    # Expiration status
+                    days_left = first_sig.days_until_expiry
+                    if days_left > 30:
+                        expiry_color = "green"
+                        expiry_text = f"expires in {days_left}d"
+                    elif days_left > 0:
+                        expiry_color = "yellow"
+                        expiry_text = f"expires in {days_left}d"
+                    else:
+                        expiry_color = "red"
+                        expiry_text = "EXPIRED"
+
+                    algo_name = first_sig.algorithm.value.split()[0]
+
+                    # Color-code the key tag for easy visual matching
+                    key_color = self._keytag_to_color(key_tag)
+
+                    output.append(
+                        f"  │  • Signed by [{key_type}] [bold {key_color}]Key Tag {key_tag}[/bold {key_color}]\n"
+                    )
+                    output.append(f"  │     Covers: {types_str}\n")
+                    output.append(f"  │     Algorithm: {algo_name}\n")
+                    output.append(
+                        f"  │     Inception: {first_sig.signature_inception.strftime('%Y-%m-%d %H:%M')}\n"
+                    )
+                    output.append(
+                        f"  │     Expiration: {first_sig.signature_expiration.strftime('%Y-%m-%d %H:%M')} [{expiry_color}]({expiry_text})[/{expiry_color}]\n"
+                    )
+                    output.append(f"  │     Signer: {first_sig.signer_name}\n")
+                    output.append("  │\n")
+
+            elif is_target and not chain.has_rrsig_record:
+                output.append("  │ [yellow]⚠ No RRSIG records found[/yellow]\n")
+                output.append("  │   [dim]Zone records are not signed[/dim]\n")
+                output.append("  │\n")
+
+            output.append(
+                "  └─────────────────────────────────────────────────────────\n\n"
+            )
+
+        # Build the chain from root to target - show each zone recursively
+        if chain.parent_zones and len(chain.parent_zones) > 0:
+            # Show from root down to leaf
+            for zone_data in chain.parent_zones:
+                # Render this zone with ALL its data
+                zone_label = "root zone" if zone_data.zone_name == "." else "zone"
+                output.append(
+                    f"  [bold cyan]{zone_data.zone_name}[/bold cyan] [dim]({zone_label})[/dim]\n"
+                )
+                output.append(
+                    "  ├─────────────────────────────────────────────────────────\n"
+                )
+
+                # Show ALL DNSKEY records for this zone
+                if zone_data.has_dnskey:
+                    output.append(
+                        f"  │ [bold]DNSKEY Records ({len(zone_data.dnskey_records)} keys):[/bold]\n"
+                    )
+                    output.append("  │\n")
+
+                    for key in zone_data.dnskey_records:
+                        key_type = "KSK" if key.is_key_signing_key else "ZSK"
+                        key_color = self._keytag_to_color(key.key_tag)
+                        algo_name = key.algorithm.value.split()[0]
+                        algo_num = key.algorithm.value.split("(")[1].rstrip(")")
+
+                        output.append(
+                            f"  │  [{key_type}] [bold {key_color}]Key Tag: {key.key_tag}[/bold {key_color}]\n"
                         )
                         output.append(
-                            f"   │  [yellow]⚠ No matching DS record[/yellow]\n"
+                            f"  │      Flags: {key.flags} | Protocol: {key.protocol} | Algorithm: {algo_name} ({algo_num})\n"
                         )
+                        output.append(f"  │      TTL: {key.ttl}s\n")
+                        output.append(
+                            f"  │      Public Key: [dim]{key.public_key[:64]}...[/dim]\n"
+                        )
+                        output.append("  │\n")
+                else:
+                    output.append("  │ [red]✗ No DNSKEY records found[/red]\n")
+                    output.append("  │\n")
 
-            # Show ZSK keys (signed by KSK)
-            if zsk_keys:
-                for zsk in zsk_keys:
-                    algo_short = zsk.algorithm.value.split()[0]
+                # Show ALL DS records that delegate to child
+                if zone_data.has_ds:
                     output.append(
-                        f"   ├─[cyan]DNSKEY [[{zsk.key_tag}]][/cyan] (ZSK, {algo_short}, flags={zsk.flags}, TTL={zsk.ttl}s)\n"
+                        f"  │ [bold]DS Records ({len(zone_data.ds_records)} records - delegating to child):[/bold]\n"
                     )
-                    output.append(f"   │  [cyan]→ Signs zone records[/cyan]\n")
-        else:
-            output.append(f"   ├─[red]No DNSKEY[/red]\n")
+                    output.append("  │\n")
 
-        output.append("   │\n")
+                    for ds in zone_data.ds_records:
+                        key_color = self._keytag_to_color(ds.key_tag)
+                        algo_name = ds.algorithm.value.split()[0]
+                        algo_num = ds.algorithm.value.split("(")[1].rstrip(")")
+                        digest_name = ds.digest_type.value.split()[0]
+                        digest_num = ds.digest_type.value.split("(")[1].rstrip(")")
 
-        if chain.has_rrsig_record and chain.rrsig_records:
-            # Show which key tags are used in signatures with details
-            # Group RRSIGs by key tag
-            rrsigs_by_key = {}
-            for sig in chain.rrsig_records:
-                if sig.key_tag not in rrsigs_by_key:
-                    rrsigs_by_key[sig.key_tag] = []
-                rrsigs_by_key[sig.key_tag].append(sig)
-
-            output.append(f"   └─[green]RRSIG signatures:[/green]\n")
-            for key_tag in sorted(rrsigs_by_key.keys()):
-                sigs = rrsigs_by_key[key_tag]
-                # Show record types covered by this key
-                types_covered = sorted(set(sig.type_covered for sig in sigs))
-                types_str = ", ".join(types_covered[:5])  # Show first 5
-                if len(types_covered) > 5:
-                    types_str += f" +{len(types_covered) - 5} more"
-
-                # Get expiration info from first sig
-                first_sig = sigs[0]
-                days_left = first_sig.days_until_expiry
-
-                output.append(
-                    f"      [green]Key [[{key_tag}]][/green] signs: {types_str}\n"
-                )
-                if days_left > 30:
-                    output.append(
-                        f"      [dim]Expires in {days_left} days, Algo: {first_sig.algorithm.value.split()[0]}[/dim]\n"
-                    )
-                elif days_left > 0:
-                    output.append(
-                        f"      [yellow]Expires in {days_left} days, Algo: {first_sig.algorithm.value.split()[0]}[/yellow]\n"
-                    )
+                        output.append(
+                            f"  │  [bold {key_color}]Key Tag: {ds.key_tag}[/bold {key_color}]\n"
+                        )
+                        output.append(f"  │      Algorithm: {algo_name} ({algo_num})\n")
+                        output.append(
+                            f"  │      Digest Type: {digest_name} ({digest_num})\n"
+                        )
+                        output.append(f"  │      Digest: [dim]{ds.digest}[/dim]\n")
+                        output.append(f"  │      TTL: {ds.ttl}s\n")
+                        output.append("  │\n")
                 else:
                     output.append(
-                        f"      [red]EXPIRED, Algo: {first_sig.algorithm.value.split()[0]}[/red]\n"
+                        "  │ [yellow]⚠ No DS records found (chain may be broken)[/yellow]\n"
                     )
-        elif chain.is_signed:
-            # Domain has DNSKEY records, so it's signed even if we don't have all RRSIGs
-            output.append(
-                f"   └─[green]RRSIG signatures present[/green] → Zone is signed\n"
-            )
-        else:
-            output.append(f"   └─[dim]No RRSIG records[/dim] → Zone not signed\n")
+                    output.append("  │\n")
 
-        output.append("\n")
-
-        # Summary indicator with key tag validation
-        if chain.has_chain_of_trust:
-            # Check if DS records match KSK keys
-            if chain.ds_records and chain.dnskey_records:
-                ds_tags = set(ds.key_tag for ds in chain.ds_records)
-                ksk_tags = set(
-                    k.key_tag for k in chain.dnskey_records if k.is_key_signing_key
-                )
-                matching_tags = ds_tags & ksk_tags
-
-                if matching_tags:
-                    output.append(
-                        f"  [green]✓ Complete chain of trust: DS records match KSK keys ({', '.join(str(t) for t in sorted(matching_tags))})[/green]\n\n"
-                    )
-                else:
-                    output.append(
-                        "  [yellow]⚠ Chain present but DS key tags don't match any KSK[/yellow]\n\n"
-                    )
-            else:
                 output.append(
-                    "  [green]✓ Complete chain of trust from root to domain[/green]\n\n"
+                    "  └─────────────────────────────────────────────────────────\n"
                 )
-        elif chain.is_signed:
-            output.append(
-                "  [yellow]⚠ Domain is signed but no DS record in parent[/yellow]\n\n"
-            )
+                output.append("\n")
         else:
-            output.append("  [dim]○ Domain is not DNSSEC signed[/dim]\n\n")
+            # Fallback: show conceptual chain if no parent data
+            output.append("  [bold cyan].[/bold cyan] [dim](root zone)[/dim]\n")
+            output.append("  │\n")
+            output.append("  ↓ [dim]delegates to[/dim]\n")
+            output.append("  │\n")
+
+            if len(parts) >= 1:
+                tld = f".{parts[0]}"
+                output.append(f"  [bold cyan]{tld}[/bold cyan] [dim](TLD zone)[/dim]\n")
+                output.append("  │\n")
+                output.append("  ↓ [dim]delegates to[/dim]\n")
+                output.append("  │\n")
+
+            output.append("\n")
+
+        # Show target domain with full details
+        render_zone_keys(self.domain, is_target=True)
 
     def _render_dnssec_data(self, validation) -> None:
         """Render DNSSEC data from validation."""
@@ -1244,69 +1384,7 @@ class DNSSECPanel(VerticalScroll):
             if validation.chain:
                 self._render_dnssec_chain_visual(output, validation.chain)
 
-            # Chain of trust
-            if validation.chain:
-                chain = validation.chain
-                output.append("[bold yellow]Chain of Trust:[/bold yellow]\n")
-                output.append(
-                    f"  Domain Signed: {'[green]Yes[/green]' if chain.is_signed else '[dim]No[/dim]'}\n"
-                )
-                output.append(
-                    f"  DS in Parent: {'[green]Yes[/green]' if chain.has_ds_record else '[dim]No[/dim]'}\n"
-                )
-                output.append(
-                    f"  Complete Chain: {'[green]Yes[/green]' if chain.has_chain_of_trust else '[dim]No[/dim]'}\n\n"
-                )
-
-                # DNSKEY records
-                if chain.dnskey_records:
-                    output.append("[bold yellow]DNSKEY Records:[/bold yellow]\n")
-                    output.append(f"  Total Keys: {len(chain.dnskey_records)}\n")
-                    output.append(f"  Key Signing Keys (KSK): {chain.ksk_count}\n")
-                    output.append(f"  Zone Signing Keys (ZSK): {chain.zsk_count}\n\n")
-
-                    for i, key in enumerate(chain.dnskey_records[:3], 1):
-                        key_type = "KSK" if key.is_key_signing_key else "ZSK"
-                        output.append(
-                            f"  Key {i} ({key_type}) [bold][[{key.key_tag}]][/bold]:\n"
-                        )
-                        output.append(
-                            f"    Flags: {key.flags}, Key Tag: {key.key_tag}, TTL: {key.ttl}s\n"
-                        )
-                        output.append(f"    Algorithm: {key.algorithm.value}\n")
-
-                    if len(chain.dnskey_records) > 3:
-                        output.append(
-                            f"  [dim]... and {len(chain.dnskey_records) - 3} more keys[/dim]\n"
-                        )
-                    output.append("\n")
-
-                # DS records
-                if chain.ds_records:
-                    output.append(
-                        "[bold yellow]DS Records (in parent zone):[/bold yellow]\n"
-                    )
-                    for i, ds in enumerate(chain.ds_records, 1):
-                        output.append(f"  DS {i}:\n")
-                        output.append(f"    Key Tag: {ds.key_tag}\n")
-                        output.append(f"    Algorithm: {ds.algorithm.value}\n")
-                        output.append(f"    Digest Type: {ds.digest_type.value}\n")
-                        output.append(f"    Digest: {ds.digest}\n")
-                        output.append(f"    TTL: {ds.ttl}s\n")
-                    output.append("\n")
-
-                # Signatures
-                if chain.has_rrsig_record:
-                    output.append("[bold yellow]Signatures:[/bold yellow]\n")
-                    output.append(f"  [green]✓ RRSIG records present[/green]\n\n")
-
-            # Warnings
-            if validation.has_warnings:
-                output.append("[bold yellow]Warnings:[/bold yellow]\n")
-                for warning in validation.warnings:
-                    output.append(f"  [yellow]⚠[/yellow] {warning}\n")
-                output.append("\n")
-
+            # Update the content widget with the rendered output
             content = self.query_one("#dnssec-content", Static)
             content.update("".join(output))
 
@@ -2344,7 +2422,17 @@ class DNSDebuggerApp(App):
             },
             "dnssec": {
                 "label": "DNSSEC: Validation",
-                "tool": f"dig {self.domain} +dnssec +multiline",
+                "tool": f"dig {self.domain} DNSKEY +dnssec",
+                "status": "pending",
+            },
+            "dnssec_root": {
+                "label": "DNSSEC: Root zone keys",
+                "tool": f"dig . DNSKEY +dnssec",
+                "status": "pending",
+            },
+            "dnssec_tld": {
+                "label": "DNSSEC: TLD zone keys",
+                "tool": f"dig {self.domain.split('.')[-1]} DNSKEY +dnssec",
                 "status": "pending",
             },
             "certificate": {
@@ -2503,14 +2591,20 @@ class DNSDebuggerApp(App):
 
             async def fetch_dnssec_validation():
                 self.update_loading_task("dnssec", "loading")
+                self.update_loading_task("dnssec_root", "loading")
+                self.update_loading_task("dnssec_tld", "loading")
                 try:
                     result = await loop.run_in_executor(
                         executor, dns_adapter.validate_dnssec, self.domain
                     )
                     self.update_loading_task("dnssec", "done")
+                    self.update_loading_task("dnssec_root", "done")
+                    self.update_loading_task("dnssec_tld", "done")
                     return result
                 except Exception:
                     self.update_loading_task("dnssec", "error")
+                    self.update_loading_task("dnssec_root", "error")
+                    self.update_loading_task("dnssec_tld", "error")
                     raise
 
             async def fetch_tls_info():

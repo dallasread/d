@@ -18,6 +18,9 @@ All data loads asynchronously with detailed progress indicators and is cached in
 ## Recent Updates
 
 **Latest improvements:**
+- ✅ **DNSSEC recursive chain visualization** - Complete root-to-leaf DNSSEC chain display showing all zones, DNSKEY, DS records, and signatures
+- ✅ **Color-coded key tags** - Consistent color mapping for key tags across DNSKEY, DS, and RRSIG records for easy visual tracking
+- ✅ **Full DNSSEC details** - Shows ALL keys and DS records (not truncated) with complete metadata (flags, algorithm, digest, TTL)
 - ✅ **HTTP redirect status fix** - Dashboard correctly shows green/pass for successful responses (200 OK) even after following redirects (301/302)
 - ✅ **Improved curl parsing** - Fixed status code extraction to use curl's JSON stats output for accurate final status
 - ✅ **WWW subdomain checking** - HTTP/HTTPS panel now tests both apex domain and www subdomain automatically
@@ -187,19 +190,62 @@ Each record shows:
 
 ### DNSSEC Panel (Tab 3)
 
-DNSSEC validation and key information:
-- Validation status (SECURE/INSECURE/BOGUS)
-- Validation time
-- Chain of trust verification
-- DNSKEY records with details:
-  - Key type (KSK/ZSK)
-  - Flags, algorithm, key tag
-  - TTL values
-- DS records (in parent zone):
-  - Key tag, algorithm, digest type
-  - Digest value
-- RRSIG presence
-- Warnings and error messages
+**Complete DNSSEC chain visualization from root to leaf** - similar to DNSViz.net
+
+The DNSSEC panel now provides a **recursive, full-chain visualization** that shows every zone in the delegation path from the root zone down to your target domain. For example, querying `example.com` shows:
+
+1. **Root Zone (`.`)**
+   - All DNSKEY records (KSK and ZSK) with full details
+   - DS records delegating to `.com` TLD
+
+2. **TLD Zone (`.com`)**
+   - All DNSKEY records for the `.com` zone
+   - DS records delegating to `example.com`
+
+3. **Target Zone (`example.com`)**
+   - All DNSKEY records (your domain's keys)
+   - RRSIG signatures covering zone records
+   - Full chain validation summary
+
+**What's shown for each zone:**
+- **DNSKEY Records** (all keys, not truncated):
+  - Key type: KSK (Key Signing Key, flags=257) or ZSK (Zone Signing Key, flags=256)
+  - Key tag (color-coded for easy visual matching)
+  - Flags, protocol, algorithm (name and number)
+  - TTL (Time To Live)
+  - Public key data (first 64 chars)
+
+- **DS Records** (delegation to child zone):
+  - Key tag (color-coded to match corresponding DNSKEY)
+  - Algorithm (name and number)
+  - Digest type (SHA-1, SHA-256, SHA-384, GOST)
+  - Complete digest hash
+  - TTL
+
+- **RRSIG Records** (for target zone):
+  - Which key (KSK/ZSK) signed which record types
+  - Signature inception and expiration dates
+  - Days until expiry (color-coded: green >30d, yellow <30d, red expired)
+  - Signer name and algorithm
+
+**Recursive chain support:**
+- Works for deeply nested domains: `a.b.c.d.example.com`
+- Shows every zone in the path: `. → com → example.com → d.example.com → c.d.example.com → ...`
+- Each zone displays complete DNSKEY and DS data
+- Color-coded key tags make it easy to trace DS → DNSKEY relationships
+
+**Key Features:**
+- **Color-coded key tags**: Same key tag always gets the same color, making it easy to visually match DS records to DNSKEYs
+- **Full details**: Shows ALL DNSKEY and DS records (not limited to 2 per zone)
+- **Validation summary**: Clear indication of chain status (SECURE, SIGNED BUT NOT SECURE, INSECURE)
+- **Relationship indicators**: Shows which DS records match which DNSKEY records
+- **Expiration warnings**: RRSIG signatures color-coded by expiration status
+
+**Implementation Notes:**
+- Both `dig` and `dog` adapters support recursive chain building
+- Queries are made zone-by-zone from root down to target
+- Each zone's DNSKEY and DS records are queried and parsed independently
+- Handles errors gracefully - continues building chain even if individual queries fail
 
 ### Certificate Panel (Tab 4)
 

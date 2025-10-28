@@ -112,6 +112,36 @@ class RRSIGRecord:
 
 
 @dataclass
+class ZoneData:
+    """Represents DNSSEC data for a single zone in the chain."""
+
+    zone_name: str  # e.g., ".", "com.", "example.com."
+    dnskey_records: list[DNSKEYRecord]
+    ds_records: list[DSRecord]  # DS records pointing to child zone
+    rrsig_records: list[RRSIGRecord]
+
+    @property
+    def has_dnskey(self) -> bool:
+        """Check if zone has DNSKEY records."""
+        return len(self.dnskey_records) > 0
+
+    @property
+    def has_ds(self) -> bool:
+        """Check if zone has DS records."""
+        return len(self.ds_records) > 0
+
+    @property
+    def ksk_count(self) -> int:
+        """Count Key Signing Keys."""
+        return sum(1 for key in self.dnskey_records if key.is_key_signing_key)
+
+    @property
+    def zsk_count(self) -> int:
+        """Count Zone Signing Keys."""
+        return sum(1 for key in self.dnskey_records if key.is_zone_signing_key)
+
+
+@dataclass
 class DNSSECChain:
     """Represents the DNSSEC chain of trust."""
 
@@ -122,6 +152,12 @@ class DNSSECChain:
     ds_records: list[DSRecord]
     dnskey_records: list[DNSKEYRecord]
     rrsig_records: list[RRSIGRecord]
+    parent_zones: Optional[list[ZoneData]] = None  # Root, TLD, etc.
+
+    def __post_init__(self) -> None:
+        """Initialize mutable defaults."""
+        if self.parent_zones is None:
+            self.parent_zones = []
 
     @property
     def is_signed(self) -> bool:

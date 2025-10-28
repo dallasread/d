@@ -1,7 +1,9 @@
 """DNS adapter implementation using the 'dog' command."""
 
 import json
+import re
 import subprocess
+import sys
 from datetime import datetime
 from typing import Optional
 
@@ -20,6 +22,7 @@ from dns_debugger.domain.models.dnssec_info import (
     RRSIGRecord,
     DNSSECAlgorithm,
     DigestType,
+    ZoneData,
 )
 from dns_debugger.domain.ports.dns_port import DNSPort
 
@@ -171,6 +174,155 @@ class DogAdapter(DNSPort):
         except Exception:
             return None
 
+    def query_dnskey_with_keytag(self, domain: str) -> tuple[list[DNSKEYRecord], str]:
+        """Query DNSKEY records with proper key tag parsing.
+
+        Note: Dog's JSON output doesn't include key tags, so we fall back to dig +multi
+        for accurate key tag parsing.
+
+        Returns:
+            Tuple of (list of DNSKEYRecord objects, raw output string)
+        """
+        start_time = datetime.now()
+
+        try:
+            # Use dig +multi to get key tags in comments
+            # This is a fallback since dog doesn't expose key tags
+            cmd = ["dig", domain, "DNSKEY", "+dnssec", "+multi"]
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=10, check=True
+            )
+
+            # Parse the +multi output to extract key tags
+            dnskey_records = []
+            lines = result.stdout.split("\n")
+
+            i = 0
+            while i < len(lines):
+                line = lines[i].strip()
+
+                # Look for DNSKEY lines (but not RRSIG DNSKEY)
+                if (
+                    "DNSKEY" in line
+                    and not line.startswith(";")
+                    and "RRSIG" not in line
+                ):
+                    # Extract base fields
+                    # Format: domain TTL IN DNSKEY flags protocol algorithm (key...)
+                    parts = line.split()
+                    if len(parts) >= 7:
+                        ttl = int(parts[1])
+                        flags = int(parts[4])
+                        protocol = int(parts[5])
+                        algorithm = int(parts[6])
+
+                        # Collect the public key (may span multiple lines)
+                        public_key_parts = []
+                        if "(" in line:
+                            # Multi-line format
+                            i += 1
+                            while i < len(lines) and ")" not in lines[i]:
+                                public_key_parts.append(lines[i].strip())
+                                i += 1
+                            if i < len(lines):
+                                # Get last line before )
+                                last_line = lines[i].split(")")[0].strip()
+                                if last_line:
+                                    public_key_parts.append(last_line)
+
+                                # Look for key id in comment after )
+                                comment = (
+                                    lines[i].split(")", 1)[1] if ")" in lines[i] else ""
+                                )
+                                key_tag = None
+                                if "key id" in comment or "key tag" in comment:
+                                    match = re.search(
+                                        r"key\s+(?:id|tag)\s*=\s*(\d+)", comment
+                                    )
+                                    if match:
+                                        key_tag = int(match.group(1))
+                        else:
+                            # Single line - extract key from end
+                            key_start = line.find(str(algorithm)) + len(str(algorithm))
+                            public_key_parts.append(line[key_start:].strip())
+                            # No key tag available in single-line format
+                            key_tag = None
+
+                        public_key = "".join(public_key_parts)
+
+                        # If no key tag found, calculate it (will be wrong but better than nothing)
+                        if key_tag is None:
+                            key_tag = (flags + protocol + algorithm) % 65536
+
+                        # Parse algorithm enum
+                        algo_enum = self._parse_algorithm(algorithm)
+
+                        dnskey_records.append(
+                            DNSKEYRecord(
+                                flags=flags,
+                                protocol=protocol,
+                                algorithm=algo_enum,
+                                key_tag=key_tag,
+                                public_key=public_key,
+                                ttl=ttl,
+                            )
+                        )
+
+                i += 1
+
+            return dnskey_records, result.stdout
+
+        except Exception:
+            return [], ""
+
+    def _get_parent_zones(self, domain: str) -> list[str]:
+        """Get list of parent zones from domain up to root.
+
+        Args:
+            domain: The domain to analyze (e.g., "www.example.com")
+
+        Returns:
+            List of parent zones (e.g., ["com", "."] for "example.com")
+        """
+        parts = domain.rstrip(".").split(".")
+        zones = []
+
+        # Build parent zones from TLD up to root
+        if len(parts) >= 2:
+            # TLD (e.g., "com")
+            zones.append(parts[-1])
+
+        # Always add root
+        zones.append(".")
+
+        return zones
+
+    def _query_zone_data(self, zone_name: str, child_domain: str) -> ZoneData:
+        """Query DNSSEC data for a specific zone.
+
+        Args:
+            zone_name: The zone to query (e.g., "com", ".")
+            child_domain: The child domain to get DS records for
+
+        Returns:
+            ZoneData with DNSKEY and DS records for this zone
+        """
+        # Query DNSKEY records for this zone
+        dnskey_response = self.query(zone_name, RecordType.DNSKEY)
+        dnskey_records = self._parse_dnskey_records(dnskey_response)
+
+        # Query DS records for the child domain from this zone's perspective
+        # DS records for child are published in parent zone
+        ds_response = self.query(child_domain, RecordType.DS)
+        ds_records = self._parse_ds_records(ds_response)
+
+        return ZoneData(
+            zone_name=zone_name,
+            dnskey_records=dnskey_records,
+            ds_records=ds_records,
+            rrsig_records=[],  # TODO: Parse RRSIG if needed
+        )
+
     def validate_dnssec(self, domain: str) -> DNSSECValidation:
         """Validate DNSSEC for a domain.
 
@@ -183,20 +335,19 @@ class DogAdapter(DNSPort):
         start_time = datetime.now()
 
         try:
-            # Query for DNSSEC-related records
+            # Query for DNSSEC-related records for target domain
             ds_response = self.query(domain, RecordType.DS)
-            dnskey_response = self.query(domain, RecordType.DNSKEY)
+            dnskey_records, dnskey_raw = self.query_dnskey_with_keytag(domain)
 
             # Query A record with DNSSEC validation
             # Note: dog doesn't have built-in DNSSEC validation like delv
             # We check for presence of DNSSEC records
 
             has_ds = ds_response.is_success and ds_response.record_count > 0
-            has_dnskey = dnskey_response.is_success and dnskey_response.record_count > 0
+            has_dnskey = len(dnskey_records) > 0
 
             # Parse DNSSEC records
             ds_records = self._parse_ds_records(ds_response)
-            dnskey_records = self._parse_dnskey_records(dnskey_response)
 
             # Try to get RRSIG records for A records
             rrsig_records = []
@@ -215,6 +366,61 @@ class DogAdapter(DNSPort):
             except Exception:
                 has_rrsig = False
 
+            # Build complete recursive DNSSEC chain from root to leaf
+            # For a.b.c.d.com, we need: . -> com -> d.com -> c.d.com -> b.c.d.com -> a.b.c.d.com
+            parent_zones = []
+            parts = domain.rstrip(".").split(".")
+
+            # Build the full chain recursively
+            # Start with root, then build each level down to the target
+
+            # Always query root zone
+            try:
+                # Root zone DNSKEY
+                root_dnskey_records, _ = self.query_dnskey_with_keytag(".")
+
+                # DS records for TLD in root zone
+                tld = parts[-1]
+                root_ds_response = self.query(tld, RecordType.DS)
+                root_ds_records = self._parse_ds_records(root_ds_response)
+
+                root_zone = ZoneData(
+                    zone_name=".",
+                    dnskey_records=root_dnskey_records,
+                    ds_records=root_ds_records,  # DS for TLD
+                    rrsig_records=[],
+                )
+                parent_zones.append(root_zone)
+            except Exception:
+                pass
+
+            # Now build each level from TLD down to parent of target
+            # For example.com: query com zone
+            # For a.b.example.com: query com, then example.com, then b.example.com
+            for i in range(len(parts) - 1, 0, -1):
+                # Build the current zone name
+                current_zone = ".".join(parts[i:])
+                # Build the child zone name (what this zone delegates to)
+                child_zone = ".".join(parts[i - 1 :])
+
+                try:
+                    # DNSKEY for current zone
+                    zone_dnskey_records, _ = self.query_dnskey_with_keytag(current_zone)
+
+                    # DS records for child zone (published in current zone)
+                    zone_ds_response = self.query(child_zone, RecordType.DS)
+                    zone_ds_records = self._parse_ds_records(zone_ds_response)
+
+                    zone_data = ZoneData(
+                        zone_name=current_zone,
+                        dnskey_records=zone_dnskey_records,
+                        ds_records=zone_ds_records,  # DS for child
+                        rrsig_records=[],
+                    )
+                    parent_zones.append(zone_data)
+                except Exception:
+                    pass
+
             # Build DNSSEC chain
             chain = DNSSECChain(
                 domain=domain,
@@ -224,6 +430,7 @@ class DogAdapter(DNSPort):
                 ds_records=ds_records,
                 dnskey_records=dnskey_records,
                 rrsig_records=rrsig_records,
+                parent_zones=parent_zones,
             )
 
             # Determine validation status

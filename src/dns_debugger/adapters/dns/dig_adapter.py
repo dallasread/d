@@ -2,6 +2,7 @@
 
 import re
 import subprocess
+import sys
 from datetime import datetime
 from typing import Optional
 
@@ -20,6 +21,7 @@ from dns_debugger.domain.models.dnssec_info import (
     RRSIGRecord,
     DNSSECAlgorithm,
     DigestType,
+    ZoneData,
 )
 from dns_debugger.domain.ports.dns_port import DNSPort
 
@@ -82,6 +84,105 @@ class DigAdapter(DNSPort):
                 timestamp=datetime.now(),
                 error=f"Unexpected error: {str(e)}",
             )
+
+    def query_dnskey_with_keytag(self, domain: str) -> tuple[list[DNSKEYRecord], str]:
+        """Query DNSKEY records with proper key tag parsing using +multi format.
+
+        Returns:
+            Tuple of (list of DNSKEYRecord objects, raw output string)
+        """
+        start_time = datetime.now()
+
+        try:
+            # Use +multi to get key tags in comments
+            cmd = ["dig", domain, "DNSKEY", "+dnssec", "+multi"]
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=10, check=True
+            )
+
+            # Parse the +multi output to extract key tags
+            dnskey_records = []
+            lines = result.stdout.split("\n")
+
+            i = 0
+            while i < len(lines):
+                line = lines[i].strip()
+
+                # Look for DNSKEY lines (but not RRSIG DNSKEY)
+                if (
+                    "DNSKEY" in line
+                    and not line.startswith(";")
+                    and "RRSIG" not in line
+                ):
+                    # Extract base fields
+                    # Format: domain TTL IN DNSKEY flags protocol algorithm (key...)
+                    parts = line.split()
+                    if len(parts) >= 7:
+                        ttl = int(parts[1])
+                        flags = int(parts[4])
+                        protocol = int(parts[5])
+                        algorithm = int(parts[6])
+
+                        # Collect the public key (may span multiple lines)
+                        public_key_parts = []
+                        if "(" in line:
+                            # Multi-line format
+                            i += 1
+                            while i < len(lines) and ")" not in lines[i]:
+                                public_key_parts.append(lines[i].strip())
+                                i += 1
+                            if i < len(lines):
+                                # Get last line before )
+                                last_line = lines[i].split(")")[0].strip()
+                                if last_line:
+                                    public_key_parts.append(last_line)
+
+                                # Look for key id in comment after )
+                                comment = (
+                                    lines[i].split(")", 1)[1] if ")" in lines[i] else ""
+                                )
+                                key_tag = None
+                                if "key id" in comment or "key tag" in comment:
+                                    import re
+
+                                    match = re.search(
+                                        r"key\s+(?:id|tag)\s*=\s*(\d+)", comment
+                                    )
+                                    if match:
+                                        key_tag = int(match.group(1))
+                        else:
+                            # Single line - extract key from end
+                            key_start = line.find(str(algorithm)) + len(str(algorithm))
+                            public_key_parts.append(line[key_start:].strip())
+                            # No key tag available in single-line format
+                            key_tag = None
+
+                        public_key = "".join(public_key_parts)
+
+                        # If no key tag found, calculate it (will be wrong but better than nothing)
+                        if key_tag is None:
+                            key_tag = (flags + protocol + algorithm) % 65536
+
+                        # Parse algorithm enum
+                        algo_enum = self._parse_algorithm(algorithm)
+
+                        dnskey_records.append(
+                            DNSKEYRecord(
+                                flags=flags,
+                                protocol=protocol,
+                                algorithm=algo_enum,
+                                key_tag=key_tag,
+                                public_key=public_key,
+                                ttl=ttl,
+                            )
+                        )
+
+                i += 1
+
+            return dnskey_records, result.stdout
+
+        except Exception:
+            return [], ""
 
     def _parse_dig_output(
         self, output: str, domain: str, record_type: RecordType
@@ -226,14 +327,13 @@ class DigAdapter(DNSPort):
         try:
             # Query for DNSSEC-related records
             ds_response = self.query(domain, RecordType.DS)
-            dnskey_response = self.query(domain, RecordType.DNSKEY)
+            dnskey_records, dnskey_raw = self.query_dnskey_with_keytag(domain)
 
             has_ds = ds_response.is_success and ds_response.record_count > 0
-            has_dnskey = dnskey_response.is_success and dnskey_response.record_count > 0
+            has_dnskey = len(dnskey_records) > 0
 
             # Parse DNSSEC records
             ds_records = self._parse_ds_records(ds_response)
-            dnskey_records = self._parse_dnskey_records(dnskey_response)
 
             # Try to check for DNSSEC validation using dig +dnssec
             rrsig_records = []
@@ -250,6 +350,49 @@ class DigAdapter(DNSPort):
             except Exception:
                 has_rrsig = False
 
+            # Build complete recursive DNSSEC chain from root to leaf
+            parent_zones = []
+            parts = domain.rstrip(".").split(".")
+
+            # Always query root zone
+            try:
+                root_dnskey_records, _ = self.query_dnskey_with_keytag(".")
+
+                tld = parts[-1]
+                root_ds_response = self.query(tld, RecordType.DS)
+                root_ds_records = self._parse_ds_records(root_ds_response)
+
+                root_zone = ZoneData(
+                    zone_name=".",
+                    dnskey_records=root_dnskey_records,
+                    ds_records=root_ds_records,
+                    rrsig_records=[],
+                )
+                parent_zones.append(root_zone)
+            except Exception:
+                pass
+
+            # Build each level from TLD down to parent of target
+            for i in range(len(parts) - 1, 0, -1):
+                current_zone = ".".join(parts[i:])
+                child_zone = ".".join(parts[i - 1 :])
+
+                try:
+                    zone_dnskey_records, _ = self.query_dnskey_with_keytag(current_zone)
+
+                    zone_ds_response = self.query(child_zone, RecordType.DS)
+                    zone_ds_records = self._parse_ds_records(zone_ds_response)
+
+                    zone_data = ZoneData(
+                        zone_name=current_zone,
+                        dnskey_records=zone_dnskey_records,
+                        ds_records=zone_ds_records,
+                        rrsig_records=[],
+                    )
+                    parent_zones.append(zone_data)
+                except Exception:
+                    pass
+
             # Build DNSSEC chain
             chain = DNSSECChain(
                 domain=domain,
@@ -259,6 +402,7 @@ class DigAdapter(DNSPort):
                 ds_records=ds_records,
                 dnskey_records=dnskey_records,
                 rrsig_records=rrsig_records,
+                parent_zones=parent_zones,
             )
 
             # Determine validation status
@@ -285,10 +429,8 @@ class DigAdapter(DNSPort):
                 raw_outputs.append(
                     f"# DS Records\n{ds_response.raw_data['raw_output']}"
                 )
-            if dnskey_response.raw_data and "raw_output" in dnskey_response.raw_data:
-                raw_outputs.append(
-                    f"# DNSKEY Records\n{dnskey_response.raw_data['raw_output']}"
-                )
+            if dnskey_raw:
+                raw_outputs.append(f"# DNSKEY Records\n{dnskey_raw}")
             if dnssec_output:
                 raw_outputs.append(f"# DNSSEC Validation\n{dnssec_output}")
 
