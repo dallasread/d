@@ -2459,9 +2459,6 @@ class DNSDebuggerApp(App):
                 email_config,
             ) = results
 
-            # Update state with all data
-            self.update_loading_status("Updating state...")
-
             # Handle any exceptions and update state
             if not isinstance(http_health, Exception):
                 self.state_manager.state.http_health = http_health
