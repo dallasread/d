@@ -4,7 +4,7 @@ import json
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Container, Horizontal, Vertical
+from textual.containers import Container, Horizontal, Vertical, VerticalScroll
 from textual.widgets import (
     Header,
     Footer,
@@ -1245,7 +1245,7 @@ class DNSSECPanel(Static):
             )
 
 
-class HTTPPanel(Static):
+class HTTPPanel(VerticalScroll):
     """Panel for displaying HTTP/HTTPS connectivity and response information.
 
     This panel shows HTTP and HTTPS request details including:
@@ -1282,19 +1282,24 @@ class HTTPPanel(Static):
         self.http_adapter = None
         self.last_response = None  # Store raw response for logs
 
+    def compose(self) -> ComposeResult:
+        """Create scrollable content area."""
+        yield Static(id="http-content")
+
     def on_mount(self) -> None:
         """Panel mounted - data already loaded via dashboard."""
         pass
 
     def render_from_state(self, state) -> None:
         """Render panel from state data."""
+        content = self.query_one("#http-content", Static)
         if (
             not state.http_response
             and not state.https_response
             and not state.http_www_response
             and not state.https_www_response
         ):
-            self.update("[dim]No HTTP/HTTPS data available[/dim]")
+            content.update("[dim]No HTTP/HTTPS data available[/dim]")
             return
         self._render_http_data(
             state.http_response,
@@ -1396,10 +1401,12 @@ class HTTPPanel(Static):
             render_protocol("HTTP", f"www.{self.domain}", http_www_response)
             render_protocol("HTTPS", f"www.{self.domain}", https_www_response)
 
-            self.update("".join(output))
+            content = self.query_one("#http-content", Static)
+            content.update("".join(output))
 
         except Exception as e:
-            self.update(
+            content = self.query_one("#http-content", Static)
+            content.update(
                 f"[red]Error: {str(e)}[/red]\n\n[dim]Make sure 'curl' or 'wget' is installed[/dim]"
             )
 
