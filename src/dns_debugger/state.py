@@ -39,7 +39,8 @@ class AppState:
     tls_last_updated: Optional[datetime] = None
 
     # HTTP data
-    http_response: Optional[HTTPResponse] = None
+    http_response: Optional[HTTPResponse] = None  # HTTPS response
+    https_response: Optional[HTTPResponse] = None  # Explicit HTTPS
     http_last_updated: Optional[datetime] = None
 
     # Registration data
@@ -102,9 +103,14 @@ class StateManager:
         self.state.tls_info = tls_info
         self.state.tls_last_updated = datetime.now()
 
-    def update_http(self, response: HTTPResponse) -> None:
-        """Update HTTP response."""
-        self.state.http_response = response
+    def update_http(
+        self, http_response: HTTPResponse = None, https_response: HTTPResponse = None
+    ) -> None:
+        """Update HTTP/HTTPS responses."""
+        if http_response is not None:
+            self.state.http_response = http_response
+        if https_response is not None:
+            self.state.https_response = https_response
         self.state.http_last_updated = datetime.now()
 
     def update_registration(self, registration: DomainRegistration) -> None:

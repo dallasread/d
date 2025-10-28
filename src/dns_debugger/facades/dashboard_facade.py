@@ -28,7 +28,6 @@ class CertHealthData:
     """Certificate health check data."""
 
     is_valid: bool
-    is_expired: bool
     days_until_expiry: Optional[int]
     issuer_cn: Optional[str]
     expiry_date: Optional[str]
@@ -67,7 +66,6 @@ class DNSSECHealthData:
     """DNSSEC health check data."""
 
     is_secure: bool
-    is_insecure: bool
     is_bogus: bool
     has_dnskey: bool
     has_ds: bool
@@ -136,7 +134,6 @@ class DashboardFacade:
                 cert = tls_info.certificate_chain.leaf_certificate
                 return CertHealthData(
                     is_valid=not cert.is_expired,
-                    is_expired=cert.is_expired,
                     days_until_expiry=cert.days_until_expiry,
                     issuer_cn=cert.issuer.common_name,
                     expiry_date=cert.not_after.strftime("%Y-%m-%d"),
@@ -146,7 +143,6 @@ class DashboardFacade:
             else:
                 return CertHealthData(
                     is_valid=False,
-                    is_expired=False,
                     days_until_expiry=None,
                     issuer_cn=None,
                     expiry_date=None,

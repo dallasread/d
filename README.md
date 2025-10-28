@@ -1,378 +1,658 @@
-# DNS Debugger - TUI Application
+# DNS Debugger (d) - Terminal UI for Domain Analysis
 
-A powerful Terminal User Interface (TUI) application for debugging domain registration, DNS issues, and SSL/TLS certificates, built with Python's Textual framework.
+A powerful Terminal User Interface (TUI) application for debugging DNS, domain registration, SSL/TLS certificates, email configuration, and DNSSEC validation. Built with Python's Textual framework and following hexagonal architecture principles.
 
 ## Overview
 
-DNS Debugger is an interactive terminal application designed to help developers, system administrators, and DevOps engineers quickly diagnose and troubleshoot DNS, domain registration, and certificate problems. With a beautiful, modern interface that rivals GUI applications, it provides real-time insights into DNS records, domain configuration, registration status, and SSL/TLS certificate details.
+DNS Debugger (`d`) is an interactive terminal application that provides a comprehensive dashboard for domain analysis. Launch it with a single command (`d example.com`) to instantly see:
 
-## Features
+- **Domain Registration** - WHOIS/RDAP data, expiration dates, registrar info
+- **DNS Records** - A, AAAA, MX, TXT, NS records with proper type filtering
+- **DNSSEC** - Validation status, DNSKEY/DS records, chain of trust
+- **SSL/TLS Certificates** - Validity, chain, expiration, security features
+- **HTTP/HTTPS** - Status codes, redirects, response times
+- **Email Security** - SPF, DKIM, DMARC configuration and scoring
 
-### Core Functionality
-
-#### DNS Features
-
-- **DNS Record Lookup**: Query A, AAAA, CNAME, MX, TXT, NS, SOA, and other DNS records
-- **Multi-Resolver Support**: Test against multiple DNS resolvers (Google, Cloudflare, custom)
-- **DNS Propagation Checker**: Check DNS propagation across different geographic locations
-- **DNSSEC Validation**: Verify DNSSEC signatures and chain of trust
-- **Domain Registration Lookup**: Query domain registration information via RDAP (with WHOIS fallback)
-- **Reverse DNS Lookup**: Perform PTR record lookups
-- **DNS Trace**: Trace DNS resolution path from root servers
-- **Zone Transfer Testing**: Attempt AXFR/IXFR zone transfers (for authorized domains)
-
-#### SSL/TLS Certificate Features
-
-- **Certificate Information**: View certificate details (subject, issuer, validity dates)
-- **Certificate Chain Validation**: Verify complete certificate chain up to root CA
-- **Expiration Monitoring**: Check certificate expiration and get warnings for soon-to-expire certs
-- **Protocol Support Detection**: Check supported TLS/SSL versions (TLS 1.0, 1.1, 1.2, 1.3)
-- **Cipher Suite Analysis**: List available cipher suites and identify weak ciphers
-- **Certificate Transparency**: Check CT log inclusion
-- **OCSP Stapling**: Verify OCSP stapling support
-- **Multi-Host Testing**: Test certificates for multiple hosts/SNI
-- **PEM Export**: Export certificates in PEM format for analysis
-
-### Interface Features
-
-- **Real-time Updates**: Live DNS query results with loading indicators
-- **Syntax Highlighting**: Color-coded DNS records for easy reading
-- **Tabbed Interface**: Multiple queries in separate tabs
-- **History Panel**: Track your recent DNS queries
-- **Export Results**: Save query results to JSON, CSV, or plain text
-- **Dark/Light Themes**: Multiple color schemes for different preferences
-- **Responsive Layout**: Adapts to different terminal sizes
-- **Keyboard Shortcuts**: Fast navigation without touching the mouse
+All data loads asynchronously with detailed progress indicators and is cached in a global state for instant panel switching. Press `R` to refresh all data.
 
 ## Installation
 
-### One-Line Install
+### Quick Install
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/yourusername/d/main/install.sh | bash
+# Using the install script
+bash install.sh
+
+# Or manually with pip
+pip install -e .
 ```
 
-This will:
-- Detect your platform (macOS, Linux, Windows)
-- Install required dependencies (dog, openssl if needed)
-- Install the `d` command globally
-- Verify the installation
+### Dependencies
 
-### Manual Installation
+The application uses system tools as adapters (with automatic fallback):
 
-If you prefer to install manually:
+**DNS Tools:**
+- `dog` (preferred) or `dig` (fallback) for DNS queries
 
-```bash
-pipx install d-dns-debugger
-```
+**SSL/TLS:**
+- `openssl` command-line tool for certificate inspection
 
-### From Source
+**Domain Registration:**
+- `whois` command (brew install whois / apt-get install whois)
+- Python `whodap` library for RDAP (fallback to python-whois)
 
-```bash
-git clone https://github.com/yourusername/d.git
-cd d
-make install
-```
+**HTTP:**
+- `curl` (preferred) or `wget` (fallback) for HTTP requests
+
+The application will automatically detect and use available tools.
 
 ## Usage
 
-### Basic Usage
+### Launch the TUI
+
 ```bash
-# Launch the interactive dashboard for a domain
+# Basic usage - opens interactive dashboard
 d example.com
-
-# That's it! The TUI opens with a full dashboard where you can:
-# - View DNS records (navigate to different record types)
-# - Check SSL/TLS certificates
-# - View WHOIS information
-# - Test DNS propagation
-# - And more - all from the interactive interface
+dns-debugger example.com
+python -m dns_debugger example.com
 ```
-
-### Command Line Options
-```
-d DOMAIN [OPTIONS]
-
-Options:
-  --theme TEXT          UI theme (dark, light, monokai, solarized)
-  -h, --help            Show help and exit
-  --version             Show version and exit
-```
-
-All features are accessible through the interactive dashboard once launched. Simply run `d example.com` and use the TUI to explore DNS records, certificates, WHOIS data, and more.
 
 ### Keyboard Shortcuts
-- `q` or `Ctrl+C`: Quit application
-- `Tab`: Navigate between panels (DNS, Certificates, WHOIS, etc.)
-- `Enter`: Drill into selected item for more details
-- `Esc`: Go back to previous view
-- `r`: Refresh current data
-- `e`: Export current view
-- `h` or `?`: Show help screen
-- `1-9`: Quick switch to specific panels
-- `Arrow keys`: Navigate within panels
+
+| Key | Action |
+|-----|--------|
+| `Q` | Quit application |
+| `R` | Refresh all data (shows loading progress) |
+| `L` | Show raw JSON logs for current panel |
+| `H` or `?` | Show help information |
+| `0` | Jump to Dashboard (overview) |
+| `1` | Jump to Registration panel |
+| `2` | Jump to DNS panel |
+| `3` | Jump to DNSSEC panel |
+| `4` | Jump to Certificate panel |
+| `5` | Jump to HTTP/HTTPS panel |
+| `6` | Jump to Email panel |
+| `Tab` | Switch between panels |
+| `Esc` | Close modals/popups |
+
+## Features
+
+### Dashboard (Tab 0)
+
+The dashboard provides an at-a-glance health overview with color-coded status indicators:
+
+**Layout:**
+- Left side: Full-height Registration card
+- Right side: 2x3 grid of health cards (DNS, Email, DNSSEC, Certificate, HTTP/HTTPS)
+
+**Registration Card:**
+- Domain expiration status (green: >30 days, yellow: <30 days, red: expired)
+- Registrar information
+- DNSSEC enabled/disabled status
+- Nameserver count
+
+**DNS Card:**
+- A, AAAA, MX, NS record counts
+- Color indicators (green: present, dim: none, red: missing NS)
+
+**Email Card:**
+- MX record status
+- SPF, DKIM, DMARC configuration
+- Overall security score (0-100)
+- Email provider detection
+
+**DNSSEC Card:**
+- Validation status (SECURE, INSECURE, BOGUS, INDETERMINATE)
+- DNSKEY and DS record presence
+- Key counts (KSK/ZSK)
+- Warning count
+
+**Certificate Card:**
+- Validity status
+- Days until expiration (with warnings at <30 days)
+- Issuer information
+- Certificate chain validity
+
+**HTTP/HTTPS Card:**
+- Status code and response time
+- Success/redirect/error indicators
+- Redirect count
+
+### Registration Panel (Tab 1)
+
+Detailed WHOIS/RDAP information:
+- Registrar name
+- Registration dates (created, updated, expires)
+- Expiration status with countdown
+- Nameserver list with IP addresses
+- Domain status codes
+- DNSSEC status
+- Registrant organization and country
+
+### DNS Panel (Tab 2)
+
+Complete DNS record display with proper type filtering:
+- A records (IPv4 addresses)
+- AAAA records (IPv6 addresses)
+- MX records (mail servers with priority)
+- TXT records (text data, SPF, verification records)
+- NS records (authoritative nameservers)
+
+Each record shows:
+- Value
+- TTL (Time To Live)
+- Type-specific data
+
+**Note:** Records are now properly filtered to prevent cross-contamination (e.g., CNAME records won't appear in NS section).
+
+### DNSSEC Panel (Tab 3)
+
+DNSSEC validation and key information:
+- Validation status (SECURE/INSECURE/BOGUS)
+- Validation time
+- Chain of trust verification
+- DNSKEY records with details:
+  - Key type (KSK/ZSK)
+  - Flags, algorithm, key tag
+  - TTL values
+- DS records (in parent zone):
+  - Key tag, algorithm, digest type
+  - Digest value
+- RRSIG presence
+- Warnings and error messages
+
+### Certificate Panel (Tab 4)
+
+SSL/TLS certificate details:
+- Subject and issuer common names
+- Validity period (from/to dates)
+- Expiration status with day countdown
+- Public key information (algorithm, size)
+- Subject Alternative Names (SANs)
+- Certificate chain:
+  - Chain length
+  - Validation status
+- Supported TLS versions
+- Security features:
+  - OCSP stapling
+  - Self-signed detection
+
+### HTTP/HTTPS Panel (Tab 5)
+
+HTTP connectivity and response information:
+- HTTPS status code and text
+- Response time in milliseconds
+- Redirect chain (if applicable):
+  - Each redirect step with status code
+  - Final destination URL
+- Server header
+- Content-Type
+- Content-Length
+
+### Email Panel (Tab 6)
+
+Comprehensive email security configuration:
+
+**Overview:**
+- Security score (0-100) with color coding
+- Email provider detection (Google, Microsoft, etc.)
+
+**MX Records:**
+- Priority and hostname for each mail server
+- IP addresses
+
+**SPF (Sender Policy Framework):**
+- Full SPF record
+- Policy enforcement level (-all, ~all, +all)
+- Mechanism count
+- Recommendations if missing
+
+**DKIM (DomainKeys Identified Mail):**
+- Selector discovery (checks common selectors)
+- Public key display
+- Per-selector validation status
+
+**DMARC (Domain-based Message Authentication):**
+- Policy (none, quarantine, reject)
+- Subdomain policy
+- Alignment modes (strict/relaxed)
+- Reporting URIs (aggregate/forensic)
+- Message coverage percentage
+
+**Configuration Status:**
+- Missing component warnings
+- Overall security recommendations
+
+### Raw Logs (Press L)
+
+Press `L` on any panel to view the raw JSON data structure:
+- Complete domain models
+- All fields and metadata
+- Timestamps and query information
+- Useful for debugging and API integration
+
+The raw data is preserved from the cached state, ensuring consistency with displayed information.
 
 ## Architecture
 
+### Hexagonal Architecture (Ports & Adapters)
+
+The application follows a clean hexagonal architecture pattern:
+
+```
+┌─────────────────────────────────────────┐
+│          UI Layer (Textual TUI)         │
+│  ┌─────────────────────────────────┐   │
+│  │  Dashboard, Panels, Screens     │   │
+│  └─────────────────────────────────┘   │
+└──────────────┬──────────────────────────┘
+               │
+┌──────────────▼──────────────────────────┐
+│         Facade Layer                    │
+│  ┌─────────────────────────────────┐   │
+│  │  DashboardFacade                │   │
+│  │  - Simplified data structures   │   │
+│  │  - Display-optimized models     │   │
+│  └─────────────────────────────────┘   │
+└──────────────┬──────────────────────────┘
+               │
+┌──────────────▼──────────────────────────┐
+│         Domain Layer (Hexagon Core)     │
+│  ┌─────────────────────────────────┐   │
+│  │  Domain Models:                 │   │
+│  │  - DNSResponse                  │   │
+│  │  - DNSSECValidation             │   │
+│  │  - TLSInfo, Certificate         │   │
+│  │  - HTTPResponse                 │   │
+│  │  - DomainRegistration           │   │
+│  │  - EmailConfiguration           │   │
+│  └─────────────────────────────────┘   │
+│  ┌─────────────────────────────────┐   │
+│  │  Ports (Interfaces):            │   │
+│  │  - DNSPort                      │   │
+│  │  - CertificatePort              │   │
+│  │  - HTTPPort                     │   │
+│  │  - RegistryPort                 │   │
+│  │  - EmailPort                    │   │
+│  └─────────────────────────────────┘   │
+└──────────────┬──────────────────────────┘
+               │
+┌──────────────▼──────────────────────────┐
+│         Adapter Layer                   │
+│  ┌─────────────────────────────────┐   │
+│  │  DNS Adapters:                  │   │
+│  │  - DogAdapter (primary)         │   │
+│  │  - DigAdapter (fallback)        │   │
+│  │                                 │   │
+│  │  Certificate Adapters:          │   │
+│  │  - OpenSSLAdapter               │   │
+│  │                                 │   │
+│  │  HTTP Adapters:                 │   │
+│  │  - CurlAdapter (primary)        │   │
+│  │  - WgetAdapter (fallback)       │   │
+│  │                                 │   │
+│  │  Registry Adapters:             │   │
+│  │  - RDAPAdapter (primary)        │   │
+│  │  - WhoisAdapter (fallback)      │   │
+│  │                                 │   │
+│  │  Email Adapters:                │   │
+│  │  - DNSEmailAdapter              │   │
+│  └─────────────────────────────────┘   │
+└──────────────┬──────────────────────────┘
+               │
+┌──────────────▼──────────────────────────┐
+│    External Tools & Libraries           │
+│  dog/dig, openssl, curl/wget,           │
+│  whois, whodap, httpx                   │
+└─────────────────────────────────────────┘
+```
+
+### Key Architectural Patterns
+
+**1. Global State Management**
+- `StateManager` singleton stores all fetched data
+- Data fetched once on load, stored in `AppState`
+- Panels render from cached state via `render_from_state()`
+- Refresh (R key) refetches ALL data and updates state
+
+**2. Facade Pattern for Display**
+- `DashboardFacade` provides simplified health data structures:
+  - `HTTPHealthData`, `CertHealthData`, `DNSHealthData`, etc.
+- Separates complex domain models from display concerns
+- Dashboard uses simple, flat data structures
+- Detail panels use full domain models
+
+**3. Factory Pattern for Adapters**
+- Each adapter type has a factory (e.g., `DNSAdapterFactory`)
+- Factories auto-detect available tools at runtime
+- Graceful fallback to alternative implementations
+- Example: `dog` → `dig` → error message
+
+**4. Port/Adapter Pattern**
+- Domain layer defines port interfaces (contracts)
+- Adapters implement ports using external tools
+- Business logic never directly depends on tools
+- Easy to add new adapters without changing core logic
+
 ### Project Structure
 
-The project follows **Hexagonal Architecture** (Ports and Adapters pattern) to maintain clean separation between business logic and external tools:
-
 ```
-dns-debugger-tui/
-├── src/
-│   └── dns_debugger/
-│       ├── __init__.py
-│       ├── __main__.py          # Entry point
-│       ├── app.py                # Main Textual application
-│       ├── domain/              # Core business logic (hexagon center)
-│       │   ├── __init__.py
-│       │   ├── models/          # Domain models
-│       │   │   ├── __init__.py
-│       │   │   ├── dns_record.py
-│       │   │   ├── certificate.py
-│       │   │   └── domain_info.py
-│       │   ├── ports/           # Port interfaces (contracts)
-│       │   │   ├── __init__.py
-│       │   │   ├── dns_port.py      # DNS query interface
-│       │   │   ├── registry_port.py # RDAP/WHOIS interface
-│       │   │   ├── cert_port.py     # Certificate interface
-│       │   │   └── export_port.py   # Export interface
-│       │   └── services/        # Core business logic
-│       │       ├── __init__.py
-│       │       ├── domain_analyzer.py
-│       │       └── validation.py
-│       ├── adapters/            # Adapters (implementations)
-│       │   ├── __init__.py
-│       │   ├── dns/             # DNS adapters
-│       │   │   ├── __init__.py
-│       │   │   ├── dog_adapter.py   # Primary: dog command
-│       │   │   ├── dig_adapter.py   # Fallback: dig command
-│       │   │   └── factory.py       # Auto-detect and return available adapter
-│       │   ├── registry/        # Domain registration adapters
-│       │   │   ├── __init__.py
-│       │   │   ├── rdap_adapter.py  # Primary: RDAP
-│       │   │   ├── whois_adapter.py # Fallback: WHOIS
-│       │   │   └── factory.py
-│       │   ├── cert/            # Certificate adapters
-│       │   │   ├── __init__.py
-│       │   │   ├── openssl_adapter.py
-│       │   │   └── cryptography_adapter.py
-│       │   └── export/          # Export adapters
-│       │       ├── __init__.py
-│       │       ├── json_adapter.py
-│       │       ├── csv_adapter.py
-│       │       └── text_adapter.py
-│       ├── screens/             # UI layer
-│       │   ├── __init__.py
-│       │   ├── main_screen.py
-│       │   ├── history_screen.py
-│       │   └── help_screen.py
-│       └── widgets/             # UI components
-│           ├── __init__.py
-│           ├── dns_panel.py
-│           ├── cert_panel.py
-│           └── registry_panel.py
-├── tests/
+src/dns_debugger/
+├── __init__.py
+├── __main__.py              # Entry point
+├── app.py                   # Main Textual app, all panels, dashboard
+├── state.py                 # Global StateManager and AppState
+│
+├── domain/                  # Core business logic (hexagon center)
+│   ├── models/              # Rich domain models
+│   │   ├── dns_record.py    # DNSRecord, DNSResponse, RecordType
+│   │   ├── dnssec.py        # DNSSECValidation, DNSKEYRecord, DSRecord
+│   │   ├── certificate.py   # Certificate, TLSInfo, CertificateChain
+│   │   ├── http_info.py     # HTTPResponse, HTTPRedirect
+│   │   ├── domain_info.py   # DomainRegistration, Nameserver, Contact
+│   │   └── email_config.py  # EmailConfiguration, SPF, DKIM, DMARC
+│   │
+│   └── ports/               # Port interfaces (contracts)
+│       ├── dns_port.py      # DNSPort interface
+│       ├── cert_port.py     # CertificatePort interface
+│       ├── http_port.py     # HTTPPort interface
+│       ├── registry_port.py # RegistryPort interface
+│       └── email_port.py    # EmailPort interface
+│
+├── adapters/                # Adapter implementations
+│   ├── dns/
+│   │   ├── dog_adapter.py   # Primary DNS adapter using 'dog'
+│   │   ├── dig_adapter.py   # Fallback using 'dig'
+│   │   └── factory.py       # Auto-detect available tool
+│   │
+│   ├── cert/
+│   │   ├── openssl_adapter.py  # Certificate adapter using OpenSSL
+│   │   └── factory.py
+│   │
+│   ├── http/
+│   │   ├── curl_adapter.py     # Primary HTTP adapter using 'curl'
+│   │   ├── wget_adapter.py     # Fallback using 'wget'
+│   │   └── factory.py
+│   │
+│   ├── registry/
+│   │   ├── rdap_adapter.py     # Primary using RDAP protocol
+│   │   ├── whois_adapter.py    # Fallback using WHOIS
+│   │   └── factory.py
+│   │
+│   └── email/
+│       ├── dns_email_adapter.py  # Email config via DNS queries
+│       └── factory.py
+│
+├── facades/
 │   ├── __init__.py
-│   ├── test_dns_resolver.py
-│   ├── test_widgets.py
-│   └── test_app.py
-├── docs/
-│   ├── user_guide.md
-│   ├── development.md
-│   └── screenshots/
-├── pyproject.toml
-├── setup.py
-├── requirements.txt
-├── requirements-dev.txt
-├── LICENSE
-└── README.md
+│   └── dashboard_facade.py  # Simplified health data structures
+│
+└── screens/
+    ├── __init__.py
+    └── raw_data_screen.py   # Modal for displaying raw JSON logs
 ```
 
-### Technology Stack
+### Data Flow
 
-- **Framework**: [Textual](https://textual.textualize.io/) - Modern TUI framework
-- **Architecture**: Hexagonal Architecture (Ports and Adapters) - Clean separation of concerns
-- **DNS Tools** (adapters with automatic fallback):
-  - Primary: [dog](https://dns.lookup.dog/) - Modern DNS client
-  - Fallback: dig - Standard DNS tool
-- **SSL/TLS**: [cryptography](https://cryptography.io/) - Certificate parsing and validation
-- **SSL/TLS**: OpenSSL command-line tool - Certificate inspection
-- **RDAP**: [whodap](https://pypi.org/project/whodap/) - RDAP client library (primary registration lookup)
-- **WHOIS**: [python-whois](https://github.com/richardpenman/whois) - WHOIS lookups (fallback)
-- **HTTP Client**: [httpx](https://www.python-httpx.org/) - For API-based propagation checks
-- **CLI**: [Click](https://click.palletsprojects.com/) - Command-line interface
-- **Testing**: [pytest](https://pytest.org/) - Test framework
+**On Application Start:**
+1. User runs `d example.com`
+2. `DNSDebuggerApp` initializes `StateManager` with domain
+3. `on_mount()` triggers `fetch_all_data()` worker
+4. Loading status shows progress: "Loading: HTTP/HTTPS...", "Loading: Certificate...", etc.
+5. `DashboardFacade` fetches health data via adapters
+6. Full detail data fetched and stored in `AppState`
+7. `render_all_panels()` called to populate all panels from state
+8. Loading indicator hidden, main content displayed
+
+**On Refresh (R key):**
+1. Loading status shown: "Refreshing data..."
+2. `fetch_all_data()` worker re-runs
+3. All adapters queried again
+4. State updated with fresh data
+5. All panels re-rendered from new state
+6. Loading indicator hidden
+
+**On Tab Switch:**
+1. User presses 1-6 or Tab
+2. Textual switches active tab pane
+3. Panel already populated from state (instant display)
+4. No new data fetching required
+
+**On Raw Logs (L key):**
+1. User presses L on any panel
+2. `action_show_raw()` determines active panel
+3. Panel's stored `last_*` object converted to JSON
+4. `RawDataScreen` modal displays formatted JSON
+5. User presses Esc to close
+
+### State Management
+
+**AppState Structure:**
+```python
+@dataclass
+class AppState:
+    domain: str
+    
+    # Full detail data (for panels)
+    dns_responses: dict              # {record_type: DNSResponse}
+    dnssec_validation: DNSSECValidation
+    tls_info: TLSInfo
+    http_response: HTTPResponse
+    registration: DomainRegistration
+    email_config: EmailConfiguration
+    
+    # Dashboard health data (simplified)
+    http_health: HTTPHealthData
+    cert_health: CertHealthData
+    dns_health: DNSHealthData
+    registry_health: RegistryHealthData
+    dnssec_health: DNSSECHealthData
+    email_health: EmailHealthData
+```
+
+**StateManager Singleton:**
+- Single source of truth for all data
+- Thread-safe access
+- Update methods for each data type
+- Accessed globally via `StateManager()`
 
 ## Development
 
-### Setup Development Environment
+### Setup
+
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/dns-debugger-tui.git
-cd dns-debugger-tui
+git clone <repository-url>
+cd d
 
 # Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install in development mode
+pip install -e .
 
 # Install development dependencies
 pip install -r requirements-dev.txt
-
-# Install pre-commit hooks
-pre-commit install
 ```
 
-### Running Tests
+### Running the Application
 
-The project uses pytest for testing. To run the test suite:
+```bash
+# From project root
+python -m dns_debugger example.com
+
+# Or if installed
+dns-debugger example.com
+d example.com
+```
+
+### Testing
 
 ```bash
 # Run all tests
 pytest
 
-# Run all tests with verbose output
-pytest -v
-
-# Run with coverage report
+# Run with coverage
 pytest --cov=dns_debugger --cov-report=html
 
-# Run specific test file
-pytest tests/test_dns_resolver.py
-
-# Run tests matching a pattern
-pytest -k "test_dns"
-
-# Run tests and stop at first failure
-pytest -x
-
-# Run tests in parallel (requires pytest-xdist)
-pytest -n auto
+# Run specific test
+pytest tests/test_adapters/test_dns_adapter.py -v
 ```
 
 ### Code Style
-This project follows:
-- PEP 8 style guide
-- Black for code formatting
-- isort for import sorting
-- flake8 for linting
-- mypy for type checking
 
 ```bash
 # Format code
 black src/
 isort src/
 
-# Run linters
+# Lint
 flake8 src/
 mypy src/
 ```
 
+### Adding a New Adapter
+
+1. **Create adapter class** implementing the port interface:
+```python
+# src/dns_debugger/adapters/my_category/my_adapter.py
+from dns_debugger.domain.ports.my_port import MyPort
+
+class MyAdapter(MyPort):
+    def my_method(self, domain: str) -> MyResult:
+        # Implementation using external tool
+        pass
+```
+
+2. **Update factory** to include new adapter:
+```python
+# src/dns_debugger/adapters/my_category/factory.py
+class MyAdapterFactory:
+    @staticmethod
+    def create() -> MyPort:
+        if shutil.which("my_tool"):
+            return MyAdapter()
+        else:
+            raise RuntimeError("No adapter available")
+```
+
+3. **Test the adapter**:
+```bash
+pytest tests/test_adapters/test_my_adapter.py
+```
+
+### Adding a New Panel
+
+1. **Create panel class** in `app.py`:
+```python
+class MyPanel(Static):
+    def __init__(self, domain: str) -> None:
+        super().__init__()
+        self.domain = domain
+        self.last_data = None
+    
+    def render_from_state(self, state) -> None:
+        # Render from state.my_data
+        pass
+```
+
+2. **Add to TabPane** in `compose()`:
+```python
+with TabPane("My Feature", id="my-feature"):
+    yield MyPanel(self.domain)
+```
+
+3. **Add keyboard binding**:
+```python
+Binding("7", "switch_tab('my-feature')", "My Feature", show=False)
+```
+
+4. **Update state** to include your data:
+```python
+# In state.py
+@dataclass
+class AppState:
+    # ... existing fields
+    my_data: Optional[MyData] = None
+```
+
+5. **Fetch data** in `fetch_all_data()`:
+```python
+self.update_loading_status("My feature...")
+my_adapter = MyAdapterFactory.create()
+my_data = my_adapter.get_data(self.domain)
+self.state_manager.update_my_data(my_data)
+```
+
 ## Configuration
 
-### Config File Location
-- Linux/macOS: `~/.config/dns-debugger/config.toml`
-- Windows: `%APPDATA%\dns-debugger\config.toml`
+Currently, the application uses sensible defaults. Future versions will support configuration files.
 
-### Example Configuration
-```toml
-[general]
-theme = "dark"
-auto_refresh = false
-history_limit = 100
+## Known Issues
 
-[resolvers]
-default = "8.8.8.8"
-favorites = [
-    "8.8.8.8",      # Google
-    "1.1.1.1",      # Cloudflare
-    "9.9.9.9",      # Quad9
-    "208.67.222.222" # OpenDNS
-]
-
-[display]
-show_ttl = true
-show_timestamp = true
-syntax_highlighting = true
-
-[export]
-default_format = "json"
-output_directory = "~/dns-queries"
-```
+- Large TXT records may be truncated in display
+- DNSSEC validation requires recursive resolver support
+- Some WHOIS servers have rate limiting
+- Certificate transparency log checking not yet implemented
 
 ## Roadmap
 
-### Version 1.0
-- [ ] Basic DNS record lookups
-- [ ] Multiple resolver support
-- [ ] TUI interface with Textual
-- [ ] SSL/TLS certificate inspection
-- [ ] WHOIS lookups
-- [ ] Export functionality
+**Current Version: 0.1.0**
 
-### Version 1.1
-- [ ] DNS propagation checker
-- [ ] DNSSEC validation
-- [ ] Certificate chain validation
-- [ ] Cipher suite analysis
-- [ ] Reverse DNS lookups
+**Planned Features:**
+- [ ] Configuration file support (~/.config/dns-debugger/config.toml)
 - [ ] Query history persistence
-
-### Version 1.2
-- [ ] DNS trace from root
-- [ ] Zone transfer testing
-- [ ] Certificate expiration monitoring
-- [ ] OCSP stapling validation
-- [ ] Custom resolver profiles
-- [ ] Bulk domain checking
-
-### Version 2.0
-- [ ] Plugin system
-- [ ] Network diagnostics (ping, traceroute)
-- [ ] Certificate transparency logs
-- [ ] Protocol version detection (TLS 1.0-1.3)
-- [ ] API mode for automation
+- [ ] Export to JSON/CSV/Markdown
+- [ ] Multiple domain comparison mode
+- [ ] DNS propagation checker (query multiple geographic resolvers)
+- [ ] Certificate expiration monitoring/alerts
+- [ ] Plugin system for custom adapters
+- [ ] API mode for automation/scripting
+- [ ] Network diagnostics (ping, traceroute integration)
+- [ ] Certificate transparency log verification
 
 ## Contributing
 
-Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+Contributions are welcome! Please:
 
-### Ways to Contribute
-- Report bugs and issues
-- Suggest new features or enhancements
-- Improve documentation
-- Submit pull requests with bug fixes or features
-- Write tutorials or blog posts
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Follow the hexagonal architecture pattern
+4. Write tests for new functionality
+5. Ensure all tests pass (`pytest`)
+6. Format code (`black`, `isort`)
+7. Submit a pull request
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - see LICENSE file for details
 
 ## Acknowledgments
 
-- Built with [Textual](https://textual.textualize.io/) by Textualize.io
-- DNS queries powered by [dnspython](https://www.dnspython.org/)
-- Inspired by tools like `dig`, `nslookup`, and `doggo`
+- Built with [Textual](https://textual.textualize.io/) by Textualize
+- Uses `dog`, `dig`, `openssl`, `curl`, `wget`, `whois` command-line tools
+- Inspired by CLI DNS debugging tools and the need for a unified interface
 
 ## Support
 
-- **Documentation**: [https://dns-debugger.readthedocs.io](https://dns-debugger.readthedocs.io)
-- **Issues**: [GitHub Issues](https://github.com/yourusername/dns-debugger-tui/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/dns-debugger-tui/discussions)
-- **Twitter**: [@dnsdebugger](https://twitter.com/dnsdebugger)
-
-## Screenshots
-
-![Main Interface](docs/screenshots/main-screen.png)
-*Main query interface with results panel*
-
-![Propagation Check](docs/screenshots/propagation.png)
-*DNS propagation checker across multiple locations*
-
-![History Panel](docs/screenshots/history.png)
-*Query history with filtering*
+- **Issues**: Create an issue on GitHub
+- **Questions**: Start a discussion on GitHub Discussions
 
 ---
 
-**Note**: This project is under active development. Features and API may change before v1.0 release.
+**Quick Start Reminder:**
+```bash
+# Install
+pip install -e .
+
+# Run
+d example.com
+
+# Navigate
+- Press 0-6 to jump between panels
+- Press R to refresh
+- Press L to see raw JSON
+- Press H for help
+- Press Q to quit
+```
