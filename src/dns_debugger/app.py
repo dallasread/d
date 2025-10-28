@@ -80,31 +80,24 @@ class DashboardPanel(Container):
         """Dashboard is ready but data not loaded."""
         pass
 
-    def load_data(self) -> None:
-        """Load all health checks asynchronously."""
-        if not self.loaded:
-            self.loaded = True
-            # Launch all health checks in parallel
-            self.run_worker(self.check_http_health(), exclusive=False, group="health")
-            self.run_worker(self.check_cert_health(), exclusive=False, group="health")
-            self.run_worker(self.check_dns_health(), exclusive=False, group="health")
-            self.run_worker(
-                self.check_registry_health(), exclusive=False, group="health"
-            )
-            self.run_worker(self.check_dnssec_health(), exclusive=False, group="health")
-            self.run_worker(self.check_email_health(), exclusive=False, group="health")
+    def render_from_state(self, state) -> None:
+        """Render dashboard from state data."""
+        # Call all health check rendering methods
+        self.render_http_health(state)
+        self.render_cert_health(state)
+        self.render_dns_health(state)
+        self.render_registry_health(state)
+        self.render_dnssec_health(state)
+        self.render_email_health(state)
 
-    async def check_http_health(self) -> None:
-        """Check HTTP/HTTPS health."""
+    def render_http_health(self, state) -> None:
+        """Render HTTP/HTTPS health from state."""
         section = self.query_one("#health-http", HealthSection)
         try:
-            from dns_debugger.adapters.http.factory import HTTPAdapterFactory
-
-            http_adapter = HTTPAdapterFactory.create()
-
-            # Check HTTPS first
-            https_url = f"https://{self.domain}"
-            https_response = http_adapter.check_url(https_url)
+            https_response = state.http_response
+            if not https_response:
+                section.set_content("No data available")
+                return
 
             output = []
 
@@ -1223,6 +1216,10 @@ class DNSDebuggerApp(App):
         self.title = domain
         self.sub_title = ""
 
+        # Initialize state manager
+        self.state_manager = StateManager()
+        self.state_manager.initialize(domain)
+
     def compose(self) -> ComposeResult:
         """Create the UI layout."""
         yield Header(show_clock=False)
@@ -1254,55 +1251,101 @@ class DNSDebuggerApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
-        """App mounted - hide loading indicator and show content."""
-        # Hide loading indicator immediately
+        """App mounted - load all data into state."""
+        # Show loading indicator
         loading = self.query_one("#app-loading", LoadingIndicator)
-        loading.display = False
+        loading.display = True
 
-        # Show main container
+        # Hide main container while loading
         main_container = self.query_one("#main-container")
-        main_container.display = True
+        main_container.display = False
 
-    def on_tabbed_content_tab_activated(self, event) -> None:
-        """Handle tab activation - load panel data when tab is visited."""
-        tab_id = event.tab.id
+        # Fetch all data
+        self.run_worker(self.fetch_all_data(), exclusive=True)
 
-        # Load panel data when first visited (defer to next tick)
-        if tab_id == "dashboard":
-            dashboard_panel = self.query_one(DashboardPanel)
-            if not hasattr(dashboard_panel, "_loaded"):
-                dashboard_panel._loaded = True
-                self.call_later(dashboard_panel.load_data)
-        elif tab_id == "dns":
-            dns_panel = self.query_one(DNSPanel)
-            if not hasattr(dns_panel, "_loaded"):
-                dns_panel._loaded = True
-                self.call_later(dns_panel.update_dns_info)
-        elif tab_id == "dnssec":
-            dnssec_panel = self.query_one(DNSSECPanel)
-            if not hasattr(dnssec_panel, "_loaded"):
-                dnssec_panel._loaded = True
-                self.call_later(dnssec_panel.update_dnssec_info)
-        elif tab_id == "cert":
-            cert_panel = self.query_one(CertificatePanel)
-            if not hasattr(cert_panel, "_loaded"):
-                cert_panel._loaded = True
-                self.call_later(cert_panel.update_cert_info)
-        elif tab_id == "http":
-            http_panel = self.query_one(HTTPPanel)
-            if not hasattr(http_panel, "_loaded"):
-                http_panel._loaded = True
-                self.call_later(http_panel.update_http_info)
-        elif tab_id == "registry":
-            registry_panel = self.query_one(RegistryPanel)
-            if not hasattr(registry_panel, "_loaded"):
-                registry_panel._loaded = True
-                self.call_later(registry_panel.update_registry_info)
-        elif tab_id == "email":
-            email_panel = self.query_one(EmailPanel)
-            if not hasattr(email_panel, "_loaded"):
-                email_panel._loaded = True
-                self.call_later(email_panel.update_email_info)
+    async def fetch_all_data(self) -> None:
+        """Fetch all data from all ports and populate state."""
+        try:
+            # Fetch DNS data
+            dns_adapter = DNSAdapterFactory.create()
+            dns_responses = {}
+            for record_type in [
+                RecordType.A,
+                RecordType.AAAA,
+                RecordType.MX,
+                RecordType.TXT,
+                RecordType.NS,
+            ]:
+                response = dns_adapter.query(self.domain, record_type)
+                dns_responses[record_type.value] = response
+            self.state_manager.update_dns(dns_responses)
+
+            # Fetch DNSSEC data
+            validation = dns_adapter.validate_dnssec(self.domain)
+            self.state_manager.update_dnssec(validation)
+
+            # Fetch Certificate data
+            from dns_debugger.adapters.cert.factory import CertificateAdapterFactory
+
+            cert_adapter = CertificateAdapterFactory.create()
+            tls_info = cert_adapter.get_certificate_info(self.domain)
+            self.state_manager.update_tls(tls_info)
+
+            # Fetch HTTP data
+            http_adapter = HTTPAdapterFactory.create()
+            https_response = http_adapter.check_url(f"https://{self.domain}")
+            self.state_manager.update_http(https_response)
+
+            # Fetch Registration data
+            from dns_debugger.adapters.registry.factory import RegistryAdapterFactory
+
+            registry_adapter = RegistryAdapterFactory.create()
+            registration = registry_adapter.lookup(self.domain)
+            self.state_manager.update_registration(registration)
+
+            # Fetch Email data
+            email_adapter = EmailAdapterFactory.create()
+            email_config = email_adapter.get_email_config(self.domain)
+            self.state_manager.update_email(email_config)
+
+            # All data loaded - now render all panels
+            self.call_later(self.render_all_panels)
+
+        except Exception as e:
+            self.notify(f"Error loading data: {str(e)}", severity="error")
+        finally:
+            # Hide loading indicator and show content
+            loading = self.query_one("#app-loading", LoadingIndicator)
+            loading.display = False
+            main_container = self.query_one("#main-container")
+            main_container.display = True
+
+    def render_all_panels(self) -> None:
+        """Render all panels from state data."""
+        state = self.state_manager.state
+
+        # Render dashboard
+        dashboard_panel = self.query_one(DashboardPanel)
+        dashboard_panel.render_from_state(state)
+
+        # Render all detail panels
+        dns_panel = self.query_one(DNSPanel)
+        dns_panel.render_from_state(state)
+
+        dnssec_panel = self.query_one(DNSSECPanel)
+        dnssec_panel.render_from_state(state)
+
+        cert_panel = self.query_one(CertificatePanel)
+        cert_panel.render_from_state(state)
+
+        http_panel = self.query_one(HTTPPanel)
+        http_panel.render_from_state(state)
+
+        registry_panel = self.query_one(RegistryPanel)
+        registry_panel.render_from_state(state)
+
+        email_panel = self.query_one(EmailPanel)
+        email_panel.render_from_state(state)
 
     def action_switch_tab(self, tab_id: str) -> None:
         """Switch to a specific tab by ID."""
@@ -1310,36 +1353,10 @@ class DNSDebuggerApp(App):
         tabbed_content.active = tab_id
 
     def action_refresh(self) -> None:
-        """Refresh the current view."""
-        # Get the active tab
-        tabbed_content = self.query_one(TabbedContent)
-        active_pane = tabbed_content.active
-
-        # Refresh the content in the active pane
-        if active_pane == "dashboard":
-            dashboard_panel = self.query_one(DashboardPanel)
-            dashboard_panel.loaded = False
-            dashboard_panel.load_data()
-        elif active_pane == "dns":
-            dns_panel = self.query_one(DNSPanel)
-            dns_panel.update_dns_info()
-        elif active_pane == "dnssec":
-            dnssec_panel = self.query_one(DNSSECPanel)
-            dnssec_panel.update_dnssec_info()
-        elif active_pane == "http":
-            http_panel = self.query_one(HTTPPanel)
-            http_panel.update_http_info()
-        elif active_pane == "cert":
-            cert_panel = self.query_one(CertificatePanel)
-            cert_panel.update_cert_info()
-        elif active_pane == "registry":
-            registry_panel = self.query_one(RegistryPanel)
-            registry_panel.update_registry_info()
-        elif active_pane == "email":
-            email_panel = self.query_one(EmailPanel)
-            email_panel.update_email_info()
-
-        self.notify("Refreshed!", severity="information")
+        """Refresh all data by refetching from ports."""
+        self.notify("Refreshing all data...", severity="information")
+        # Refetch all data and re-render all panels
+        self.run_worker(self.fetch_all_data(), exclusive=True)
 
     def action_show_raw(self) -> None:
         """Show raw logs for the current panel."""
