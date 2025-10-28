@@ -1100,18 +1100,11 @@ class DNSSECPanel(VerticalScroll):
 
         lines = []
 
-        # Line 1: Key type, tag, flags, algorithm, and match info
-        indicator = "•" if key_type == "ZSK" else ""
-        match_suffix = f" | {match_info}" if match_info else ""
+        # Single line: DNSKEY with key=value format
+        match_suffix = f" {match_info}" if match_info else ""
         lines.append(
-            f"  │  [{key_color}]{indicator} {key_type} Key Tag: {key.key_tag} | Flags: {key.flags} | Algorithm: {algo_name} ({algo_num}){match_suffix}[/{key_color}]\n"
+            f"  │ [{key_color}]DNSKEY TYPE={key_type} KEYTAG={key.key_tag} ALGO={algo_num}{match_suffix}[/{key_color}]\n"
         )
-
-        # Line 2: TTL and public key
-        lines.append(
-            f"  │     [{key_color}]TTL: {key.ttl}s | Public Key: {key.public_key[:48]}...[/{key_color}]\n"
-        )
-        lines.append("  │\n")
 
         return lines
 
@@ -1132,16 +1125,10 @@ class DNSSECPanel(VerticalScroll):
 
         lines = []
 
-        # Line 1: Key tag, algorithm, and digest type
+        # Single line: DS with key=value format
         lines.append(
-            f"  │  [{key_color}]Key Tag: {ds.key_tag} | Algorithm: {algo_name} ({algo_num}) | Digest: {digest_name} ({digest_num})[/{key_color}]\n"
+            f"  │ [{key_color}]DS KEYTAG={ds.key_tag} ALGO={algo_num} DIGEST={digest_num}[/{key_color}]\n"
         )
-
-        # Line 2: TTL and hash
-        lines.append(
-            f"  │      [{key_color}]TTL: {ds.ttl}s | Hash: {ds.digest[:48]}...[/{key_color}]\n"
-        )
-        lines.append("  │\n")
 
         return lines
 
@@ -1177,30 +1164,14 @@ class DNSSECPanel(VerticalScroll):
 
             # For target domain, show its DNSKEY records
             if is_target and chain.has_dnskey_record and chain.dnskey_records:
-                output.append("  │ DNSKEY Records:\n")
-                output.append("  │\n")
-
                 # Group by key type
                 ksk_keys = [k for k in chain.dnskey_records if k.is_key_signing_key]
                 zsk_keys = [k for k in chain.dnskey_records if k.is_zone_signing_key]
 
                 # Show KSK keys first
                 for ksk in ksk_keys:
-                    # Check if DS matches this KSK
-                    matching_ds = [
-                        ds
-                        for ds in (chain.ds_records or [])
-                        if ds.key_tag == ksk.key_tag
-                    ]
-                    match_indicator = "✓" if matching_ds else "⚠"
-                    ds_match = (
-                        f"{match_indicator} DS in parent"
-                        if matching_ds
-                        else "⚠ No DS in parent"
-                    )
-
                     # Render using helper
-                    output.extend(self._render_dnskey(ksk, "KSK", ds_match))
+                    output.extend(self._render_dnskey(ksk, "KSK"))
 
                 # Show ZSK keys
                 for zsk in zsk_keys:
@@ -1209,12 +1180,10 @@ class DNSSECPanel(VerticalScroll):
 
             elif is_target:
                 output.append("  │ ✗ No DNSKEY records found\n")
-                output.append("  │\n")
 
             # Show RRSIG records
             if is_target and chain.has_rrsig_record and chain.rrsig_records:
                 output.append("  │ RRSIG Signatures:\n")
-                output.append("  │\n")
 
                 # Group by key tag
                 rrsigs_by_key = {}
@@ -1283,12 +1252,10 @@ class DNSSECPanel(VerticalScroll):
                     output.append(
                         f"  │     [{key_color}]Signer: {first_sig.signer_name}[/{key_color}]\n"
                     )
-                    output.append("  │\n")
 
             elif is_target and not chain.has_rrsig_record:
                 output.append("  │ ⚠ No RRSIG records found\n")
                 output.append("  │   Zone records are not signed\n")
-                output.append("  │\n")
 
             output.append(
                 "  └─────────────────────────────────────────────────────────\n\n"
@@ -1307,54 +1274,27 @@ class DNSSECPanel(VerticalScroll):
 
                 # Show DNSKEY records for this zone
                 if zone_data.has_dnskey:
-                    # For root zone, just show summary since root keys rarely change
-                    if zone_data.zone_name == ".":
-                        ksk_count = zone_data.ksk_count
-                        zsk_count = zone_data.zsk_count
-                        # Color each key tag
-                        colored_tags = [
-                            f"[{self._keytag_to_color(k.key_tag)}]{k.key_tag}[/{self._keytag_to_color(k.key_tag)}]"
-                            for k in zone_data.dnskey_records
-                        ]
-                        output.append(
-                            f"  │ DNSKEY Records: {ksk_count} KSK, {zsk_count} ZSK - Key Tags: {', '.join(colored_tags)}\n"
-                        )
-                        output.append("  │\n")
-                    else:
-                        # For non-root zones, show full details
-                        output.append(
-                            f"  │ DNSKEY Records ({len(zone_data.dnskey_records)} keys):\n"
-                        )
-                        output.append("  │\n")
-
-                        for key in zone_data.dnskey_records:
-                            key_type = "KSK" if key.is_key_signing_key else "ZSK"
-                            # Render using helper
-                            output.extend(self._render_dnskey(key, key_type))
+                    # Show full details for all zones
+                    for key in zone_data.dnskey_records:
+                        key_type = "KSK" if key.is_key_signing_key else "ZSK"
+                        # Render using helper
+                        output.extend(self._render_dnskey(key, key_type))
                 else:
                     output.append("  │ ✗ No DNSKEY records found\n")
-                    output.append("  │\n")
 
                 # Separator line between DNSKEY and DS sections
                 output.append(
                     "  │ ───────────────────────────────────────────────────────\n"
                 )
-                output.append("  │\n")
 
                 # Show DS records that delegate to child
                 if zone_data.has_ds:
                     # Show full details for all zones
-                    output.append(
-                        f"  │ DS Records ({len(zone_data.ds_records)} records - delegating to child):\n"
-                    )
-                    output.append("  │\n")
-
                     for ds in zone_data.ds_records:
                         # Render using helper
                         output.extend(self._render_ds(ds))
                 else:
                     output.append("  │ ⚠ No DS records found (chain may be broken)\n")
-                    output.append("  │\n")
 
                 output.append(
                     "  └─────────────────────────────────────────────────────────\n"
