@@ -3,45 +3,36 @@
 from typing import Optional
 
 from dns_debugger.domain.ports.registry_port import RegistryPort
-from dns_debugger.adapters.registry.rdap_adapter import RDAPAdapter
 from dns_debugger.adapters.registry.whois_bash_adapter import WHOISBashAdapter
 
 
 class RegistryAdapterFactory:
     """Factory for creating registry adapters.
 
-    Automatically selects the best available registry lookup method:
-    1. RDAP (preferred - structured JSON data)
-    2. WHOIS (fallback - text-based data)
+    Uses bash whois command exclusively - no Python packages required.
     """
 
     @staticmethod
     def create() -> RegistryPort:
-        """Create a registry adapter using the best available method.
+        """Create a registry adapter using the bash whois command.
 
         Returns:
-            A RegistryPort implementation (RDAPAdapter or WHOISAdapter)
+            WHOISBashAdapter using the system whois command
 
         Raises:
-            RuntimeError: If no registry lookup method is available
+            RuntimeError: If whois command is not available
         """
-        # Try bash whois first (most universally available)
+        # Use bash whois command
         whois_bash = WHOISBashAdapter()
         if whois_bash.is_available():
             return whois_bash
 
-        # Fall back to RDAP if whodap is installed
-        rdap = RDAPAdapter()
-        if rdap.is_available():
-            return rdap
-
         # No registry lookup method available
         raise RuntimeError(
-            "No registry lookup method available. Please install 'whois' command.\n"
+            "whois command not found. Please install whois.\n"
             "  - macOS: brew install whois\n"
             "  - Ubuntu/Debian: apt-get install whois\n"
-            "  - RHEL/Fedora: dnf install whois\n"
-            "  - Alternative: pip install whodap (for RDAP)"
+            "  - RHEL/Fedora: dnf install whois"
         )
 
     @staticmethod
@@ -49,7 +40,7 @@ class RegistryAdapterFactory:
         """Create a specific registry adapter by name.
 
         Args:
-            method_name: Name of the method ("rdap" or "whois")
+            method_name: Name of the method ("whois")
 
         Returns:
             The requested RegistryPort implementation
@@ -58,12 +49,12 @@ class RegistryAdapterFactory:
             ValueError: If method_name is not recognized
             RuntimeError: If the requested method is not available
         """
-        if method_name.lower() == "rdap":
-            adapter = RDAPAdapter()
-        elif method_name.lower() == "whois":
+        if method_name.lower() == "whois":
             adapter = WHOISBashAdapter()
         else:
-            raise ValueError(f"Unknown registry method: {method_name}")
+            raise ValueError(
+                f"Unknown registry method: {method_name}. Only 'whois' is supported."
+            )
 
         if not adapter.is_available():
             raise RuntimeError(f"Registry method '{method_name}' is not available")
@@ -82,10 +73,6 @@ class RegistryAdapterFactory:
         whois_bash = WHOISBashAdapter()
         if whois_bash.is_available():
             methods.append("whois")
-
-        rdap = RDAPAdapter()
-        if rdap.is_available():
-            methods.append("rdap")
 
         return methods
 

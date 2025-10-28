@@ -53,6 +53,8 @@ class WHOISBashAdapter(RegistryPort):
                 "Registrar:",
                 "registrar:",
                 "Registrar Name:",
+                "organisation:",
+                "organization:",
             ],
         )
 
@@ -248,21 +250,13 @@ class WHOISBashAdapter(RegistryPort):
     def is_available(self) -> bool:
         """Check if whois command is available."""
         try:
-            subprocess.run(
-                ["whois", "--version"], capture_output=True, timeout=5, check=False
+            # Just check if the command exists using which
+            result = subprocess.run(
+                ["which", "whois"], capture_output=True, timeout=5, check=False
             )
-            return True
-        except FileNotFoundError:
-            return False
+            return result.returncode == 0
         except:
-            # Even if --version fails, whois might still be available
-            try:
-                subprocess.run(
-                    ["which", "whois"], capture_output=True, timeout=5, check=True
-                )
-                return True
-            except:
-                return False
+            return False
 
     def get_source_name(self) -> str:
         """Get the name of the registry source."""
