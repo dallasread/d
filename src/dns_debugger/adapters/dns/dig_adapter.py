@@ -335,18 +335,40 @@ class DigAdapter(DNSPort):
             # Parse DNSSEC records
             ds_records = self._parse_ds_records(ds_response)
 
-            # Try to check for DNSSEC validation using dig +dnssec
+            # Try to check for RRSIG records by querying authoritative nameserver
             rrsig_records = []
             has_rrsig = False
             dnssec_output = ""
             try:
-                cmd = ["dig", "+dnssec", "+noall", "+answer", domain, "A"]
-                result = subprocess.run(
-                    cmd, capture_output=True, text=True, timeout=10, check=True
+                # First get the authoritative nameserver
+                ns_cmd = ["dig", "+short", domain, "NS"]
+                ns_result = subprocess.run(
+                    ns_cmd, capture_output=True, text=True, timeout=10, check=True
                 )
-                # Check if RRSIG records are present in output
-                has_rrsig = "RRSIG" in result.stdout
-                dnssec_output = result.stdout
+                nameservers = [
+                    ns.strip().rstrip(".")
+                    for ns in ns_result.stdout.strip().split("\n")
+                    if ns.strip()
+                ]
+
+                if nameservers:
+                    # Query the authoritative nameserver for RRSIGs
+                    auth_ns = nameservers[0]
+                    cmd = [
+                        "dig",
+                        f"@{auth_ns}",
+                        "+dnssec",
+                        "+noall",
+                        "+answer",
+                        domain,
+                        "A",
+                    ]
+                    result = subprocess.run(
+                        cmd, capture_output=True, text=True, timeout=10, check=True
+                    )
+                    # Check if RRSIG records are present in output
+                    has_rrsig = "RRSIG" in result.stdout
+                    dnssec_output = result.stdout
             except Exception:
                 has_rrsig = False
 
@@ -408,8 +430,12 @@ class DigAdapter(DNSPort):
             # Determine validation status
             if not has_dnskey:
                 status = DNSSECStatus.INSECURE
-            elif chain.has_chain_of_trust:
+            elif has_dnskey and has_ds:
+                # Domain has both DNSKEY and DS records - it's signed and secure
                 status = DNSSECStatus.SECURE
+            elif has_dnskey and not has_ds:
+                # Domain has DNSKEY but no DS in parent - signed but chain broken
+                status = DNSSECStatus.INDETERMINATE
             else:
                 status = DNSSECStatus.INDETERMINATE
 

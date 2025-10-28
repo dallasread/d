@@ -436,8 +436,12 @@ class DogAdapter(DNSPort):
             # Determine validation status
             if not has_dnskey:
                 status = DNSSECStatus.INSECURE
-            elif chain.has_chain_of_trust:
+            elif has_dnskey and has_ds:
+                # Domain has both DNSKEY and DS records - it's signed and secure
                 status = DNSSECStatus.SECURE
+            elif has_dnskey and not has_ds:
+                # Domain has DNSKEY but no DS in parent - signed but chain broken
+                status = DNSSECStatus.INDETERMINATE
             else:
                 status = DNSSECStatus.INDETERMINATE
 
