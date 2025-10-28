@@ -4,7 +4,7 @@ from typing import Optional
 
 from dns_debugger.domain.ports.registry_port import RegistryPort
 from dns_debugger.adapters.registry.rdap_adapter import RDAPAdapter
-from dns_debugger.adapters.registry.whois_adapter import WHOISAdapter
+from dns_debugger.adapters.registry.whois_bash_adapter import WHOISBashAdapter
 
 
 class RegistryAdapterFactory:
@@ -25,21 +25,23 @@ class RegistryAdapterFactory:
         Raises:
             RuntimeError: If no registry lookup method is available
         """
-        # Try RDAP first (preferred)
+        # Try bash whois first (most universally available)
+        whois_bash = WHOISBashAdapter()
+        if whois_bash.is_available():
+            return whois_bash
+
+        # Fall back to RDAP if whodap is installed
         rdap = RDAPAdapter()
         if rdap.is_available():
             return rdap
 
-        # Fall back to WHOIS
-        whois_adapter = WHOISAdapter()
-        if whois_adapter.is_available():
-            return whois_adapter
-
         # No registry lookup method available
         raise RuntimeError(
-            "No registry lookup method available. Please install 'whodap' or 'python-whois'.\n"
-            "  - RDAP (preferred): pip install whodap\n"
-            "  - WHOIS (fallback): pip install python-whois"
+            "No registry lookup method available. Please install 'whois' command.\n"
+            "  - macOS: brew install whois\n"
+            "  - Ubuntu/Debian: apt-get install whois\n"
+            "  - RHEL/Fedora: dnf install whois\n"
+            "  - Alternative: pip install whodap (for RDAP)"
         )
 
     @staticmethod
@@ -59,7 +61,7 @@ class RegistryAdapterFactory:
         if method_name.lower() == "rdap":
             adapter = RDAPAdapter()
         elif method_name.lower() == "whois":
-            adapter = WHOISAdapter()
+            adapter = WHOISBashAdapter()
         else:
             raise ValueError(f"Unknown registry method: {method_name}")
 
@@ -77,13 +79,13 @@ class RegistryAdapterFactory:
         """
         methods = []
 
+        whois_bash = WHOISBashAdapter()
+        if whois_bash.is_available():
+            methods.append("whois")
+
         rdap = RDAPAdapter()
         if rdap.is_available():
             methods.append("rdap")
-
-        whois_adapter = WHOISAdapter()
-        if whois_adapter.is_available():
-            methods.append("whois")
 
         return methods
 

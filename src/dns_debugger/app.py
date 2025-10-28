@@ -283,7 +283,9 @@ class RegistryPanel(Static):
 
         except Exception as e:
             self.update(f"[red]Error: {str(e)}[/red]\n\n")
-            self.update("[dim]Make sure whodap or python-whois is installed[/dim]")
+            self.update(
+                "[dim]Make sure 'whois' command is installed (brew install whois / apt-get install whois)[/dim]"
+            )
 
 
 class DNSDebuggerApp(App):
