@@ -121,6 +121,8 @@ class DashboardPanel(Container):
                     return "[green]✓[/green]"
                 elif status == "warn":
                     return "[yellow]⚠[/yellow]"
+                elif status == "neutral":
+                    return "[dim]○[/dim]"
                 else:
                     return "[red]✗[/red]"
 
