@@ -19,6 +19,7 @@ from dns_debugger.domain.models.dns_record import RecordType
 from dns_debugger.screens.raw_data_screen import RawDataScreen
 from dns_debugger.adapters.http.factory import HTTPAdapterFactory
 from dns_debugger.domain.models.http_info import HTTPMethod
+from dns_debugger.adapters.email.factory import EmailAdapterFactory
 
 
 class HealthSection(Static):
@@ -62,14 +63,17 @@ class DashboardPanel(Container):
             # Left side - full height Registration
             yield HealthSection("📋 Registration", "health-registry")
 
-            # Right side - 2x2 grid of smaller sections
+            # Right side - 3 rows of sections
             with Vertical(id="dashboard-right"):
                 with Horizontal(id="dashboard-row-1"):
                     yield HealthSection("📡 DNS", "health-dns")
-                    yield HealthSection("🔐 DNSSEC", "health-dnssec")
+                    yield HealthSection("📧 Email", "health-email")
 
                 with Horizontal(id="dashboard-row-2"):
+                    yield HealthSection("🔐 DNSSEC", "health-dnssec")
                     yield HealthSection("🔒 Certificate", "health-cert")
+
+                with Horizontal(id="dashboard-row-3"):
                     yield HealthSection("🌐 HTTP/HTTPS", "health-http")
 
     def on_mount(self) -> None:
@@ -88,6 +92,7 @@ class DashboardPanel(Container):
                 self.check_registry_health(), exclusive=False, group="health"
             )
             self.run_worker(self.check_dnssec_health(), exclusive=False, group="health")
+            self.run_worker(self.check_email_health(), exclusive=False, group="health")
 
     async def check_http_health(self) -> None:
         """Check HTTP/HTTPS health."""
@@ -310,6 +315,73 @@ class DashboardPanel(Container):
                 )
 
             output.append(f"[dim]→ Press 3[/dim]")
+            section.set_content("".join(output))
+
+        except Exception as e:
+            section.set_error(str(e))
+
+    async def check_email_health(self) -> None:
+        """Check email configuration health."""
+        section = self.query_one("#health-email", HealthSection)
+        try:
+            email_adapter = EmailAdapterFactory.create()
+            email_config = email_adapter.get_email_config(self.domain)
+
+            output = []
+
+            # MX Records
+            if email_config.has_mx:
+                output.append(
+                    f"  [green]✓ MX[/green]: {len(email_config.mx_records)} record(s)\n"
+                )
+            else:
+                output.append(f"  [red]✗ MX: None[/red]\n")
+
+            # SPF
+            if email_config.has_spf:
+                if email_config.spf_record.is_strict:
+                    output.append(f"  [green]✓ SPF: Strict (-all)[/green]\n")
+                else:
+                    output.append(
+                        f"  [yellow]○ SPF: {email_config.spf_record.all_mechanism or 'present'}[/yellow]\n"
+                    )
+            else:
+                output.append(f"  [red]✗ SPF: None[/red]\n")
+
+            # DKIM
+            if email_config.has_dkim:
+                dkim_count = sum(1 for d in email_config.dkim_records if d.exists)
+                output.append(f"  [green]✓ DKIM: {dkim_count} selector(s)[/green]\n")
+            else:
+                output.append(f"  [yellow]○ DKIM: Not found[/yellow]\n")
+
+            # DMARC
+            if email_config.has_dmarc:
+                if email_config.dmarc_record.is_enforcing:
+                    output.append(
+                        f"  [green]✓ DMARC: {email_config.dmarc_record.policy.value}[/green]\n"
+                    )
+                else:
+                    output.append(
+                        f"  [yellow]○ DMARC: {email_config.dmarc_record.policy.value}[/yellow]\n"
+                    )
+            else:
+                output.append(f"  [red]✗ DMARC: None[/red]\n")
+
+            # Provider
+            if email_config.email_provider:
+                output.append(f"  Provider: {email_config.email_provider}\n")
+
+            # Security score
+            score = email_config.security_score
+            if score >= 80:
+                output.append(f"  Score: [green]{score}/100[/green]\n")
+            elif score >= 50:
+                output.append(f"  Score: [yellow]{score}/100[/yellow]\n")
+            else:
+                output.append(f"  Score: [red]{score}/100[/red]\n")
+
+            output.append(f"[dim]→ Press 6[/dim]")
             section.set_content("".join(output))
 
         except Exception as e:
@@ -823,6 +895,214 @@ class HTTPPanel(Static):
             )
 
 
+class EmailPanel(Static):
+    """Panel for displaying email configuration information."""
+
+    def __init__(self, domain: str) -> None:
+        super().__init__()
+        self.domain = domain
+        self.email_adapter = None
+        self.last_email_config = None  # Store raw config for logs
+
+    def on_mount(self) -> None:
+        """Panel mounted - data already loaded via dashboard."""
+        pass
+
+    def update_email_info(self) -> None:
+        """Refresh email data (called by refresh action)."""
+        self.update("[dim]Refreshing email configuration...[/dim]")
+        self.run_worker(self.fetch_email_data(), exclusive=True)
+
+    async def fetch_email_data(self) -> None:
+        """Async worker to fetch email configuration."""
+        try:
+            self.email_adapter = EmailAdapterFactory.create()
+
+            output = []
+            output.append(
+                f"[bold cyan]Email Configuration for {self.domain}[/bold cyan]\n"
+            )
+            output.append(f"Using: DNS queries\n\n")
+
+            # Get email configuration
+            email_config = self.email_adapter.get_email_config(self.domain)
+            self.last_email_config = email_config  # Store for logs
+
+            # Overall security score
+            score = email_config.security_score
+            if score >= 80:
+                score_color = "green"
+            elif score >= 50:
+                score_color = "yellow"
+            else:
+                score_color = "red"
+            output.append(
+                f"[bold]Security Score: [{score_color}]{score}/100[/{score_color}][/bold]\n\n"
+            )
+
+            # Email Provider
+            if email_config.email_provider:
+                output.append(f"[bold yellow]Email Provider:[/bold yellow]\n")
+                output.append(f"  {email_config.email_provider}\n\n")
+
+            # MX Records
+            output.append("[bold yellow]MX Records:[/bold yellow]\n")
+            if email_config.has_mx:
+                for mx in email_config.mx_records:
+                    output.append(f"  Priority {mx.priority}: {mx.hostname}\n")
+                    if mx.ip_addresses:
+                        for ip in mx.ip_addresses[:2]:
+                            output.append(f"    [dim]{ip}[/dim]\n")
+            else:
+                output.append(f"  [red]✗ No MX records found[/red]\n")
+            output.append("\n")
+
+            # SPF Record
+            output.append("[bold yellow]SPF (Sender Policy Framework):[/bold yellow]\n")
+            if email_config.has_spf:
+                spf = email_config.spf_record
+                output.append(
+                    f"  Record: [dim]{spf.record[:80]}{'...' if len(spf.record) > 80 else ''}[/dim]\n"
+                )
+
+                if spf.is_strict:
+                    output.append(f"  Policy: [green]✓ Strict (-all)[/green]\n")
+                elif spf.all_mechanism == "~all":
+                    output.append(f"  Policy: [yellow]○ Soft Fail (~all)[/yellow]\n")
+                elif spf.all_mechanism == "+all":
+                    output.append(f"  Policy: [red]✗ Allow All (+all)[/red]\n")
+                elif spf.all_mechanism:
+                    output.append(f"  Policy: {spf.all_mechanism}\n")
+                else:
+                    output.append(f"  Policy: [dim]No 'all' mechanism[/dim]\n")
+
+                if spf.mechanisms:
+                    output.append(f"  Mechanisms: {len(spf.mechanisms)}\n")
+            else:
+                output.append(f"  [red]✗ No SPF record found[/red]\n")
+                output.append(
+                    f"  [dim]Recommendation: Add TXT record with SPF policy[/dim]\n"
+                )
+            output.append("\n")
+
+            # DKIM Records
+            output.append(
+                "[bold yellow]DKIM (DomainKeys Identified Mail):[/bold yellow]\n"
+            )
+            if email_config.has_dkim:
+                found_count = sum(1 for d in email_config.dkim_records if d.exists)
+                output.append(f"  Found {found_count} selector(s):\n")
+                for dkim in email_config.dkim_records:
+                    if dkim.exists:
+                        output.append(f"    [green]✓[/green] {dkim.selector}\n")
+                        if dkim.public_key:
+                            key_preview = (
+                                dkim.public_key[:40] + "..."
+                                if len(dkim.public_key) > 40
+                                else dkim.public_key
+                            )
+                            output.append(f"      [dim]{key_preview}[/dim]\n")
+            else:
+                output.append(f"  [yellow]○ No DKIM records found[/yellow]\n")
+                output.append(
+                    f"  [dim]Checked selectors: default, google, k1, s1, s2, selector1, selector2[/dim]\n"
+                )
+                output.append(
+                    f"  [dim]Note: DKIM selector names are provider-specific[/dim]\n"
+                )
+            output.append("\n")
+
+            # DMARC Record
+            output.append(
+                "[bold yellow]DMARC (Domain-based Message Authentication):[/bold yellow]\n"
+            )
+            if email_config.has_dmarc:
+                dmarc = email_config.dmarc_record
+                output.append(
+                    f"  Record: [dim]{dmarc.record[:80]}{'...' if len(dmarc.record) > 80 else ''}[/dim]\n"
+                )
+
+                # Policy
+                if dmarc.is_enforcing:
+                    policy_color = "green"
+                elif dmarc.policy.value == "none":
+                    policy_color = "yellow"
+                else:
+                    policy_color = "white"
+                output.append(
+                    f"  Policy: [{policy_color}]{dmarc.policy.value}[/{policy_color}]\n"
+                )
+
+                if dmarc.subdomain_policy:
+                    output.append(
+                        f"  Subdomain Policy: {dmarc.subdomain_policy.value}\n"
+                    )
+
+                # Alignment
+                if dmarc.dkim_alignment:
+                    align_text = "strict" if dmarc.dkim_alignment == "s" else "relaxed"
+                    output.append(f"  DKIM Alignment: {align_text}\n")
+                if dmarc.spf_alignment:
+                    align_text = "strict" if dmarc.spf_alignment == "s" else "relaxed"
+                    output.append(f"  SPF Alignment: {align_text}\n")
+
+                # Reporting
+                if dmarc.aggregate_report_uri:
+                    output.append(
+                        f"  Aggregate Reports: {dmarc.aggregate_report_uri[:50]}\n"
+                    )
+                if dmarc.forensic_report_uri:
+                    output.append(
+                        f"  Forensic Reports: {dmarc.forensic_report_uri[:50]}\n"
+                    )
+
+                if dmarc.percentage and dmarc.percentage < 100:
+                    output.append(
+                        f"  [yellow]Coverage: {dmarc.percentage}% of messages[/yellow]\n"
+                    )
+            else:
+                output.append(f"  [red]✗ No DMARC record found[/red]\n")
+                output.append(
+                    f"  [dim]Recommendation: Add TXT record at _dmarc.{self.domain}[/dim]\n"
+                )
+            output.append("\n")
+
+            # Recommendations
+            output.append("[bold yellow]Configuration Status:[/bold yellow]\n")
+            if not email_config.has_mx:
+                output.append(
+                    f"  [red]✗ Missing MX records - email delivery not configured[/red]\n"
+                )
+            if not email_config.has_spf:
+                output.append(f"  [red]✗ Missing SPF - risk of email spoofing[/red]\n")
+            if not email_config.has_dmarc:
+                output.append(f"  [red]✗ Missing DMARC - no policy enforcement[/red]\n")
+            if not email_config.has_dkim:
+                output.append(
+                    f"  [yellow]○ DKIM not found - message signing not verified[/yellow]\n"
+                )
+
+            if email_config.has_mx and email_config.has_spf and email_config.has_dmarc:
+                if email_config.has_dkim:
+                    output.append(
+                        f"  [green]✓ All essential email authentication configured[/green]\n"
+                    )
+                else:
+                    output.append(
+                        f"  [green]✓ Core authentication configured[/green]\n"
+                    )
+                    output.append(
+                        f"  [yellow]○ Consider adding DKIM for enhanced security[/yellow]\n"
+                    )
+
+            self.update("".join(output))
+
+        except Exception as e:
+            self.update(
+                f"[red]Error: {str(e)}[/red]\n\n[dim]Make sure DNS tools are available[/dim]"
+            )
+
+
 class DNSDebuggerApp(App):
     """Main DNS Debugger TUI application."""
 
@@ -902,6 +1182,23 @@ class DNSDebuggerApp(App):
     #dashboard-row-1 {
         margin: 0 0 1 0;
     }
+
+    #dashboard-row-2 {
+        margin: 0 0 1 0;
+    }
+
+    #dashboard-row-3 {
+        height: 1fr;
+        width: 100%;
+    }
+
+    #dashboard-row-3 HealthSection {
+        width: 100%;
+        height: 100%;
+        border: solid $primary;
+        margin: 0 0 0 1;
+        padding: 1 2;
+    }
     """
 
     BINDINGS = [
@@ -916,6 +1213,7 @@ class DNSDebuggerApp(App):
         Binding("3", "switch_tab('dnssec')", "DNSSEC", show=False),
         Binding("4", "switch_tab('cert')", "Certificate", show=False),
         Binding("5", "switch_tab('http')", "HTTP", show=False),
+        Binding("6", "switch_tab('email')", "Email", show=False),
     ]
 
     def __init__(self, domain: str, theme: str = "dark") -> None:
@@ -949,6 +1247,9 @@ class DNSDebuggerApp(App):
 
                 with TabPane("HTTP", id="http"):
                     yield HTTPPanel(self.domain)
+
+                with TabPane("Email", id="email"):
+                    yield EmailPanel(self.domain)
 
         yield Footer()
 
@@ -1019,6 +1320,9 @@ class DNSDebuggerApp(App):
         elif active_pane == "registry":
             registry_panel = self.query_one(RegistryPanel)
             registry_panel.update_registry_info()
+        elif active_pane == "email":
+            email_panel = self.query_one(EmailPanel)
+            email_panel.update_email_info()
 
         self.notify("Refreshed!", severity="information")
 
@@ -1156,6 +1460,64 @@ class DNSDebuggerApp(App):
                 # Use the raw_data from registration if available
                 raw_data = registry_panel.last_registration.raw_data
                 title = f"Registration Raw Data - {registry_panel.domain}"
+        elif active_pane == "email":
+            email_panel = self.query_one(EmailPanel)
+            if email_panel.last_email_config:
+                email_config = email_panel.last_email_config
+                raw_data = {
+                    "domain": email_config.domain,
+                    "email_provider": email_config.email_provider,
+                    "security_score": email_config.security_score,
+                    "mx_records": [
+                        {
+                            "hostname": mx.hostname,
+                            "priority": mx.priority,
+                            "ip_addresses": mx.ip_addresses,
+                        }
+                        for mx in email_config.mx_records
+                    ],
+                    "spf_record": {
+                        "domain": email_config.spf_record.domain,
+                        "record": email_config.spf_record.record,
+                        "mechanisms": email_config.spf_record.mechanisms,
+                        "all_mechanism": email_config.spf_record.all_mechanism,
+                        "is_strict": email_config.spf_record.is_strict,
+                    }
+                    if email_config.spf_record
+                    else None,
+                    "dkim_records": [
+                        {
+                            "selector": dkim.selector,
+                            "domain": dkim.domain,
+                            "exists": dkim.exists,
+                            "public_key": dkim.public_key[:100] + "..."
+                            if dkim.public_key and len(dkim.public_key) > 100
+                            else dkim.public_key,
+                        }
+                        for dkim in email_config.dkim_records
+                    ],
+                    "dmarc_record": {
+                        "domain": email_config.dmarc_record.domain,
+                        "record": email_config.dmarc_record.record,
+                        "policy": email_config.dmarc_record.policy.value,
+                        "subdomain_policy": email_config.dmarc_record.subdomain_policy.value
+                        if email_config.dmarc_record.subdomain_policy
+                        else None,
+                        "percentage": email_config.dmarc_record.percentage,
+                        "dkim_alignment": email_config.dmarc_record.dkim_alignment,
+                        "spf_alignment": email_config.dmarc_record.spf_alignment,
+                        "aggregate_report_uri": email_config.dmarc_record.aggregate_report_uri,
+                        "forensic_report_uri": email_config.dmarc_record.forensic_report_uri,
+                        "is_enforcing": email_config.dmarc_record.is_enforcing,
+                    }
+                    if email_config.dmarc_record
+                    else None,
+                    "has_mx": email_config.has_mx,
+                    "has_spf": email_config.has_spf,
+                    "has_dkim": email_config.has_dkim,
+                    "has_dmarc": email_config.has_dmarc,
+                }
+                title = f"Email Raw Data - {email_panel.domain}"
 
         if raw_data:
             self.push_screen(RawDataScreen(title, raw_data))
