@@ -1105,7 +1105,7 @@ class DNSSECPanel(VerticalScroll):
         # Strip any spaces from the public key and truncate to 32 chars (16 start + 16 end)
         pubkey_clean = key.public_key.replace(" ", "")
         if len(pubkey_clean) > 64:
-            pubkey_display = f"{pubkey_clean[:16]}...{pubkey_clean[-16:]}"
+            pubkey_display = f"{pubkey_clean[:32]}...{pubkey_clean[-32:]}"
         else:
             pubkey_display = pubkey_clean
         lines.append(
