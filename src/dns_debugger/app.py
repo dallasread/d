@@ -118,28 +118,6 @@ class DashboardPanel(Container):
 
             output = []
 
-            # Main status with color
-            if data.domain_status == "healthy":
-                status_icon = "✓"
-                status_color = "green"
-                status_text = "HEALTHY"
-            elif data.domain_status == "warning":
-                status_icon = "⚠"
-                status_color = "yellow"
-                status_text = "WARNING"
-            else:  # critical
-                status_icon = "✗"
-                status_color = "red"
-                status_text = "CRITICAL"
-
-            output.append(
-                f"  [{status_color}]{status_icon} {status_text}[/{status_color}]\n"
-            )
-            output.append(f"  [dim]{data.summary_message}[/dim]\n\n")
-
-            # Component status summary (in logical request order)
-            output.append("[bold]Component Status:[/bold]\n")
-
             def status_indicator(status):
                 if status == "pass":
                     return "[green]✓[/green]"
@@ -148,14 +126,22 @@ class DashboardPanel(Container):
                 else:
                     return "[red]✗[/red]"
 
-            output.append(f"  {status_indicator(data.dns_status)} DNS [2]\n")
             output.append(
-                f"  {status_indicator(data.registry_status)} Registration [1]\n"
+                f"  {status_indicator(data.registry_status)} Registration [dim][1][/dim]\n"
             )
-            output.append(f"  {status_indicator(data.http_status)} HTTP/HTTPS [5]\n")
-            output.append(f"  {status_indicator(data.cert_status)} Certificate [4]\n")
-            output.append(f"  {status_indicator(data.email_status)} Email [6]\n")
-            output.append(f"  {status_indicator(data.dnssec_status)} DNSSEC [3]\n")
+            output.append(f"  {status_indicator(data.dns_status)} DNS [dim][2][/dim]\n")
+            output.append(
+                f"  {status_indicator(data.dnssec_status)} DNSSEC [dim][3][/dim]\n"
+            )
+            output.append(
+                f"  {status_indicator(data.cert_status)} Certificate [dim][4][/dim]\n"
+            )
+            output.append(
+                f"  {status_indicator(data.http_status)} HTTP/HTTPS [dim][5][/dim]\n"
+            )
+            output.append(
+                f"  {status_indicator(data.email_status)} Email [dim][6][/dim]\n"
+            )
 
             section.set_content("".join(output))
 
