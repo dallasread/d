@@ -373,13 +373,16 @@ class DashboardFacade:
                 registry_status = "pass"
 
         dnssec_status = "pass"  # DNSSEC is optional, so default to pass
-        if not dnssec_health.error:
-            if dnssec_health.is_bogus:
-                dnssec_status = "fail"
-            elif dnssec_health.is_secure:
-                dnssec_status = "pass"
-            else:
-                dnssec_status = "warn"  # Not enabled
+        if dnssec_health.error:
+            dnssec_status = "warn"  # Error checking DNSSEC
+        elif dnssec_health.is_bogus:
+            dnssec_status = "fail"  # DNSSEC is broken
+        elif dnssec_health.is_secure:
+            dnssec_status = "pass"  # DNSSEC is enabled and valid
+        elif dnssec_health.has_dnskey or dnssec_health.has_ds:
+            dnssec_status = "warn"  # Partially configured
+        else:
+            dnssec_status = "pass"  # Not enabled (optional, so pass)
 
         email_status = "fail"
         if not email_health.error:
