@@ -10,6 +10,14 @@ from dns_debugger.domain.models.certificate import TLSInfo
 from dns_debugger.domain.models.http_info import HTTPResponse
 from dns_debugger.domain.models.domain_info import DomainRegistration
 from dns_debugger.domain.models.email_info import EmailConfiguration
+from dns_debugger.facades.dashboard_facade import (
+    HTTPHealthData,
+    CertHealthData,
+    DNSHealthData,
+    RegistryHealthData,
+    DNSSECHealthData,
+    EmailHealthData,
+)
 
 
 @dataclass
@@ -41,6 +49,14 @@ class AppState:
     # Email data
     email_config: Optional[EmailConfiguration] = None
     email_last_updated: Optional[datetime] = None
+
+    # Dashboard health data (simplified for display)
+    http_health: Optional[HTTPHealthData] = None
+    cert_health: Optional[CertHealthData] = None
+    dns_health: Optional[DNSHealthData] = None
+    registry_health: Optional[RegistryHealthData] = None
+    dnssec_health: Optional[DNSSECHealthData] = None
+    email_health: Optional[EmailHealthData] = None
 
     def __post_init__(self):
         """Initialize mutable defaults."""
@@ -100,6 +116,23 @@ class StateManager:
         """Update email configuration."""
         self.state.email_config = email_config
         self.state.email_last_updated = datetime.now()
+
+    def update_health_data(
+        self,
+        http_health: HTTPHealthData,
+        cert_health: CertHealthData,
+        dns_health: DNSHealthData,
+        registry_health: RegistryHealthData,
+        dnssec_health: DNSSECHealthData,
+        email_health: EmailHealthData,
+    ) -> None:
+        """Update all dashboard health data."""
+        self.state.http_health = http_health
+        self.state.cert_health = cert_health
+        self.state.dns_health = dns_health
+        self.state.registry_health = registry_health
+        self.state.dnssec_health = dnssec_health
+        self.state.email_health = email_health
 
     def clear(self) -> None:
         """Clear all state."""

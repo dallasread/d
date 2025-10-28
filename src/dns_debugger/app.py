@@ -21,6 +21,7 @@ from dns_debugger.adapters.http.factory import HTTPAdapterFactory
 from dns_debugger.domain.models.http_info import HTTPMethod
 from dns_debugger.adapters.email.factory import EmailAdapterFactory
 from dns_debugger.state import StateManager
+from dns_debugger.facades.dashboard_facade import DashboardFacade
 
 
 class HealthSection(Static):
@@ -62,20 +63,28 @@ class DashboardPanel(Container):
 
         with Horizontal(id="dashboard-sections"):
             # Left side - full height Registration
-            yield HealthSection("📋 Registration [dim]→ 1[/dim]", "health-registry")
+            yield HealthSection(
+                "📋 Registration [dim]→ press 1[/dim]", "health-registry"
+            )
 
             # Right side - 3 rows of sections
             with Vertical(id="dashboard-right"):
                 with Horizontal(id="dashboard-row-1"):
-                    yield HealthSection("📡 DNS [dim]→ 2[/dim]", "health-dns")
-                    yield HealthSection("📧 Email [dim]→ 6[/dim]", "health-email")
+                    yield HealthSection("📡 DNS [dim]→ press 2[/dim]", "health-dns")
+                    yield HealthSection("📧 Email [dim]→ press 6[/dim]", "health-email")
 
                 with Horizontal(id="dashboard-row-2"):
-                    yield HealthSection("🔐 DNSSEC [dim]→ 3[/dim]", "health-dnssec")
-                    yield HealthSection("🔒 Certificate [dim]→ 4[/dim]", "health-cert")
+                    yield HealthSection(
+                        "🔐 DNSSEC [dim]→ press 3[/dim]", "health-dnssec"
+                    )
+                    yield HealthSection(
+                        "🔒 Certificate [dim]→ press 4[/dim]", "health-cert"
+                    )
 
                 with Horizontal(id="dashboard-row-3"):
-                    yield HealthSection("🌐 HTTP/HTTPS [dim]→ 5[/dim]", "health-http")
+                    yield HealthSection(
+                        "🌐 HTTP/HTTPS [dim]→ press 5[/dim]", "health-http"
+                    )
 
     def on_mount(self) -> None:
         """Dashboard is ready but data not loaded."""
@@ -95,31 +104,30 @@ class DashboardPanel(Container):
         """Render HTTP/HTTPS health from state."""
         section = self.query_one("#health-http", HealthSection)
         try:
-            https_response = state.http_response
-            if not https_response:
+            data = state.http_health
+            if not data:
                 section.set_content("No data available")
                 return
 
             output = []
 
-            if https_response.error:
-                output.append(f"  [red]✗ HTTPS Failed[/red]: {https_response.error}\n")
+            if data.error:
+                output.append(f"  [red]✗ HTTPS Failed[/red]: {data.error}\n")
             else:
-                if https_response.is_success:
-                    output.append(
-                        f"  [green]✓ HTTPS: {https_response.status_code}[/green]"
-                    )
-                elif https_response.is_redirect:
-                    output.append(
-                        f"  [yellow]↻ HTTPS: {https_response.status_code}[/yellow] → {https_response.final_url}"
-                    )
+                if data.is_success:
+                    output.append(f"  [green]✓ HTTPS: {data.status_code}[/green]")
+                elif data.is_redirect:
+                    output.append(f"  [yellow]↻ HTTPS: {data.status_code}[/yellow]")
                 else:
-                    output.append(f"  [red]✗ HTTPS: {https_response.status_code}[/red]")
+                    output.append(f"  [red]✗ HTTPS: {data.status_code}[/red]")
 
-                output.append(f" ({https_response.response_time_ms:.0f}ms)\n")
+                if data.response_time_ms:
+                    output.append(f" ({data.response_time_ms:.0f}ms)\n")
+                else:
+                    output.append("\n")
 
-                if https_response.was_redirected:
-                    output.append(f"  Redirects: {https_response.redirect_count}\n")
+                if data.redirect_count > 0:
+                    output.append(f"  Redirects: {data.redirect_count}\n")
 
             section.set_content("".join(output))
 
@@ -130,36 +138,35 @@ class DashboardPanel(Container):
         """Render SSL/TLS certificate health from state."""
         section = self.query_one("#health-cert", HealthSection)
         try:
-            tls_info = state.tls_info
-            if not tls_info:
+            data = state.cert_health
+            if not data:
                 section.set_content("No data available")
                 return
 
             output = []
 
-            if tls_info.certificate_chain.leaf_certificate:
-                cert = tls_info.certificate_chain.leaf_certificate
+            if data.error:
+                output.append(f"  [red]✗ {data.error}[/red]\n")
+            elif data.is_expired:
+                output.append(f"  [red]✗ Certificate EXPIRED[/red]\n")
+            elif data.days_until_expiry and data.days_until_expiry < 30:
+                output.append(
+                    f"  [yellow]⚠ Expires in {data.days_until_expiry} days[/yellow]\n"
+                )
+            elif data.days_until_expiry:
+                output.append(
+                    f"  [green]✓ Valid for {data.days_until_expiry} days[/green]\n"
+                )
 
-                if cert.is_expired:
-                    output.append(f"  [red]✗ Certificate EXPIRED[/red]\n")
-                elif cert.days_until_expiry < 30:
-                    output.append(
-                        f"  [yellow]⚠ Expires in {cert.days_until_expiry} days[/yellow]\n"
-                    )
-                else:
-                    output.append(
-                        f"  [green]✓ Valid for {cert.days_until_expiry} days[/green]\n"
-                    )
+            if data.issuer_cn:
+                output.append(f"  Issuer: {data.issuer_cn}\n")
+            if data.expiry_date:
+                output.append(f"  Expires: {data.expiry_date}\n")
 
-                output.append(f"  Issuer: {cert.issuer.common_name}\n")
-                output.append(f"  Expires: {cert.not_after.strftime('%Y-%m-%d')}\n")
-
-                if tls_info.certificate_chain.is_valid:
-                    output.append(f"  Chain: [green]✓ Valid[/green]\n")
-                else:
-                    output.append(f"  Chain: [red]✗ Invalid[/red]\n")
-            else:
-                output.append(f"  [red]✗ No certificate found[/red]\n")
+            if data.chain_valid:
+                output.append(f"  Chain: [green]✓ Valid[/green]\n")
+            elif not data.error:
+                output.append(f"  Chain: [red]✗ Invalid[/red]\n")
 
             section.set_content("".join(output))
 
@@ -170,47 +177,39 @@ class DashboardPanel(Container):
         """Render DNS records health from state."""
         section = self.query_one("#health-dns", HealthSection)
         try:
-            if not state.dns_responses:
+            data = state.dns_health
+            if not data:
                 section.set_content("No data available")
                 return
 
             output = []
 
-            # Check key record types from state
-            a_response = state.dns_responses.get(RecordType.A.value)
-            aaaa_response = state.dns_responses.get(RecordType.AAAA.value)
-            mx_response = state.dns_responses.get(RecordType.MX.value)
-            ns_response = state.dns_responses.get(RecordType.NS.value)
+            if data.error:
+                output.append(f"  [red]✗ Error: {data.error}[/red]\n")
+                section.set_content("".join(output))
+                return
 
             # A records
-            if a_response.is_success and a_response.record_count > 0:
-                output.append(
-                    f"  [green]✓ A[/green]: {a_response.record_count} record(s)\n"
-                )
+            if data.a_count > 0:
+                output.append(f"  [green]✓ A[/green]: {data.a_count} record(s)\n")
             else:
                 output.append(f"  [dim]○ A: None[/dim]\n")
 
             # AAAA records
-            if aaaa_response.is_success and aaaa_response.record_count > 0:
-                output.append(
-                    f"  [green]✓ AAAA[/green]: {aaaa_response.record_count} record(s)\n"
-                )
+            if data.aaaa_count > 0:
+                output.append(f"  [green]✓ AAAA[/green]: {data.aaaa_count} record(s)\n")
             else:
                 output.append(f"  [dim]○ AAAA: None[/dim]\n")
 
             # MX records
-            if mx_response.is_success and mx_response.record_count > 0:
-                output.append(
-                    f"  [green]✓ MX[/green]: {mx_response.record_count} record(s)\n"
-                )
+            if data.mx_count > 0:
+                output.append(f"  [green]✓ MX[/green]: {data.mx_count} record(s)\n")
             else:
                 output.append(f"  [dim]○ MX: None[/dim]\n")
 
             # NS records
-            if ns_response.is_success and ns_response.record_count > 0:
-                output.append(
-                    f"  [green]✓ NS[/green]: {ns_response.record_count} record(s)\n"
-                )
+            if data.ns_count > 0:
+                output.append(f"  [green]✓ NS[/green]: {data.ns_count} record(s)\n")
             else:
                 output.append(f"  [red]✗ NS: None[/red]\n")
 
@@ -223,41 +222,46 @@ class DashboardPanel(Container):
         """Render domain registration health from state."""
         section = self.query_one("#health-registry", HealthSection)
         try:
-            registration = state.registration
-            if not registration:
+            data = state.registry_health
+            if not data:
                 section.set_content("No data available")
                 return
 
             output = []
 
-            # Expiration status
-            if registration.is_expired:
-                output.append(f"  [red]✗ Domain EXPIRED[/red]\n")
-            elif registration.is_expiring_soon():
-                days_left = registration.days_until_expiry
-                output.append(f"  [yellow]⚠ Expires in {days_left} days[/yellow]\n")
-            else:
-                days_left = registration.days_until_expiry
-                output.append(f"  [green]✓ Active ({days_left} days)[/green]\n")
+            if data.error:
+                output.append(f"  [red]✗ Error: {data.error}[/red]\n")
+                section.set_content("".join(output))
+                return
 
-            if registration.expires_date:
+            # Expiration status
+            if data.is_expired:
+                output.append(f"  [red]✗ Domain EXPIRED[/red]\n")
+            elif data.is_expiring_soon and data.days_until_expiry:
                 output.append(
-                    f"  Expires: {registration.expires_date.strftime('%Y-%m-%d')}\n"
+                    f"  [yellow]⚠ Expires in {data.days_until_expiry} days[/yellow]\n"
+                )
+            elif data.days_until_expiry:
+                output.append(
+                    f"  [green]✓ Active ({data.days_until_expiry} days)[/green]\n"
                 )
 
+            if data.expiry_date:
+                output.append(f"  Expires: {data.expiry_date}\n")
+
             # Registrar
-            if registration.registrar:
-                output.append(f"  Registrar: {registration.registrar[:30]}\n")
+            if data.registrar:
+                output.append(f"  Registrar: {data.registrar[:30]}\n")
 
             # DNSSEC at registry level
-            if registration.dnssec:
+            if data.dnssec_enabled:
                 output.append(f"  DNSSEC: [green]✓ Enabled[/green]\n")
             else:
                 output.append(f"  DNSSEC: [dim]Disabled[/dim]\n")
 
             # Nameservers
-            if registration.nameservers:
-                output.append(f"  Nameservers: {len(registration.nameservers)}\n")
+            if data.nameserver_count > 0:
+                output.append(f"  Nameservers: {data.nameserver_count}\n")
 
             section.set_content("".join(output))
 
@@ -268,45 +272,43 @@ class DashboardPanel(Container):
         """Render DNSSEC health from state."""
         section = self.query_one("#health-dnssec", HealthSection)
         try:
-            validation = state.dnssec_validation
-            if not validation:
+            data = state.dnssec_health
+            if not data:
                 section.set_content("No data available")
                 return
 
             output = []
 
+            if data.error:
+                output.append(f"  [red]✗ Error: {data.error}[/red]\n")
+                section.set_content("".join(output))
+                return
+
             # Validation status
-            if validation.is_secure:
+            if data.is_secure:
                 output.append(f"  [green]✓ SECURE[/green]\n")
-            elif validation.is_insecure:
+            elif data.is_insecure:
                 output.append(f"  [dim]○ Not signed[/dim]\n")
-            elif validation.is_bogus:
+            elif data.is_bogus:
                 output.append(f"  [red]✗ BOGUS[/red]\n")
             else:
                 output.append(f"  [yellow]? INDETERMINATE[/yellow]\n")
 
-            if validation.chain:
-                chain = validation.chain
+            if data.has_dnskey:
+                output.append(f"  DNSKEY: [green]✓ Present[/green]\n")
+            else:
+                output.append(f"  DNSKEY: [dim]None[/dim]\n")
 
-                if chain.has_dnskey_record:
-                    output.append(f"  DNSKEY: [green]✓ Present[/green]\n")
-                else:
-                    output.append(f"  DNSKEY: [dim]None[/dim]\n")
+            if data.has_ds:
+                output.append(f"  DS Record: [green]✓ Present[/green]\n")
+            else:
+                output.append(f"  DS Record: [dim]None[/dim]\n")
 
-                if chain.has_ds_record:
-                    output.append(f"  DS Record: [green]✓ Present[/green]\n")
-                else:
-                    output.append(f"  DS Record: [dim]None[/dim]\n")
+            if data.ksk_count > 0 or data.zsk_count > 0:
+                output.append(f"  Keys: {data.ksk_count} KSK, {data.zsk_count} ZSK\n")
 
-                if chain.ksk_count > 0 or chain.zsk_count > 0:
-                    output.append(
-                        f"  Keys: {chain.ksk_count} KSK, {chain.zsk_count} ZSK\n"
-                    )
-
-            if validation.has_warnings:
-                output.append(
-                    f"  [yellow]⚠ {len(validation.warnings)} warning(s)[/yellow]\n"
-                )
+            if data.warning_count > 0:
+                output.append(f"  [yellow]⚠ {data.warning_count} warning(s)[/yellow]\n")
 
             section.set_content("".join(output))
 
@@ -317,64 +319,61 @@ class DashboardPanel(Container):
         """Render email configuration health from state."""
         section = self.query_one("#health-email", HealthSection)
         try:
-            email_config = state.email_config
-            if not email_config:
+            data = state.email_health
+            if not data:
                 section.set_content("No data available")
                 return
 
             output = []
 
+            if data.error:
+                output.append(f"  [red]✗ Error: {data.error}[/red]\n")
+                section.set_content("".join(output))
+                return
+
             # MX Records
-            if email_config.has_mx:
-                output.append(
-                    f"  [green]✓ MX[/green]: {len(email_config.mx_records)} record(s)\n"
-                )
+            if data.has_mx:
+                output.append(f"  [green]✓ MX[/green]: {data.mx_count} record(s)\n")
             else:
                 output.append(f"  [red]✗ MX: None[/red]\n")
 
             # SPF
-            if email_config.has_spf:
-                if email_config.spf_record.is_strict:
+            if data.has_spf:
+                if data.spf_policy == "-all":
                     output.append(f"  [green]✓ SPF: Strict (-all)[/green]\n")
                 else:
-                    output.append(
-                        f"  [yellow]○ SPF: {email_config.spf_record.all_mechanism or 'present'}[/yellow]\n"
-                    )
+                    output.append(f"  [yellow]○ SPF: {data.spf_policy}[/yellow]\n")
             else:
                 output.append(f"  [red]✗ SPF: None[/red]\n")
 
             # DKIM
-            if email_config.has_dkim:
-                dkim_count = sum(1 for d in email_config.dkim_records if d.exists)
-                output.append(f"  [green]✓ DKIM: {dkim_count} selector(s)[/green]\n")
+            if data.has_dkim:
+                output.append(
+                    f"  [green]✓ DKIM: {data.dkim_count} selector(s)[/green]\n"
+                )
             else:
                 output.append(f"  [yellow]○ DKIM: Not found[/yellow]\n")
 
             # DMARC
-            if email_config.has_dmarc:
-                if email_config.dmarc_record.is_enforcing:
-                    output.append(
-                        f"  [green]✓ DMARC: {email_config.dmarc_record.policy.value}[/green]\n"
-                    )
+            if data.has_dmarc:
+                if data.dmarc_policy in ["quarantine", "reject"]:
+                    output.append(f"  [green]✓ DMARC: {data.dmarc_policy}[/green]\n")
                 else:
-                    output.append(
-                        f"  [yellow]○ DMARC: {email_config.dmarc_record.policy.value}[/yellow]\n"
-                    )
+                    output.append(f"  [yellow]○ DMARC: {data.dmarc_policy}[/yellow]\n")
             else:
                 output.append(f"  [red]✗ DMARC: None[/red]\n")
 
             # Provider
-            if email_config.email_provider:
-                output.append(f"  Provider: {email_config.email_provider}\n")
+            if data.email_provider:
+                output.append(f"  Provider: {data.email_provider}\n")
 
             # Security score
-            score = email_config.security_score
-            if score >= 80:
-                output.append(f"  Score: [green]{score}/100[/green]\n")
-            elif score >= 50:
-                output.append(f"  Score: [yellow]{score}/100[/yellow]\n")
+            if data.security_score >= 80:
+                output.append(f"  Score: [green]{data.security_score}/100[/green]\n")
+            elif data.security_score >= 50:
+                output.append(f"  Score: [yellow]{data.security_score}/100[/yellow]\n")
             else:
-                output.append(f"  Score: [red]{score}/100[/red]\n")
+                output.append(f"  Score: [red]{data.security_score}/100[/red]\n")
 
             section.set_content("".join(output))
 
@@ -1304,7 +1303,28 @@ class DNSDebuggerApp(App):
     async def fetch_all_data(self) -> None:
         """Fetch all data from all ports and populate state."""
         try:
-            # Fetch DNS data
+            # Use facade to fetch dashboard health data (simplified for display)
+            facade = DashboardFacade()
+
+            http_health = facade.get_http_health(self.domain)
+            cert_health = facade.get_cert_health(self.domain)
+            dns_health = facade.get_dns_health(self.domain)
+            registry_health = facade.get_registry_health(self.domain)
+            dnssec_health = facade.get_dnssec_health(self.domain)
+            email_health = facade.get_email_health(self.domain)
+
+            # Update health data in state
+            self.state_manager.update_health_data(
+                http_health=http_health,
+                cert_health=cert_health,
+                dns_health=dns_health,
+                registry_health=registry_health,
+                dnssec_health=dnssec_health,
+                email_health=email_health,
+            )
+
+            # Fetch full detail data for individual panels
+            # DNS data
             dns_adapter = DNSAdapterFactory.create()
             dns_responses = {}
             for record_type in [
