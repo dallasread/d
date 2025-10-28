@@ -1109,7 +1109,7 @@ class DNSSECPanel(VerticalScroll):
         else:
             pubkey_display = pubkey_clean
         lines.append(
-            f"  │ [{key_color}]DNSKEY  KEYTAG={key.key_tag:<5} TYPE={key_type:<3} ALGO={algo_num:<2} PUBKEY={pubkey_display}{match_suffix}[/{key_color}]\n"
+            f"  │ [{key_color}]DNSKEY KEYTAG={key.key_tag:<5} ALGO={algo_num:<1} TYPE={key_type:<3} PUBKEY={pubkey_display}{match_suffix}[/{key_color}]\n"
         )
 
         return lines
@@ -1135,7 +1135,7 @@ class DNSSECPanel(VerticalScroll):
         # Strip any spaces from the digest
         digest_clean = ds.digest.replace(" ", "")
         lines.append(
-            f"  │ [{key_color}]DS      KEYTAG={ds.key_tag:<5} ALGO={algo_num:<2} DIGEST={digest_num:<1} HASH={digest_clean}[/{key_color}]\n"
+            f"  │ [{key_color}]DS     KEYTAG={ds.key_tag:<5} ALGO={algo_num:<1} DIGEST={digest_num:<1} HASH={digest_clean}[/{key_color}]\n"
         )
 
         return lines
