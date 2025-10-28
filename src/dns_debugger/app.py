@@ -31,14 +31,22 @@ class DNSPanel(Static):
         self.last_responses = {}  # Store raw responses for logs
         self.loaded = False
 
+    def compose(self) -> ComposeResult:
+        """Compose the panel with a loading indicator."""
+        yield LoadingIndicator()
+
     def on_mount(self) -> None:
         """Show initial loading state without fetching data."""
+        loading = self.query_one(LoadingIndicator)
+        loading.display = False
         self.update("[dim]Switch to this tab to load DNS records[/dim]")
 
     def load_data(self) -> None:
         """Load DNS data when the panel is first viewed."""
         if not self.loaded:
-            self.update("[dim]Loading DNS records...[/dim]")
+            loading = self.query_one(LoadingIndicator)
+            loading.display = True
+            self.update("")
             self.run_worker(self.fetch_dns_data(), exclusive=True)
 
     def update_dns_info(self) -> None:
@@ -109,10 +117,14 @@ class DNSPanel(Static):
             # Update once with all content
             self.update("".join(output))
             self.loaded = True
+            loading = self.query_one(LoadingIndicator)
+            loading.display = False
 
         except Exception as e:
             self.update(f"[red]Error: {str(e)}[/red]")
             self.loaded = True
+            loading = self.query_one(LoadingIndicator)
+            loading.display = False
 
 
 class CertificatePanel(Static):
@@ -125,14 +137,22 @@ class CertificatePanel(Static):
         self.last_tls_info = None  # Store raw TLS info for logs
         self.loaded = False
 
+    def compose(self) -> ComposeResult:
+        """Compose the panel with a loading indicator."""
+        yield LoadingIndicator()
+
     def on_mount(self) -> None:
         """Show initial loading state without fetching data."""
+        loading = self.query_one(LoadingIndicator)
+        loading.display = False
         self.update("[dim]Switch to this tab to load certificate info[/dim]")
 
     def load_data(self) -> None:
         """Load certificate data when the panel is first viewed."""
         if not self.loaded:
-            self.update("[dim]Loading SSL/TLS certificate...[/dim]")
+            loading = self.query_one(LoadingIndicator)
+            loading.display = True
+            self.update("")
             self.run_worker(self.fetch_cert_data(), exclusive=True)
 
     def update_cert_info(self) -> None:
@@ -218,6 +238,8 @@ class CertificatePanel(Static):
 
             self.update("".join(output))
             self.loaded = True
+            loading = self.query_one(LoadingIndicator)
+            loading.display = False
 
         except Exception as e:
             self.update(f"[red]Error: {str(e)}[/red]\n\n")
@@ -225,6 +247,8 @@ class CertificatePanel(Static):
                 "[dim]Make sure OpenSSL is installed and the domain is accessible[/dim]"
             )
             self.loaded = True
+            loading = self.query_one(LoadingIndicator)
+            loading.display = False
 
 
 class RegistryPanel(Static):
@@ -237,14 +261,22 @@ class RegistryPanel(Static):
         self.last_registration = None  # Store raw registration for logs
         self.loaded = False
 
+    def compose(self) -> ComposeResult:
+        """Compose the panel with a loading indicator."""
+        yield LoadingIndicator()
+
     def on_mount(self) -> None:
         """Show initial loading state without fetching data."""
+        loading = self.query_one(LoadingIndicator)
+        loading.display = False
         self.update("[dim]Switch to this tab to load registration info[/dim]")
 
     def load_data(self) -> None:
         """Load registry data when the panel is first viewed."""
         if not self.loaded:
-            self.update("[dim]Loading domain registration info...[/dim]")
+            loading = self.query_one(LoadingIndicator)
+            loading.display = True
+            self.update("")
             self.run_worker(self.fetch_registry_data(), exclusive=True)
 
     def update_registry_info(self) -> None:
@@ -332,6 +364,8 @@ class RegistryPanel(Static):
 
             self.update("".join(output))
             self.loaded = True
+            loading = self.query_one(LoadingIndicator)
+            loading.display = False
 
         except Exception as e:
             self.update(f"[red]Error: {str(e)}[/red]\n\n")
@@ -339,6 +373,8 @@ class RegistryPanel(Static):
                 "[dim]Make sure 'whois' command is installed (brew install whois / apt-get install whois)[/dim]"
             )
             self.loaded = True
+            loading = self.query_one(LoadingIndicator)
+            loading.display = False
 
 
 class DNSSECPanel(Static):
@@ -351,14 +387,22 @@ class DNSSECPanel(Static):
         self.last_validation = None  # Store validation for logs
         self.loaded = False
 
+    def compose(self) -> ComposeResult:
+        """Compose the panel with a loading indicator."""
+        yield LoadingIndicator()
+
     def on_mount(self) -> None:
         """Show initial loading state without fetching data."""
+        loading = self.query_one(LoadingIndicator)
+        loading.display = False
         self.update("[dim]Switch to this tab to load DNSSEC info[/dim]")
 
     def load_data(self) -> None:
         """Load DNSSEC data when the panel is first viewed."""
         if not self.loaded:
-            self.update("[dim]Validating DNSSEC...[/dim]")
+            loading = self.query_one(LoadingIndicator)
+            loading.display = True
+            self.update("")
             self.run_worker(self.fetch_dnssec_data(), exclusive=True)
 
     def update_dnssec_info(self) -> None:
@@ -469,11 +513,15 @@ class DNSSECPanel(Static):
 
             self.update("".join(output))
             self.loaded = True
+            loading = self.query_one(LoadingIndicator)
+            loading.display = False
 
         except Exception as e:
             self.update(f"[red]Error: {str(e)}[/red]\n\n")
             self.update("[dim]Make sure 'dog' or 'dig' is installed[/dim]")
             self.loaded = True
+            loading = self.query_one(LoadingIndicator)
+            loading.display = False
 
 
 class HTTPPanel(Static):
@@ -486,14 +534,22 @@ class HTTPPanel(Static):
         self.last_response = None  # Store raw response for logs
         self.loaded = False
 
+    def compose(self) -> ComposeResult:
+        """Compose the panel with a loading indicator."""
+        yield LoadingIndicator()
+
     def on_mount(self) -> None:
         """Show initial loading state without fetching data."""
+        loading = self.query_one(LoadingIndicator)
+        loading.display = False
         self.update("[dim]Switch to this tab to load HTTP info[/dim]")
 
     def load_data(self) -> None:
         """Load HTTP data when the panel is first viewed."""
         if not self.loaded:
-            self.update("[dim]Loading HTTP/HTTPS status...[/dim]")
+            loading = self.query_one(LoadingIndicator)
+            loading.display = True
+            self.update("")
             self.run_worker(self.fetch_http_data(), exclusive=True)
 
     def update_http_info(self) -> None:
@@ -566,11 +622,15 @@ class HTTPPanel(Static):
 
             self.update("".join(output))
             self.loaded = True
+            loading = self.query_one(LoadingIndicator)
+            loading.display = False
 
         except Exception as e:
             self.update(f"[red]Error: {str(e)}[/red]\n\n")
             self.update("[dim]Make sure 'curl' or 'wget' is installed[/dim]")
             self.loaded = True
+            loading = self.query_one(LoadingIndicator)
+            loading.display = False
 
 
 class DNSDebuggerApp(App):
