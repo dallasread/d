@@ -3,7 +3,16 @@
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
-from textual.widgets import Header, Footer, Static, TabbedContent, TabPane, Label
+from textual.widgets import (
+    Header,
+    Footer,
+    Static,
+    TabbedContent,
+    TabPane,
+    Label,
+    LoadingIndicator,
+)
+from textual.worker import Worker, WorkerState
 
 from dns_debugger.adapters.dns.factory import DNSAdapterFactory
 from dns_debugger.domain.models.dns_record import RecordType
@@ -23,10 +32,16 @@ class DNSPanel(Static):
 
     def on_mount(self) -> None:
         """Load DNS data when the panel is mounted."""
-        self.update_dns_info()
+        self.update("[dim]Loading DNS records...[/dim]")
+        self.run_worker(self.fetch_dns_data(), exclusive=True)
 
     def update_dns_info(self) -> None:
-        """Query and display DNS information."""
+        """Refresh DNS data (called by refresh action)."""
+        self.update("[dim]Refreshing DNS records...[/dim]")
+        self.run_worker(self.fetch_dns_data(), exclusive=True)
+
+    async def fetch_dns_data(self) -> None:
+        """Async worker to fetch DNS information."""
         try:
             self.dns_adapter = DNSAdapterFactory.create()
             tool_name = self.dns_adapter.get_tool_name()
@@ -103,10 +118,16 @@ class CertificatePanel(Static):
 
     def on_mount(self) -> None:
         """Load certificate data when the panel is mounted."""
-        self.update_cert_info()
+        self.update("[dim]Loading SSL/TLS certificate...[/dim]")
+        self.run_worker(self.fetch_cert_data(), exclusive=True)
 
     def update_cert_info(self) -> None:
-        """Query and display certificate information."""
+        """Refresh certificate data (called by refresh action)."""
+        self.update("[dim]Refreshing SSL/TLS certificate...[/dim]")
+        self.run_worker(self.fetch_cert_data(), exclusive=True)
+
+    async def fetch_cert_data(self) -> None:
+        """Async worker to fetch certificate information."""
         try:
             from dns_debugger.adapters.cert.factory import CertificateAdapterFactory
 
@@ -201,10 +222,16 @@ class RegistryPanel(Static):
 
     def on_mount(self) -> None:
         """Load registry data when the panel is mounted."""
-        self.update_registry_info()
+        self.update("[dim]Loading domain registration info...[/dim]")
+        self.run_worker(self.fetch_registry_data(), exclusive=True)
 
     def update_registry_info(self) -> None:
-        """Query and display domain registration information."""
+        """Refresh registry data (called by refresh action)."""
+        self.update("[dim]Refreshing domain registration info...[/dim]")
+        self.run_worker(self.fetch_registry_data(), exclusive=True)
+
+    async def fetch_registry_data(self) -> None:
+        """Async worker to fetch domain registration information."""
         try:
             from dns_debugger.adapters.registry.factory import RegistryAdapterFactory
 
@@ -301,10 +328,16 @@ class HTTPPanel(Static):
 
     def on_mount(self) -> None:
         """Load HTTP data when the panel is mounted."""
-        self.update_http_info()
+        self.update("[dim]Loading HTTP/HTTPS status...[/dim]")
+        self.run_worker(self.fetch_http_data(), exclusive=True)
 
     def update_http_info(self) -> None:
-        """Query and display HTTP information."""
+        """Refresh HTTP data (called by refresh action)."""
+        self.update("[dim]Refreshing HTTP/HTTPS status...[/dim]")
+        self.run_worker(self.fetch_http_data(), exclusive=True)
+
+    async def fetch_http_data(self) -> None:
+        """Async worker to fetch HTTP information."""
         try:
             self.http_adapter = HTTPAdapterFactory.create()
             tool_name = self.http_adapter.get_tool_name()
@@ -418,8 +451,8 @@ class DNSDebuggerApp(App):
         super().__init__()
         self.domain = domain
         # Note: Textual uses CSS for theming, not a theme attribute
-        self.title = f"DNS Debugger - {domain}"
-        self.sub_title = "Interactive DNS, Certificate, and Registry Inspector"
+        self.title = domain
+        self.sub_title = ""
 
     def compose(self) -> ComposeResult:
         """Create the UI layout."""
@@ -430,14 +463,14 @@ class DNSDebuggerApp(App):
                 with TabPane("DNS", id="dns"):
                     yield DNSPanel(self.domain)
 
-                with TabPane("HTTP", id="http"):
-                    yield HTTPPanel(self.domain)
+                with TabPane("Registration", id="registry"):
+                    yield RegistryPanel(self.domain)
 
                 with TabPane("Certificate", id="cert"):
                     yield CertificatePanel(self.domain)
 
-                with TabPane("Registration", id="registry"):
-                    yield RegistryPanel(self.domain)
+                with TabPane("HTTP", id="http"):
+                    yield HTTPPanel(self.domain)
 
         yield Footer()
 
