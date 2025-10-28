@@ -1051,7 +1051,7 @@ class DNSSECPanel(VerticalScroll):
         self._render_dnssec_data(state.dnssec_validation)
 
     def _render_dnssec_chain_visual(self, output: list, chain) -> None:
-        """Render a visual representation of the DNSSEC chain."""
+        """Render a visual representation of the DNSSEC chain with key tag relationships."""
         output.append("[bold yellow]DNSSEC Chain:[/bold yellow]\n\n")
 
         # Extract domain parts for hierarchy
@@ -1070,10 +1070,18 @@ class DNSSECPanel(VerticalScroll):
             tld = parts[-1]
             output.append(f"  [cyan].{tld}[/cyan] (TLD)\n")
             output.append("   │\n")
-            if chain.has_ds_record:
-                output.append(
-                    f"   ├─[green]DS record[/green] → Links to {self.domain}\n"
-                )
+            if chain.has_ds_record and chain.ds_records:
+                # Show each DS record with key tag
+                for ds in chain.ds_records:
+                    algo_short = ds.algorithm.value.split()[
+                        0
+                    ]  # e.g., "RSASHA256" from "RSASHA256 (8)"
+                    digest_short = ds.digest_type.value.split()[
+                        0
+                    ]  # e.g., "SHA-256" from "SHA-256 (2)"
+                    output.append(
+                        f"   ├─[green]DS {ds.key_tag}[/green] ({algo_short}/{digest_short}) → Points to DNSKEY {ds.key_tag}\n"
+                    )
             else:
                 output.append(f"   ├─[red]No DS record[/red] → Chain broken\n")
             output.append("   │\n")
@@ -1083,29 +1091,81 @@ class DNSSECPanel(VerticalScroll):
         output.append(f"  [cyan]{self.domain}[/cyan] (target)\n")
         output.append("   │\n")
 
-        if chain.has_dnskey_record:
-            output.append(
-                f"   ├─[green]DNSKEY records[/green] ({chain.ksk_count} KSK, {chain.zsk_count} ZSK)\n"
-            )
+        if chain.has_dnskey_record and chain.dnskey_records:
+            # Group keys by type for clarity
+            ksk_keys = [k for k in chain.dnskey_records if k.is_key_signing_key]
+            zsk_keys = [k for k in chain.dnskey_records if k.is_zone_signing_key]
+
+            # Show KSK keys (referenced by DS records)
+            if ksk_keys:
+                for ksk in ksk_keys:
+                    algo_short = ksk.algorithm.value.split()[0]
+                    # Check if this KSK is referenced by a DS record
+                    matching_ds = (
+                        [ds for ds in chain.ds_records if ds.key_tag == ksk.key_tag]
+                        if chain.ds_records
+                        else []
+                    )
+                    if matching_ds:
+                        output.append(
+                            f"   ├─[green]DNSKEY {ksk.key_tag}[/green] (KSK, {algo_short}) [green]← Matches DS {ksk.key_tag}[/green]\n"
+                        )
+                    else:
+                        output.append(
+                            f"   ├─[yellow]DNSKEY {ksk.key_tag}[/yellow] (KSK, {algo_short}) [yellow]⚠ No matching DS[/yellow]\n"
+                        )
+
+            # Show ZSK keys (signed by KSK)
+            if zsk_keys:
+                for zsk in zsk_keys:
+                    algo_short = zsk.algorithm.value.split()[0]
+                    output.append(
+                        f"   ├─[cyan]DNSKEY {zsk.key_tag}[/cyan] (ZSK, {algo_short}) → Signs zone records\n"
+                    )
         else:
             output.append(f"   ├─[red]No DNSKEY[/red]\n")
 
         output.append("   │\n")
 
         if chain.has_rrsig_record:
-            output.append(
-                f"   └─[green]RRSIG signatures[/green] → Records are signed\n"
-            )
+            # Show which key tags are used in signatures
+            if chain.rrsig_records:
+                sig_key_tags = sorted(set(sig.key_tag for sig in chain.rrsig_records))
+                sig_tags_str = ", ".join(str(tag) for tag in sig_key_tags)
+                output.append(
+                    f"   └─[green]RRSIG signatures[/green] using keys: {sig_tags_str}\n"
+                )
+            else:
+                output.append(
+                    f"   └─[green]RRSIG signatures[/green] → Records are signed\n"
+                )
         else:
             output.append(f"   └─[red]No RRSIG[/red] → Records not signed\n")
 
         output.append("\n")
 
-        # Summary indicator
+        # Summary indicator with key tag validation
         if chain.has_chain_of_trust:
-            output.append(
-                "  [green]✓ Complete chain of trust from root to domain[/green]\n\n"
-            )
+            # Check if DS records match KSK keys
+            if chain.ds_records and chain.dnskey_records:
+                ds_tags = set(ds.key_tag for ds in chain.ds_records)
+                ksk_tags = set(
+                    k.key_tag for k in chain.dnskey_records if k.is_key_signing_key
+                )
+                matching_tags = ds_tags & ksk_tags
+
+                if matching_tags:
+                    output.append(
+                        f"  [green]✓ Complete chain of trust: DS records match KSK keys ({', '.join(str(t) for t in sorted(matching_tags))})[/green]\n\n"
+                    )
+                else:
+                    output.append(
+                        "  [yellow]⚠ Chain present but DS key tags don't match any KSK[/yellow]\n\n"
+                    )
+            else:
+                output.append(
+                    "  [green]✓ Complete chain of trust from root to domain[/green]\n\n"
+                )
         elif chain.is_signed:
             output.append(
                 "  [yellow]⚠ Domain is signed but no DS record in parent[/yellow]\n\n"
