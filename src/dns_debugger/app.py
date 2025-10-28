@@ -64,10 +64,14 @@ class DashboardPanel(Container):
         )
 
         with Horizontal(id="dashboard-sections"):
-            # Left side - full height Registration
-            yield HealthSection(
-                "📋 Registration [dim]→ press 1[/dim]", "health-registry"
-            )
+            # Left column
+            with Vertical(id="dashboard-left"):
+                # Overall health card at top
+                yield HealthSection("🏥 Overall Health", "health-overall")
+                # Registration below
+                yield HealthSection(
+                    "📋 Registration [dim]→ press 1[/dim]", "health-registry"
+                )
 
             # Right side - 3 rows of sections
             with Vertical(id="dashboard-right"):
@@ -95,12 +99,66 @@ class DashboardPanel(Container):
     def render_from_state(self, state) -> None:
         """Render dashboard from state data."""
         # Call all health check rendering methods
+        self.render_overall_health(state)
         self.render_http_health(state)
         self.render_cert_health(state)
         self.render_dns_health(state)
         self.render_registry_health(state)
         self.render_dnssec_health(state)
         self.render_email_health(state)
+
+    def render_overall_health(self, state) -> None:
+        """Render overall health status from state."""
+        section = self.query_one("#health-overall", HealthSection)
+        try:
+            data = state.overall_health
+            if not data:
+                section.set_content("Loading...")
+                return
+
+            output = []
+
+            # Main status with color
+            if data.domain_status == "healthy":
+                status_icon = "✓"
+                status_color = "green"
+                status_text = "HEALTHY"
+            elif data.domain_status == "warning":
+                status_icon = "⚠"
+                status_color = "yellow"
+                status_text = "WARNING"
+            else:  # critical
+                status_icon = "✗"
+                status_color = "red"
+                status_text = "CRITICAL"
+
+            output.append(
+                f"  [{status_color}]{status_icon} {status_text}[/{status_color}]\n"
+            )
+            output.append(f"  [dim]{data.summary_message}[/dim]\n\n")
+
+            # Component status summary
+            output.append("[bold]Component Status:[/bold]\n")
+
+            def status_indicator(status):
+                if status == "pass":
+                    return "[green]✓[/green]"
+                elif status == "warn":
+                    return "[yellow]⚠[/yellow]"
+                else:
+                    return "[red]✗[/red]"
+
+            output.append(f"  {status_indicator(data.http_status)} HTTP/HTTPS\n")
+            output.append(f"  {status_indicator(data.cert_status)} Certificate\n")
+            output.append(f"  {status_indicator(data.dns_status)} DNS\n")
+            output.append(f"  {status_indicator(data.registry_status)} Registration\n")
+            output.append(f"  {status_indicator(data.dnssec_status)} DNSSEC\n")
+            output.append(f"  {status_indicator(data.email_status)} Email\n")
+
+            section.set_content("".join(output))
+
+        except Exception as e:
+            section.set_error(str(e))
 
     def render_http_health(self, state) -> None:
         """Render HTTP/HTTPS health from state."""
@@ -2269,6 +2327,28 @@ class DNSDebuggerApp(App):
                 self.state_manager.update_registration(registration)
             if not isinstance(email_config, Exception):
                 self.state_manager.update_email(email_config)
+
+            # Calculate overall health from individual health components
+            if all(
+                not isinstance(h, Exception)
+                for h in [
+                    http_health,
+                    cert_health,
+                    dns_health,
+                    registry_health,
+                    dnssec_health,
+                    email_health,
+                ]
+            ):
+                overall_health = facade.get_overall_health(
+                    http_health,
+                    cert_health,
+                    dns_health,
+                    registry_health,
+                    dnssec_health,
+                    email_health,
+                )
+                self.state_manager.state.overall_health = overall_health
 
             # All data loaded - now render all panels
             self.update_loading_status("Rendering panels...")

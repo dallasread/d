@@ -95,6 +95,21 @@ class EmailHealthData:
     error: Optional[str]
 
 
+@dataclass
+class OverallHealthData:
+    """Overall domain health summary."""
+
+    domain_status: str  # "healthy", "warning", "critical"
+    total_issues: int
+    http_status: str  # "pass", "warn", "fail"
+    cert_status: str
+    dns_status: str
+    registry_status: str
+    dnssec_status: str
+    email_status: str
+    summary_message: str
+
+
 class DashboardFacade:
     """Facade for fetching dashboard health check data."""
 
@@ -311,3 +326,103 @@ class DashboardFacade:
                 security_score=0,
                 error=str(e),
             )
+
+    def get_overall_health(
+        self,
+        http_health: HTTPHealthData,
+        cert_health: CertHealthData,
+        dns_health: DNSHealthData,
+        registry_health: RegistryHealthData,
+        dnssec_health: DNSSECHealthData,
+        email_health: EmailHealthData,
+    ) -> OverallHealthData:
+        """Calculate overall domain health from individual components."""
+
+        # Evaluate each component
+        http_status = "fail"
+        if not http_health.error:
+            if http_health.is_success or (
+                http_health.is_redirect
+                and http_health.status_code
+                and 200 <= http_health.status_code < 300
+            ):
+                http_status = "pass"
+            elif http_health.is_redirect:
+                http_status = "warn"
+
+        cert_status = "fail"
+        if not cert_health.error:
+            if cert_health.is_valid and cert_health.chain_valid:
+                if cert_health.days_until_expiry and cert_health.days_until_expiry > 30:
+                    cert_status = "pass"
+                else:
+                    cert_status = "warn"
+
+        dns_status = "fail"
+        if not dns_health.has_error:
+            if dns_health.a_count > 0 or dns_health.aaaa_count > 0:
+                dns_status = "pass"
+
+        registry_status = "fail"
+        if not registry_health.error:
+            if registry_health.is_expired:
+                registry_status = "fail"
+            elif registry_health.is_expiring_soon:
+                registry_status = "warn"
+            else:
+                registry_status = "pass"
+
+        dnssec_status = "pass"  # DNSSEC is optional, so default to pass
+        if not dnssec_health.error:
+            if dnssec_health.is_bogus:
+                dnssec_status = "fail"
+            elif dnssec_health.is_secure:
+                dnssec_status = "pass"
+            else:
+                dnssec_status = "warn"  # Not enabled
+
+        email_status = "fail"
+        if not email_health.error:
+            if email_health.has_mx:
+                if email_health.security_score >= 75:
+                    email_status = "pass"
+                elif email_health.security_score >= 50:
+                    email_status = "warn"
+                else:
+                    email_status = "warn"
+
+        # Count issues
+        statuses = [
+            http_status,
+            cert_status,
+            dns_status,
+            registry_status,
+            dnssec_status,
+            email_status,
+        ]
+        fail_count = statuses.count("fail")
+        warn_count = statuses.count("warn")
+        total_issues = fail_count + warn_count
+
+        # Determine overall status
+        if fail_count > 0:
+            domain_status = "critical"
+            summary_message = f"{fail_count} critical issue{'s' if fail_count != 1 else ''}, {warn_count} warning{'s' if warn_count != 1 else ''}"
+        elif warn_count > 0:
+            domain_status = "warning"
+            summary_message = f"{warn_count} warning{'s' if warn_count != 1 else ''}"
+        else:
+            domain_status = "healthy"
+            summary_message = "All systems operational"
+
+        return OverallHealthData(
+            domain_status=domain_status,
+            total_issues=total_issues,
+            http_status=http_status,
+            cert_status=cert_status,
+            dns_status=dns_status,
+            registry_status=registry_status,
+            dnssec_status=dnssec_status,
+            email_status=email_status,
+            summary_message=summary_message,
+        )

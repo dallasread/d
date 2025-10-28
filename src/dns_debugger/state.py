@@ -17,6 +17,7 @@ from dns_debugger.facades.dashboard_facade import (
     RegistryHealthData,
     DNSSECHealthData,
     EmailHealthData,
+    OverallHealthData,
 )
 
 
@@ -54,6 +55,7 @@ class AppState:
     email_last_updated: Optional[datetime] = None
 
     # Dashboard health data (simplified for display)
+    overall_health: Optional[OverallHealthData] = None
     http_health: Optional[HTTPHealthData] = None
     cert_health: Optional[CertHealthData] = None
     dns_health: Optional[DNSHealthData] = None
@@ -135,6 +137,7 @@ class StateManager:
 
     def update_health_data(
         self,
+        overall_health: OverallHealthData,
         http_health: HTTPHealthData,
         cert_health: CertHealthData,
         dns_health: DNSHealthData,
@@ -143,6 +146,7 @@ class StateManager:
         email_health: EmailHealthData,
     ) -> None:
         """Update all dashboard health data."""
+        self.state.overall_health = overall_health
         self.state.http_health = http_health
         self.state.cert_health = cert_health
         self.state.dns_health = dns_health
