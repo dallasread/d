@@ -1700,21 +1700,23 @@ class EmailPanel(VerticalScroll):
                     )
 
                 # Alignment
-                if dmarc.dkim_alignment:
-                    align_text = "strict" if dmarc.dkim_alignment == "s" else "relaxed"
+                if dmarc.alignment_dkim:
+                    align_text = "strict" if dmarc.alignment_dkim == "s" else "relaxed"
                     output.append(f"  DKIM Alignment: {align_text}\n")
-                if dmarc.spf_alignment:
-                    align_text = "strict" if dmarc.spf_alignment == "s" else "relaxed"
+                if dmarc.alignment_spf:
+                    align_text = "strict" if dmarc.alignment_spf == "s" else "relaxed"
                     output.append(f"  SPF Alignment: {align_text}\n")
 
                 # Reporting
-                if dmarc.aggregate_report_uri:
+                if dmarc.rua_addresses:
+                    rua_str = ", ".join(dmarc.rua_addresses)
                     output.append(
-                        f"  Aggregate Reports: {dmarc.aggregate_report_uri[:50]}\n"
+                        f"  Aggregate Reports: {rua_str[:50]}{'...' if len(rua_str) > 50 else ''}\n"
                     )
-                if dmarc.forensic_report_uri:
+                if dmarc.ruf_addresses:
+                    ruf_str = ", ".join(dmarc.ruf_addresses)
                     output.append(
-                        f"  Forensic Reports: {dmarc.forensic_report_uri[:50]}\n"
+                        f"  Forensic Reports: {ruf_str[:50]}{'...' if len(ruf_str) > 50 else ''}\n"
                     )
 
                 if dmarc.percentage and dmarc.percentage < 100:
@@ -1907,21 +1909,23 @@ class EmailPanel(VerticalScroll):
                     )
 
                 # Alignment
-                if dmarc.dkim_alignment:
-                    align_text = "strict" if dmarc.dkim_alignment == "s" else "relaxed"
+                if dmarc.alignment_dkim:
+                    align_text = "strict" if dmarc.alignment_dkim == "s" else "relaxed"
                     output.append(f"  DKIM Alignment: {align_text}\n")
-                if dmarc.spf_alignment:
-                    align_text = "strict" if dmarc.spf_alignment == "s" else "relaxed"
+                if dmarc.alignment_spf:
+                    align_text = "strict" if dmarc.alignment_spf == "s" else "relaxed"
                     output.append(f"  SPF Alignment: {align_text}\n")
 
                 # Reporting
-                if dmarc.aggregate_report_uri:
+                if dmarc.rua_addresses:
+                    rua_str = ", ".join(dmarc.rua_addresses)
                     output.append(
-                        f"  Aggregate Reports: {dmarc.aggregate_report_uri[:50]}\n"
+                        f"  Aggregate Reports: {rua_str[:50]}{'...' if len(rua_str) > 50 else ''}\n"
                     )
-                if dmarc.forensic_report_uri:
+                if dmarc.ruf_addresses:
+                    ruf_str = ", ".join(dmarc.ruf_addresses)
                     output.append(
-                        f"  Forensic Reports: {dmarc.forensic_report_uri[:50]}\n"
+                        f"  Forensic Reports: {ruf_str[:50]}{'...' if len(ruf_str) > 50 else ''}\n"
                     )
 
                 if dmarc.percentage and dmarc.percentage < 100:
@@ -2680,10 +2684,10 @@ class DNSDebuggerApp(App):
                         if email_config.dmarc_record.subdomain_policy
                         else None,
                         "percentage": email_config.dmarc_record.percentage,
-                        "dkim_alignment": email_config.dmarc_record.dkim_alignment,
-                        "spf_alignment": email_config.dmarc_record.spf_alignment,
-                        "aggregate_report_uri": email_config.dmarc_record.aggregate_report_uri,
-                        "forensic_report_uri": email_config.dmarc_record.forensic_report_uri,
+                        "alignment_dkim": email_config.dmarc_record.alignment_dkim,
+                        "alignment_spf": email_config.dmarc_record.alignment_spf,
+                        "rua_addresses": email_config.dmarc_record.rua_addresses,
+                        "ruf_addresses": email_config.dmarc_record.ruf_addresses,
                         "is_enforcing": email_config.dmarc_record.is_enforcing,
                     }
                     if email_config.dmarc_record
