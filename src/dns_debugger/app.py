@@ -1385,12 +1385,14 @@ class DNSSECPanel(VerticalScroll):
                 output.append(f"{left_prefix}│ [red]✗ No DNSKEY records found[/red]\n")
 
             # Show RRSIG records
-            if chain.rrsig_records and len(chain.rrsig_records) > 0:
-                rrsig_count = len(chain.rrsig_records)
+            if chain.has_rrsig_record:
                 output.append(f"{left_prefix}│\n")
                 output.append(
-                    f"{left_prefix}│ [green]✓ {rrsig_count} RRSIG record{'s' if rrsig_count != 1 else ''} found; zone records are signed[/green]\n"
+                    f"{left_prefix}│ [green]✓ RRSIG records found; zone records are signed[/green]\n"
                 )
+
+            if chain.rrsig_records and len(chain.rrsig_records) > 0:
+                rrsig_count = len(chain.rrsig_records)
                 output.append(f"{left_prefix}│ RRSIG Signatures:\n")
 
                 # Group by key tag
@@ -1461,7 +1463,8 @@ class DNSSECPanel(VerticalScroll):
                         f"{left_prefix}│     [{key_color}]Signer: {first_sig.signer_name}[/{key_color}]\n"
                     )
 
-            elif not chain.rrsig_records or len(chain.rrsig_records) == 0:
+            if not chain.has_rrsig_record:
+                output.append(f"{left_prefix}│\n")
                 output.append(
                     f"{left_prefix}│ [yellow]⚠ No RRSIG records found; zone records are not signed[/yellow]\n"
                 )
