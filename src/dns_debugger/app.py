@@ -330,12 +330,6 @@ class DashboardPanel(Container):
             if data.registrar:
                 output.append(f"  Registrar: {data.registrar[:30]}\n")
 
-            # DNSSEC at registry level
-            if data.dnssec_enabled:
-                output.append(f"  DNSSEC: [green]✓ Enabled[/green]\n")
-            else:
-                output.append(f"  DNSSEC: [dim]Disabled[/dim]\n")
-
             # Nameservers
             if data.nameserver_count > 0:
                 output.append(f"  Nameservers: {data.nameserver_count}\n")
@@ -893,11 +887,6 @@ class RegistryPanel(VerticalScroll):
                 for status in registration.status[:5]:
                     output.append(f"  • {status}\n")
 
-            output.append(f"\n[bold yellow]Security:[/bold yellow]\n")
-            output.append(
-                f"  DNSSEC: {'[green]Enabled[/green]' if registration.dnssec else '[dim]Disabled[/dim]'}\n"
-            )
-
             if registration.registrant and registration.registrant.organization:
                 output.append(f"\n[bold yellow]Registrant:[/bold yellow]\n")
                 output.append(f"  {registration.registrant.organization}\n")
@@ -979,11 +968,6 @@ class RegistryPanel(VerticalScroll):
                 output.append(f"\n[bold yellow]Domain Status:[/bold yellow]\n")
                 for status in registration.status[:5]:
                     output.append(f"  • {status}\n")
-
-            output.append(f"\n[bold yellow]Security:[/bold yellow]\n")
-            output.append(
-                f"  DNSSEC: {'[green]Enabled[/green]' if registration.dnssec else '[dim]Disabled[/dim]'}\n"
-            )
 
             if registration.registrant and registration.registrant.organization:
                 output.append(f"\n[bold yellow]Registrant:[/bold yellow]\n")
@@ -1084,7 +1068,12 @@ class DNSSECPanel(VerticalScroll):
         return colors[color_index]
 
     def _render_dnskey(
-        self, key, key_type: str, match_info: str = None, has_matching_ds: bool = False
+        self,
+        key,
+        key_type: str,
+        match_info: str = None,
+        has_matching_ds: bool = False,
+        left_art: str = "    ",
     ) -> list:
         """Render a DNSKEY record on 2 lines.
 
@@ -1093,6 +1082,7 @@ class DNSSECPanel(VerticalScroll):
             key_type: "KSK" or "ZSK"
             match_info: Optional matching info like "✓ DS in parent"
             has_matching_ds: Whether this DNSKEY has a matching DS record
+            left_art: ASCII art to show on the left margin (e.g., "╰─> ")
 
         Returns:
             List of formatted output lines
@@ -1114,18 +1104,24 @@ class DNSSECPanel(VerticalScroll):
             pubkey_display = pubkey_clean
         # Color just the keytag value
         colored_keytag = f"[{key_color}]{key.key_tag:<5}[/{key_color}]"
+
+        # Add spacing for non-matching records to align with checkmarks
+        spacing = "" if checkmark else "  "
         lines.append(
-            f"  │ {checkmark}DNSKEY KEYTAG={colored_keytag} ALGO={algo_num:<1} TYPE={key_type:<3} PUBKEY={pubkey_display}{match_suffix}\n"
+            f"[dim]{left_art}[/dim]│ {checkmark}{spacing}DNSKEY KEYTAG={colored_keytag} ALGO={algo_num:<1} TYPE={key_type:<3} PUBKEY={pubkey_display}{match_suffix}\n"
         )
 
         return lines
 
-    def _render_ds(self, ds, has_matching_dnskey: bool = False) -> list:
+    def _render_ds(
+        self, ds, has_matching_dnskey: bool = False, left_art: str = "    "
+    ) -> list:
         """Render a DS record on 2 lines.
 
         Args:
             ds: DSRecord object
             has_matching_dnskey: Whether this DS has a matching DNSKEY record
+            left_art: ASCII art to show on the left margin (e.g., "╭─> ")
 
         Returns:
             List of formatted output lines
@@ -1144,8 +1140,11 @@ class DNSSECPanel(VerticalScroll):
         checkmark = "✓ " if has_matching_dnskey else ""
         # Color just the keytag value
         colored_keytag = f"[{key_color}]{ds.key_tag:<5}[/{key_color}]"
+
+        # Add spacing for non-matching records to align with checkmarks
+        spacing = "" if checkmark else "  "
         lines.append(
-            f"  │ {checkmark}DS     KEYTAG={colored_keytag} ALGO={algo_num:<1} HASH={digest_clean}\n"
+            f"[dim]{left_art}[/dim]│ {checkmark}{spacing}DS     KEYTAG={colored_keytag} ALGO={algo_num:<1} HASH={digest_clean}\n"
         )
 
         return lines
@@ -1159,49 +1158,216 @@ class DNSSECPanel(VerticalScroll):
         - RRSIG records (signatures covering zone data)
         - Key relationships and matching between DS and DNSKEY
         - Color-coded key tags for easy visual matching
+        - ASCII art connections on left margin connecting parent DS to child DNSKEY
         """
 
         # Extract domain hierarchy (e.g., "www.example.com" -> ["com", "example", "www"])
         parts = self.domain.rstrip(".").split(".")
         parts.reverse()  # Start from TLD
 
-        # Helper function to render a zone's keys and signatures
-        def render_zone_keys(zone_name: str, is_target: bool = False):
-            """Render DNSKEY, DS, and RRSIG records for a specific zone."""
+        # Build the chain from root to target - show each zone recursively
+        if chain.parent_zones and len(chain.parent_zones) > 0:
+            # First pass: collect all DS->DNSKEY connections across zones
+            connections = []  # List of (ds_keytag, from_zone_idx, to_zone_idx)
 
-            # Zone header
-            if zone_name == ".":
-                output.append("  . (root zone)\n")
-            else:
-                label = "target zone" if is_target else "delegated zone"
-                output.append(f"  {zone_name} ({label})\n")
+            for zone_idx, zone_data in enumerate(chain.parent_zones):
+                if zone_data.has_ds:
+                    # Determine child zone DNSKEYs for matching
+                    child_dnskey_keytags = set()
+                    target_zone_idx = zone_idx + 1
 
+                    if zone_idx + 1 < len(chain.parent_zones):
+                        # Next zone in the chain
+                        child_zone = chain.parent_zones[zone_idx + 1]
+                        if child_zone.has_dnskey:
+                            child_dnskey_keytags = {
+                                key.key_tag for key in child_zone.dnskey_records
+                            }
+                    elif zone_idx + 1 == len(chain.parent_zones):
+                        # Target domain is the child
+                        target_zone_idx = len(chain.parent_zones)  # Target zone
+                        if chain.has_dnskey_record and chain.dnskey_records:
+                            child_dnskey_keytags = {
+                                key.key_tag for key in chain.dnskey_records
+                            }
+
+                    # Record connections
+                    for ds in zone_data.ds_records:
+                        if ds.key_tag in child_dnskey_keytags:
+                            connections.append((ds.key_tag, zone_idx, target_zone_idx))
+
+            # Second pass: render zones with connection tracking
+            for zone_idx, zone_data in enumerate(chain.parent_zones):
+                # Check if there are active connections from previous zones
+                active_incoming = [
+                    conn
+                    for conn in connections
+                    if conn[1] < zone_idx and conn[2] >= zone_idx
+                ]
+                left_prefix = "[dim]│   [/dim]" if active_incoming else "    "
+
+                # Render this zone with ALL its data
+                zone_label = "root zone" if zone_data.zone_name == "." else "zone"
+                output.append(f"{left_prefix}{zone_data.zone_name} ({zone_label})\n")
+                output.append(
+                    f"{left_prefix}├─────────────────────────────────────────────────────────\n"
+                )
+
+                # Show DNSKEY records for this zone
+                if zone_data.has_dnskey:
+                    # Check which DNSKEYs have matches
+                    matching_keytags = {
+                        conn[0] for conn in connections if conn[2] == zone_idx
+                    }
+
+                    # Track if we've seen a match yet
+                    found_match = False
+
+                    for key in zone_data.dnskey_records:
+                        key_type = "KSK" if key.is_key_signing_key else "ZSK"
+                        # Check if incoming connection from parent
+                        has_match = key.key_tag in matching_keytags
+
+                        if has_match:
+                            left_art = "╰─> "
+                            found_match = True
+                        elif not found_match and matching_keytags:
+                            # Show continuation line before match
+                            left_art = "│   "
+                        else:
+                            # No line after match or if no matches
+                            left_art = "    "
+
+                        output.extend(
+                            self._render_dnskey(
+                                key,
+                                key_type,
+                                has_matching_ds=has_match,
+                                left_art=left_art,
+                            )
+                        )
+                else:
+                    output.append(
+                        f"{left_prefix}│ [red]✗ No DNSKEY records found[/red]\n"
+                    )
+
+                # Separator line between DNSKEY and DS sections
+                output.append(
+                    "    │ ───────────────────────────────────────────────────────\n"
+                )
+
+                # Show DS records that delegate to child
+                if zone_data.has_ds:
+                    for ds in zone_data.ds_records:
+                        # Check if this DS starts a connection
+                        left_art = "    "
+                        for conn_keytag, from_idx, to_idx in connections:
+                            if from_idx == zone_idx and conn_keytag == ds.key_tag:
+                                left_art = "╭─> "
+                                break
+
+                        output.extend(
+                            self._render_ds(
+                                ds,
+                                has_matching_dnskey=(left_art != "    "),
+                                left_art=left_art,
+                            )
+                        )
+                else:
+                    output.append(
+                        "    │ [red]✗ No DS records found - chain is broken[/red]\n"
+                    )
+
+                # Check if there are outgoing connections from this zone
+                outgoing_connections = [
+                    conn
+                    for conn in connections
+                    if conn[1] == zone_idx and conn[2] > zone_idx
+                ]
+
+                # Determine left prefix for closing line (show connection if active and zone has DS)
+                if (outgoing_connections or active_incoming) and zone_data.has_ds:
+                    output.append(
+                        "[dim]│   [/dim]└─────────────────────────────────────────────────────────\n"
+                    )
+                else:
+                    output.append(
+                        "    └─────────────────────────────────────────────────────────\n"
+                    )
+
+                # Draw connection lines between zones (only if this zone has DS records)
+                if outgoing_connections and zone_data.has_ds:
+                    output.append("[dim]│   [/dim]\n")
+                else:
+                    output.append("\n")
+
+            # Show target domain with full details
+            zone_label = "target zone"
+
+            # Check if there are incoming connections to target
+            target_zone_idx = len(chain.parent_zones)
+            active_to_target = [
+                conn for conn in connections if conn[2] == target_zone_idx
+            ]
+            left_prefix = "[dim]│   [/dim]" if active_to_target else "    "
+
+            output.append(f"{left_prefix}{self.domain} ({zone_label})\n")
             output.append(
-                "  ├─────────────────────────────────────────────────────────\n"
+                f"{left_prefix}├─────────────────────────────────────────────────────────\n"
             )
 
-            # For target domain, show its DNSKEY records
-            if is_target and chain.has_dnskey_record and chain.dnskey_records:
+            # For target domain, show its DNSKEY records with connection art if they match parent DS
+            if chain.has_dnskey_record and chain.dnskey_records:
                 # Group by key type
                 ksk_keys = [k for k in chain.dnskey_records if k.is_key_signing_key]
                 zsk_keys = [k for k in chain.dnskey_records if k.is_zone_signing_key]
 
-                # Show KSK keys first
-                for ksk in ksk_keys:
-                    # Render using helper
-                    output.extend(self._render_dnskey(ksk, "KSK"))
+                target_zone_idx = len(chain.parent_zones)
 
-                # Show ZSK keys
-                for zsk in zsk_keys:
-                    # Render using helper
-                    output.extend(self._render_dnskey(zsk, "ZSK"))
+                # Check which DNSKEYs have matches
+                matching_keytags = {
+                    conn[0] for conn in connections if conn[2] == target_zone_idx
+                }
 
-            elif is_target:
-                output.append("  │ [red]✗ No DNSKEY records found[/red]\n")
+                # Combine all keys in order and track if we've seen a match
+                all_keys = [(k, "KSK") for k in ksk_keys] + [
+                    (k, "ZSK") for k in zsk_keys
+                ]
+                found_match = False
+
+                for key, key_type in all_keys:
+                    # Check if this key has a match
+                    has_match = key.key_tag in matching_keytags
+
+                    if has_match:
+                        left_art = "╰─> "
+                        found_match = True
+                    elif not found_match and matching_keytags:
+                        # Show continuation line before match
+                        left_art = "│   "
+                    else:
+                        # No line after match or if no matches
+                        left_art = "    "
+
+                    output.extend(
+                        self._render_dnskey(
+                            key,
+                            key_type,
+                            has_matching_ds=has_match,
+                            left_art=left_art,
+                        )
+                    )
+
+            else:
+                output.append(f"{left_prefix}│ [red]✗ No DNSKEY records found[/red]\n")
 
             # Show RRSIG records
-            if is_target and chain.has_rrsig_record and chain.rrsig_records:
-                output.append("  │ RRSIG Signatures:\n")
+            if chain.has_rrsig_record and chain.rrsig_records:
+                rrsig_count = len(chain.rrsig_records)
+                output.append(
+                    f"{left_prefix}│ [green]✓ {rrsig_count} RRSIG record{'s' if rrsig_count != 1 else ''} found; zone records are signed[/green]\n"
+                )
+                output.append(f"{left_prefix}│ RRSIG Signatures:\n")
 
                 # Group by key tag
                 rrsigs_by_key = {}
@@ -1253,115 +1419,47 @@ class DNSSECPanel(VerticalScroll):
                     key_color = self._keytag_to_color(key_tag)
 
                     output.append(
-                        f"  │  [{key_color}]• Signed by [{key_type}] Key Tag {key_tag}[/{key_color}]\n"
+                        f"{left_prefix}│  [{key_color}]• Signed by [{key_type}] Key Tag {key_tag}[/{key_color}]\n"
                     )
                     output.append(
-                        f"  │     [{key_color}]Covers: {types_str}[/{key_color}]\n"
+                        f"{left_prefix}│     [{key_color}]Covers: {types_str}[/{key_color}]\n"
                     )
                     output.append(
-                        f"  │     [{key_color}]Algorithm: {algo_name}[/{key_color}]\n"
+                        f"{left_prefix}│     [{key_color}]Algorithm: {algo_name}[/{key_color}]\n"
                     )
                     output.append(
-                        f"  │     [{key_color}]Inception: {first_sig.signature_inception.strftime('%Y-%m-%d %H:%M')}[/{key_color}]\n"
+                        f"{left_prefix}│     [{key_color}]Inception: {first_sig.signature_inception.strftime('%Y-%m-%d %H:%M')}[/{key_color}]\n"
                     )
                     output.append(
-                        f"  │     [{key_color}]Expiration: {first_sig.signature_expiration.strftime('%Y-%m-%d %H:%M')} [{expiry_color}]({expiry_text})[/{expiry_color}][/{key_color}]\n"
+                        f"{left_prefix}│     [{key_color}]Expiration: {first_sig.signature_expiration.strftime('%Y-%m-%d %H:%M')} [{expiry_color}]({expiry_text})[/{expiry_color}][/{key_color}]\n"
                     )
                     output.append(
-                        f"  │     [{key_color}]Signer: {first_sig.signer_name}[/{key_color}]\n"
+                        f"{left_prefix}│     [{key_color}]Signer: {first_sig.signer_name}[/{key_color}]\n"
                     )
 
-            elif is_target and not chain.has_rrsig_record:
-                output.append("  │ [yellow]⚠ No RRSIG records found[/yellow]\n")
-                output.append("  │ [yellow]  Zone records are not signed[/yellow]\n")
+            elif not chain.has_rrsig_record:
+                output.append(
+                    f"{left_prefix}│ [yellow]⚠ No RRSIG records found; zone records are not signed[/yellow]\n"
+                )
 
             output.append(
-                "  └─────────────────────────────────────────────────────────\n\n"
+                "    └─────────────────────────────────────────────────────────\n\n"
             )
-
-        # Build the chain from root to target - show each zone recursively
-        if chain.parent_zones and len(chain.parent_zones) > 0:
-            # Show from root down to leaf
-            for zone_data in chain.parent_zones:
-                # Render this zone with ALL its data
-                zone_label = "root zone" if zone_data.zone_name == "." else "zone"
-                output.append(f"  {zone_data.zone_name} ({zone_label})\n")
-                output.append(
-                    "  ├─────────────────────────────────────────────────────────\n"
-                )
-
-                # Show DNSKEY records for this zone
-                if zone_data.has_dnskey:
-                    # Build a set of DS key tags for matching
-                    ds_key_tags = (
-                        {ds.key_tag for ds in zone_data.ds_records}
-                        if zone_data.has_ds
-                        else set()
-                    )
-
-                    # Show full details for all zones
-                    for key in zone_data.dnskey_records:
-                        key_type = "KSK" if key.is_key_signing_key else "ZSK"
-                        # Check if this DNSKEY has a matching DS in this zone
-                        has_matching_ds = key.key_tag in ds_key_tags
-                        # Render using helper
-                        output.extend(
-                            self._render_dnskey(
-                                key, key_type, has_matching_ds=has_matching_ds
-                            )
-                        )
-                else:
-                    output.append("  │ [red]✗ No DNSKEY records found[/red]\n")
-
-                # Separator line between DNSKEY and DS sections
-                output.append(
-                    "  │ ───────────────────────────────────────────────────────\n"
-                )
-
-                # Show DS records that delegate to child
-                if zone_data.has_ds:
-                    # Build a set of DNSKEY key tags for matching
-                    dnskey_key_tags = (
-                        {key.key_tag for key in zone_data.dnskey_records}
-                        if zone_data.has_dnskey
-                        else set()
-                    )
-
-                    # Show full details for all zones
-                    for ds in zone_data.ds_records:
-                        # Check if this DS has a matching DNSKEY in this zone
-                        has_matching_dnskey = ds.key_tag in dnskey_key_tags
-                        # Render using helper
-                        output.extend(
-                            self._render_ds(ds, has_matching_dnskey=has_matching_dnskey)
-                        )
-                else:
-                    output.append(
-                        "  │ [red]✗ No DS records found - chain is broken[/red]\n"
-                    )
-
-                output.append(
-                    "  └─────────────────────────────────────────────────────────\n"
-                )
-                output.append("\n")
         else:
             # Fallback: show conceptual chain if no parent data
-            output.append("  . (root zone)\n")
-            output.append("  │\n")
-            output.append("  ↓ delegates to\n")
-            output.append("  │\n")
+            output.append("    . (root zone)\n")
+            output.append("    │\n")
+            output.append("    ↓ delegates to\n")
+            output.append("    │\n")
 
             if len(parts) >= 1:
                 tld = f".{parts[0]}"
-                output.append(f"  {tld} (TLD zone)\n")
-                output.append("  │\n")
-                output.append("  ↓ delegates to\n")
-                output.append("  │\n")
+                output.append(f"    {tld} (TLD zone)\n")
+                output.append("    │\n")
+                output.append("    ↓ delegates to\n")
+                output.append("    │\n")
 
             output.append("\n")
-
-        # Show target domain with full details
-        render_zone_keys(self.domain, is_target=True)
 
     def _render_dnssec_data(self, validation) -> None:
         """Render DNSSEC data from validation."""
