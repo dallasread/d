@@ -1145,7 +1145,7 @@ class DNSSECPanel(VerticalScroll):
         # Color just the keytag value
         colored_keytag = f"[{key_color}]{ds.key_tag:<5}[/{key_color}]"
         lines.append(
-            f"  │ {checkmark}DS     KEYTAG={colored_keytag} ALGO={algo_num:<1} DIGEST={digest_num:<1} HASH={digest_clean}\n"
+            f"  │ {checkmark}DS     KEYTAG={colored_keytag} ALGO={algo_num:<1} HASH={digest_clean}\n"
         )
 
         return lines
@@ -1197,7 +1197,7 @@ class DNSSECPanel(VerticalScroll):
                     output.extend(self._render_dnskey(zsk, "ZSK"))
 
             elif is_target:
-                output.append("  │ ✗ No DNSKEY records found\n")
+                output.append("  │ [red]✗ No DNSKEY records found[/red]\n")
 
             # Show RRSIG records
             if is_target and chain.has_rrsig_record and chain.rrsig_records:
@@ -1272,8 +1272,8 @@ class DNSSECPanel(VerticalScroll):
                     )
 
             elif is_target and not chain.has_rrsig_record:
-                output.append("  │ ⚠ No RRSIG records found\n")
-                output.append("  │   Zone records are not signed\n")
+                output.append("  │ [yellow]⚠ No RRSIG records found[/yellow]\n")
+                output.append("  │ [yellow]  Zone records are not signed[/yellow]\n")
 
             output.append(
                 "  └─────────────────────────────────────────────────────────\n\n"
@@ -1311,7 +1311,7 @@ class DNSSECPanel(VerticalScroll):
                             )
                         )
                 else:
-                    output.append("  │ ✗ No DNSKEY records found\n")
+                    output.append("  │ [red]✗ No DNSKEY records found[/red]\n")
 
                 # Separator line between DNSKEY and DS sections
                 output.append(
@@ -1337,7 +1337,7 @@ class DNSSECPanel(VerticalScroll):
                         )
                 else:
                     output.append(
-                        "  │ [yellow]⚠ No DS records found (chain may be broken)[/yellow]\n"
+                        "  │ [red]✗ No DS records found - chain is broken[/red]\n"
                     )
 
                 output.append(
