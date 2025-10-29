@@ -1152,13 +1152,36 @@ class DNSSECPanel(VerticalScroll):
     def _render_dnssec_chain_visual(self, output: list, chain) -> None:
         """Render a DNSViz-style visualization of the DNSSEC validation chain.
 
-        Shows the DNSSEC chain for the target domain with:
-        - DS records from parent zone (proves parent trusts this zone)
-        - DNSKEY records for this zone (KSK and ZSK)
-        - RRSIG records (signatures covering zone data)
-        - Key relationships and matching between DS and DNSKEY
-        - Color-coded key tags for easy visual matching
-        - ASCII art connections on left margin connecting parent DS to child DNSKEY
+        Creates a hierarchical visualization showing the complete DNSSEC chain from
+        root zone down to the target domain, with visual ASCII art connections
+        linking DS records in parent zones to matching DNSKEYs in child zones.
+
+        Features:
+        - Complete zone hierarchy (root → TLD → domain → subdomain)
+        - DNSKEY records (KSK and ZSK) with key details for each zone
+        - DS records in parent zones that delegate trust to child zones
+        - RRSIG signature records showing which keys signed which record types
+        - Color-coded key tags (consistent colors per keytag across zones)
+        - Checkmarks (✓) indicating matched DS↔DNSKEY pairs
+
+        ASCII Art Connection System (4-character left margin):
+        - "╭─> " marks DS records that have a matching DNSKEY in child zone
+        - "│   " shows vertical continuation of connection between zones
+        - "╰─> " marks DNSKEYs that have a matching DS in parent zone
+        - "    " (4 spaces) for records with no connections
+
+        Visual flow shows trust delegation:
+            parent zone DS (╭─>) → connection line (│) → child zone DNSKEY (╰─>)
+
+        The vertical line continues through:
+        - Zone boundary lines (└──, blank space, zone header, ├──)
+        - Non-matching records that appear BEFORE the matched record
+        - Stops after the matched DNSKEY for clean visualization
+
+        Connection lines only appear when:
+        - Parent zone has DS records (chain not broken)
+        - Child zone has matching DNSKEY records (successful delegation)
+        - This visually highlights broken chains (missing DS/DNSKEY)
         """
 
         # Extract domain hierarchy (e.g., "www.example.com" -> ["com", "example", "www"])
@@ -1364,6 +1387,7 @@ class DNSSECPanel(VerticalScroll):
             # Show RRSIG records
             if chain.has_rrsig_record and chain.rrsig_records:
                 rrsig_count = len(chain.rrsig_records)
+                output.append(f"{left_prefix}│\n")
                 output.append(
                     f"{left_prefix}│ [green]✓ {rrsig_count} RRSIG record{'s' if rrsig_count != 1 else ''} found; zone records are signed[/green]\n"
                 )
