@@ -18,9 +18,12 @@ All data loads asynchronously with detailed progress indicators and is cached in
 ## Recent Updates
 
 **Latest improvements:**
-- ✅ **DNSSEC recursive chain visualization** - Complete root-to-leaf DNSSEC chain display showing all zones, DNSKEY, DS records, and signatures
-- ✅ **Color-coded key tags** - Consistent color mapping for key tags across DNSKEY, DS, and RRSIG records for easy visual tracking
-- ✅ **Full DNSSEC details** - Shows ALL keys and DS records (not truncated) with complete metadata (flags, algorithm, digest, TTL)
+- ✅ **Enhanced DNSSEC visualization** - Complete root-to-leaf DNSSEC chain with table-aligned record display
+- ✅ **18-color keytag palette** - Hash-based color selection for consistent visual tracking across DNSKEY and DS records
+- ✅ **Compact record format** - Single-line key=value format with truncated public keys and full digest hashes
+- ✅ **Table alignment** - Fixed-width columns for KEYTAG, ALGO, TYPE, and DIGEST fields for easy vertical scanning
+- ✅ **SOA-based RRSIG detection** - Queries SOA records instead of A records to properly detect signatures for all domains
+- ✅ **Full record details** - Shows complete DNSKEY public keys (truncated for display) and full DS digest hashes
 - ✅ **HTTP redirect status fix** - Dashboard correctly shows green/pass for successful responses (200 OK) even after following redirects (301/302)
 - ✅ **Improved curl parsing** - Fixed status code extraction to use curl's JSON stats output for accurate final status
 - ✅ **WWW subdomain checking** - HTTP/HTTPS panel now tests both apex domain and www subdomain automatically
@@ -208,19 +211,19 @@ The DNSSEC panel now provides a **recursive, full-chain visualization** that sho
    - Full chain validation summary
 
 **What's shown for each zone:**
-- **DNSKEY Records** (all keys, not truncated):
-  - Key type: KSK (Key Signing Key, flags=257) or ZSK (Zone Signing Key, flags=256)
+- **DNSKEY Records** (table-aligned format):
+  - Format: `DNSKEY KEYTAG=5116  ALGO=8 TYPE=KSK PUBKEY=AwEAAZpR...KsU=`
   - Key tag (color-coded for easy visual matching)
-  - Flags, protocol, algorithm (name and number)
-  - TTL (Time To Live)
-  - Public key data (first 64 chars)
+  - Algorithm number (8 = RSASHA256)
+  - Key type: KSK (Key Signing Key) or ZSK (Zone Signing Key)
+  - Public key (truncated middle: first 16 + last 16 chars for display)
 
-- **DS Records** (delegation to child zone):
-  - Key tag (color-coded to match corresponding DNSKEY)
-  - Algorithm (name and number)
-  - Digest type (SHA-1, SHA-256, SHA-384, GOST)
-  - Complete digest hash
-  - TTL
+- **DS Records** (table-aligned format):
+  - Format: `DS KEYTAG=5116  ALGO=8 DIGEST=2 HASH=97BAA418B759...C70D90BE`
+  - Key tag (color-coded to match corresponding DNSKEY above)
+  - Algorithm number
+  - Digest type (1=SHA-1, 2=SHA-256, 3=GOST, 4=SHA-384)
+  - Complete digest hash (spaces stripped)
 
 - **RRSIG Records** (for target zone):
   - Which key (KSK/ZSK) signed which record types
@@ -235,10 +238,14 @@ The DNSSEC panel now provides a **recursive, full-chain visualization** that sho
 - Color-coded key tags make it easy to trace DS → DNSKEY relationships
 
 **Key Features:**
-- **Color-coded key tags**: Same key tag always gets the same color, making it easy to visually match DS records to DNSKEYs
+- **18-color keytag palette**: Hash-based color selection ensures consistent visual tracking across the entire chain
+  - Uses hash function instead of modulus for better color distribution
+  - Same key tag always gets the same color, even across different zones
+  - Highly distinct colors (coral red, turquoise, gold, lavender, etc.) maximally separated in color space
+- **Table-aligned display**: Fixed-width columns make it easy to scan vertically and match KEYTAGs
+- **Compact format**: Single-line records with essential information (KEYTAG, ALGO, TYPE/DIGEST, key material)
 - **Full details**: Shows ALL DNSKEY and DS records (not limited to 2 per zone)
 - **Validation summary**: Clear indication of chain status (SECURE, SIGNED BUT NOT SECURE, INSECURE)
-- **Relationship indicators**: Shows which DS records match which DNSKEY records
 - **Expiration warnings**: RRSIG signatures color-coded by expiration status
 
 **Implementation Notes:**
