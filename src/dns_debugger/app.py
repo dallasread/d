@@ -1108,7 +1108,7 @@ class DNSSECPanel(VerticalScroll):
             terminal_width = 120
 
         # Calculate fixed prefix length: left_art(4) + │(1) + checkmark(2) + spacing(2) + label(~35)
-        prefix_length = 50
+        prefix_length = 55
         available_width = max(
             terminal_width - prefix_length, 40
         )  # At least 40 chars for pubkey
