@@ -1336,7 +1336,9 @@ class DNSSECPanel(VerticalScroll):
                             self._render_ds(ds, has_matching_dnskey=has_matching_dnskey)
                         )
                 else:
-                    output.append("  │ ⚠ No DS records found (chain may be broken)\n")
+                    output.append(
+                        "  │ [yellow]⚠ No DS records found (chain may be broken)[/yellow]\n"
+                    )
 
                 output.append(
                     "  └─────────────────────────────────────────────────────────\n"
