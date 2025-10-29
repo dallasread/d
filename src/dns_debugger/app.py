@@ -2628,6 +2628,36 @@ class DNSDebuggerApp(App):
                 "tool": f"dig {self.domain} TXT",
                 "status": "pending",
             },
+            "health_http": {
+                "label": "Dashboard: HTTP health",
+                "tool": f"curl -I https://{self.domain}",
+                "status": "pending",
+            },
+            "health_cert": {
+                "label": "Dashboard: Certificate health",
+                "tool": f"openssl s_client -connect {self.domain}:443",
+                "status": "pending",
+            },
+            "health_dns": {
+                "label": "Dashboard: DNS health",
+                "tool": f"dig {self.domain} A/AAAA/MX/NS",
+                "status": "pending",
+            },
+            "health_registry": {
+                "label": "Dashboard: Registry health",
+                "tool": f"whois {self.domain}",
+                "status": "pending",
+            },
+            "health_dnssec": {
+                "label": "Dashboard: DNSSEC health",
+                "tool": f"dig {self.domain} DNSKEY +dnssec",
+                "status": "pending",
+            },
+            "health_email": {
+                "label": "Dashboard: Email health",
+                "tool": f"dig {self.domain} MX/TXT",
+                "status": "pending",
+            },
         }
 
         # Show loading status
@@ -2700,34 +2730,76 @@ class DNSDebuggerApp(App):
 
             # Define all fetch operations as async functions
             async def fetch_http_health():
-                return await loop.run_in_executor(
-                    executor, facade.get_http_health, self.domain
-                )
+                self.update_loading_task("health_http", "loading")
+                try:
+                    result = await loop.run_in_executor(
+                        executor, facade.get_http_health, self.domain
+                    )
+                    self.update_loading_task("health_http", "done")
+                    return result
+                except Exception:
+                    self.update_loading_task("health_http", "error")
+                    raise
 
             async def fetch_cert_health():
-                return await loop.run_in_executor(
-                    executor, facade.get_cert_health, self.domain
-                )
+                self.update_loading_task("health_cert", "loading")
+                try:
+                    result = await loop.run_in_executor(
+                        executor, facade.get_cert_health, self.domain
+                    )
+                    self.update_loading_task("health_cert", "done")
+                    return result
+                except Exception:
+                    self.update_loading_task("health_cert", "error")
+                    raise
 
             async def fetch_dns_health():
-                return await loop.run_in_executor(
-                    executor, facade.get_dns_health, self.domain
-                )
+                self.update_loading_task("health_dns", "loading")
+                try:
+                    result = await loop.run_in_executor(
+                        executor, facade.get_dns_health, self.domain
+                    )
+                    self.update_loading_task("health_dns", "done")
+                    return result
+                except Exception:
+                    self.update_loading_task("health_dns", "error")
+                    raise
 
             async def fetch_registry_health():
-                return await loop.run_in_executor(
-                    executor, facade.get_registry_health, self.domain
-                )
+                self.update_loading_task("health_registry", "loading")
+                try:
+                    result = await loop.run_in_executor(
+                        executor, facade.get_registry_health, self.domain
+                    )
+                    self.update_loading_task("health_registry", "done")
+                    return result
+                except Exception:
+                    self.update_loading_task("health_registry", "error")
+                    raise
 
             async def fetch_dnssec_health():
-                return await loop.run_in_executor(
-                    executor, facade.get_dnssec_health, self.domain
-                )
+                self.update_loading_task("health_dnssec", "loading")
+                try:
+                    result = await loop.run_in_executor(
+                        executor, facade.get_dnssec_health, self.domain
+                    )
+                    self.update_loading_task("health_dnssec", "done")
+                    return result
+                except Exception:
+                    self.update_loading_task("health_dnssec", "error")
+                    raise
 
             async def fetch_email_health():
-                return await loop.run_in_executor(
-                    executor, facade.get_email_health, self.domain
-                )
+                self.update_loading_task("health_email", "loading")
+                try:
+                    result = await loop.run_in_executor(
+                        executor, facade.get_email_health, self.domain
+                    )
+                    self.update_loading_task("health_email", "done")
+                    return result
+                except Exception:
+                    self.update_loading_task("health_email", "error")
+                    raise
 
             async def fetch_dns_records():
                 dns_responses = {}
