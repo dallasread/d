@@ -1083,13 +1083,16 @@ class DNSSECPanel(VerticalScroll):
         color_index = hash_value % len(colors)
         return colors[color_index]
 
-    def _render_dnskey(self, key, key_type: str, match_info: str = None) -> list:
+    def _render_dnskey(
+        self, key, key_type: str, match_info: str = None, has_matching_ds: bool = False
+    ) -> list:
         """Render a DNSKEY record on 2 lines.
 
         Args:
             key: DNSKEYRecord object
             key_type: "KSK" or "ZSK"
             match_info: Optional matching info like "✓ DS in parent"
+            has_matching_ds: Whether this DNSKEY has a matching DS record
 
         Returns:
             List of formatted output lines
@@ -1102,6 +1105,7 @@ class DNSSECPanel(VerticalScroll):
 
         # Single line: DNSKEY with fixed-width labels for table alignment
         match_suffix = f" {match_info}" if match_info else ""
+        checkmark = "✓ " if has_matching_ds else ""
         # Strip any spaces from the public key and truncate to 32 chars (16 start + 16 end)
         pubkey_clean = key.public_key.replace(" ", "")
         if len(pubkey_clean) > 64:
@@ -1109,16 +1113,17 @@ class DNSSECPanel(VerticalScroll):
         else:
             pubkey_display = pubkey_clean
         lines.append(
-            f"  │ [{key_color}]DNSKEY KEYTAG={key.key_tag:<5} ALGO={algo_num:<1} TYPE={key_type:<3} PUBKEY={pubkey_display}{match_suffix}[/{key_color}]\n"
+            f"  │ {checkmark}DNSKEY KEYTAG={key.key_tag:<5} ALGO={algo_num:<1} TYPE={key_type:<3} PUBKEY={pubkey_display}{match_suffix}\n"
         )
 
         return lines
 
-    def _render_ds(self, ds) -> list:
+    def _render_ds(self, ds, has_matching_dnskey: bool = False) -> list:
         """Render a DS record on 2 lines.
 
         Args:
             ds: DSRecord object
+            has_matching_dnskey: Whether this DS has a matching DNSKEY record
 
         Returns:
             List of formatted output lines
@@ -1134,8 +1139,9 @@ class DNSSECPanel(VerticalScroll):
         # Single line: DS with fixed-width labels for table alignment
         # Strip any spaces from the digest
         digest_clean = ds.digest.replace(" ", "")
+        checkmark = "✓ " if has_matching_dnskey else ""
         lines.append(
-            f"  │ [{key_color}]DS     KEYTAG={ds.key_tag:<5} ALGO={algo_num:<1} DIGEST={digest_num:<1} HASH={digest_clean}[/{key_color}]\n"
+            f"  │ {checkmark}DS     KEYTAG={ds.key_tag:<5} ALGO={algo_num:<1} DIGEST={digest_num:<1} HASH={digest_clean}\n"
         )
 
         return lines
@@ -1282,11 +1288,24 @@ class DNSSECPanel(VerticalScroll):
 
                 # Show DNSKEY records for this zone
                 if zone_data.has_dnskey:
+                    # Build a set of DS key tags for matching
+                    ds_key_tags = (
+                        {ds.key_tag for ds in zone_data.ds_records}
+                        if zone_data.has_ds
+                        else set()
+                    )
+
                     # Show full details for all zones
                     for key in zone_data.dnskey_records:
                         key_type = "KSK" if key.is_key_signing_key else "ZSK"
+                        # Check if this DNSKEY has a matching DS in this zone
+                        has_matching_ds = key.key_tag in ds_key_tags
                         # Render using helper
-                        output.extend(self._render_dnskey(key, key_type))
+                        output.extend(
+                            self._render_dnskey(
+                                key, key_type, has_matching_ds=has_matching_ds
+                            )
+                        )
                 else:
                     output.append("  │ ✗ No DNSKEY records found\n")
 
@@ -1297,10 +1316,21 @@ class DNSSECPanel(VerticalScroll):
 
                 # Show DS records that delegate to child
                 if zone_data.has_ds:
+                    # Build a set of DNSKEY key tags for matching
+                    dnskey_key_tags = (
+                        {key.key_tag for key in zone_data.dnskey_records}
+                        if zone_data.has_dnskey
+                        else set()
+                    )
+
                     # Show full details for all zones
                     for ds in zone_data.ds_records:
+                        # Check if this DS has a matching DNSKEY in this zone
+                        has_matching_dnskey = ds.key_tag in dnskey_key_tags
                         # Render using helper
-                        output.extend(self._render_ds(ds))
+                        output.extend(
+                            self._render_ds(ds, has_matching_dnskey=has_matching_dnskey)
+                        )
                 else:
                     output.append("  │ ⚠ No DS records found (chain may be broken)\n")
 
