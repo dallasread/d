@@ -1096,12 +1096,33 @@ class DNSSECPanel(VerticalScroll):
         # Single line: DNSKEY with fixed-width labels for table alignment
         match_suffix = f" {match_info}" if match_info else ""
         checkmark = "✓ " if has_matching_ds else ""
-        # Strip any spaces from the public key and truncate to 32 chars (16 start + 16 end)
+
+        # Strip any spaces from the public key
         pubkey_clean = key.public_key.replace(" ", "")
-        if len(pubkey_clean) > 64:
-            pubkey_display = f"{pubkey_clean[:32]}...{pubkey_clean[-32:]}"
+
+        # Calculate available space for pubkey based on terminal width
+        # Get terminal size (fallback to 120 if not available)
+        try:
+            terminal_width = self.app.size.width
+        except:
+            terminal_width = 120
+
+        # Calculate fixed prefix length: left_art(4) + │(1) + checkmark(2) + spacing(2) + label(~35)
+        prefix_length = 50
+        available_width = max(
+            terminal_width - prefix_length, 40
+        )  # At least 40 chars for pubkey
+
+        # Truncate pubkey to fit terminal width
+        if len(pubkey_clean) > available_width:
+            # Show start and end of key
+            chars_per_side = (available_width - 3) // 2  # -3 for "..."
+            pubkey_display = (
+                f"{pubkey_clean[:chars_per_side]}...{pubkey_clean[-chars_per_side:]}"
+            )
         else:
             pubkey_display = pubkey_clean
+
         # Color just the keytag value
         colored_keytag = f"[{key_color}]{key.key_tag:<5}[/{key_color}]"
 
