@@ -1112,8 +1112,10 @@ class DNSSECPanel(VerticalScroll):
             pubkey_display = f"{pubkey_clean[:32]}...{pubkey_clean[-32:]}"
         else:
             pubkey_display = pubkey_clean
+        # Color just the keytag value
+        colored_keytag = f"[{key_color}]{key.key_tag:<5}[/{key_color}]"
         lines.append(
-            f"  │ {checkmark}DNSKEY KEYTAG={key.key_tag:<5} ALGO={algo_num:<1} TYPE={key_type:<3} PUBKEY={pubkey_display}{match_suffix}\n"
+            f"  │ {checkmark}DNSKEY KEYTAG={colored_keytag} ALGO={algo_num:<1} TYPE={key_type:<3} PUBKEY={pubkey_display}{match_suffix}\n"
         )
 
         return lines
@@ -1140,8 +1142,10 @@ class DNSSECPanel(VerticalScroll):
         # Strip any spaces from the digest
         digest_clean = ds.digest.replace(" ", "")
         checkmark = "✓ " if has_matching_dnskey else ""
+        # Color just the keytag value
+        colored_keytag = f"[{key_color}]{ds.key_tag:<5}[/{key_color}]"
         lines.append(
-            f"  │ {checkmark}DS     KEYTAG={ds.key_tag:<5} ALGO={algo_num:<1} DIGEST={digest_num:<1} HASH={digest_clean}\n"
+            f"  │ {checkmark}DS     KEYTAG={colored_keytag} ALGO={algo_num:<1} DIGEST={digest_num:<1} HASH={digest_clean}\n"
         )
 
         return lines
