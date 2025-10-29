@@ -1108,7 +1108,7 @@ class DNSSECPanel(VerticalScroll):
             terminal_width = 120
 
         # Calculate fixed prefix length: left_art(4) + │(1) + checkmark(2) + spacing(2) + label(~35)
-        prefix_length = 55
+        prefix_length = 62
         available_width = max(
             terminal_width - prefix_length, 40
         )  # At least 40 chars for pubkey
@@ -2608,6 +2608,16 @@ class DNSDebuggerApp(App):
                 "tool": f"curl -I https://{self.domain}",
                 "status": "pending",
             },
+            "http_www": {
+                "label": "HTTP: WWW subdomain",
+                "tool": f"curl -I http://www.{self.domain}",
+                "status": "pending",
+            },
+            "https_www": {
+                "label": "HTTPS: WWW subdomain",
+                "tool": f"curl -I https://www.{self.domain}",
+                "status": "pending",
+            },
             "registration": {
                 "label": "Registration: Details",
                 "tool": f"whois {self.domain}",
@@ -2804,19 +2814,33 @@ class DNSDebuggerApp(App):
             async def fetch_http_www_response():
                 # Check www subdomain if this is an apex domain
                 if not self.domain.startswith("www."):
-                    www_domain = f"www.{self.domain}"
-                    return await loop.run_in_executor(
-                        executor, http_adapter.check_url, f"http://{www_domain}"
-                    )
+                    self.update_loading_task("http_www", "loading")
+                    try:
+                        www_domain = f"www.{self.domain}"
+                        result = await loop.run_in_executor(
+                            executor, http_adapter.check_url, f"http://{www_domain}"
+                        )
+                        self.update_loading_task("http_www", "done")
+                        return result
+                    except Exception:
+                        self.update_loading_task("http_www", "error")
+                        raise
                 return None
 
             async def fetch_https_www_response():
                 # Check www subdomain if this is an apex domain
                 if not self.domain.startswith("www."):
-                    www_domain = f"www.{self.domain}"
-                    return await loop.run_in_executor(
-                        executor, http_adapter.check_url, f"https://{www_domain}"
-                    )
+                    self.update_loading_task("https_www", "loading")
+                    try:
+                        www_domain = f"www.{self.domain}"
+                        result = await loop.run_in_executor(
+                            executor, http_adapter.check_url, f"https://{www_domain}"
+                        )
+                        self.update_loading_task("https_www", "done")
+                        return result
+                    except Exception:
+                        self.update_loading_task("https_www", "error")
+                        raise
                 return None
 
             async def fetch_registration():
