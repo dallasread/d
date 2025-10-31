@@ -10,7 +10,7 @@ import click
     "--theme", default="dark", help="UI theme (dark, light, monokai, solarized)"
 )
 @click.option("--no-tui", is_flag=True, help="Disable TUI and use CLI mode")
-@click.version_option(version="0.1.1", prog_name="d")
+@click.version_option(version="0.1.2", prog_name="d")
 def main(domain: str, theme: str, no_tui: bool) -> None:
     """DNS Debugger - Interactive TUI for debugging DNS, certificates, and domain registration.
 
