@@ -1409,7 +1409,7 @@ class DNSSECPanel(VerticalScroll):
             if chain.has_rrsig_record:
                 output.append("    │\n")
                 output.append(
-                    "    │ [green]✓ RRSIG records found; zone records are signed[/green]\n"
+                    "    │ [dim]○ RRSIG records found; zone records are signed[/dim]\n"
                 )
 
             if chain.rrsig_records and len(chain.rrsig_records) > 0:
