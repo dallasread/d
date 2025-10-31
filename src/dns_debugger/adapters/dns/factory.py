@@ -1,45 +1,37 @@
-"""Factory for creating DNS adapters with automatic fallback."""
+"""Factory for creating DNS adapters."""
 
 from typing import Optional
 
 from dns_debugger.domain.ports.dns_port import DNSPort
-from dns_debugger.adapters.dns.dog_adapter import DogAdapter
 from dns_debugger.adapters.dns.dig_adapter import DigAdapter
 
 
 class DNSAdapterFactory:
     """Factory for creating DNS adapters.
 
-    Automatically selects the best available DNS tool:
-    1. dog (preferred - modern, JSON output)
-    2. dig (fallback - traditional, always available)
+    Uses dig (BIND DNS tools) for all DNS queries.
     """
 
     @staticmethod
     def create() -> DNSPort:
-        """Create a DNS adapter using the best available tool.
+        """Create a DNS adapter using dig.
 
         Returns:
-            A DNSPort implementation (DogAdapter or DigAdapter)
+            A DNSPort implementation (DigAdapter)
 
         Raises:
-            RuntimeError: If no DNS tool is available
+            RuntimeError: If dig is not available
         """
-        # Try dog first (preferred)
-        dog = DogAdapter()
-        if dog.is_available():
-            return dog
-
-        # Fall back to dig
         dig = DigAdapter()
         if dig.is_available():
             return dig
 
         # No DNS tool available
         raise RuntimeError(
-            "No DNS tool available. Please install 'dog' or 'dig'.\n"
-            "  - dog: https://dns.lookup.dog/\n"
-            "  - dig: Usually available via bind-tools or dnsutils package"
+            "dig is not available. Please install BIND DNS tools.\n"
+            "  - macOS: brew install bind\n"
+            "  - Ubuntu/Debian: apt-get install dnsutils\n"
+            "  - RHEL/Fedora: dnf install bind-utils"
         )
 
     @staticmethod
@@ -47,7 +39,7 @@ class DNSAdapterFactory:
         """Create a specific DNS adapter by name.
 
         Args:
-            tool_name: Name of the tool ("dog" or "dig")
+            tool_name: Name of the tool ("dig")
 
         Returns:
             The requested DNSPort implementation
@@ -56,12 +48,10 @@ class DNSAdapterFactory:
             ValueError: If tool_name is not recognized
             RuntimeError: If the requested tool is not available
         """
-        if tool_name.lower() == "dog":
-            adapter = DogAdapter()
-        elif tool_name.lower() == "dig":
+        if tool_name.lower() == "dig":
             adapter = DigAdapter()
         else:
-            raise ValueError(f"Unknown DNS tool: {tool_name}")
+            raise ValueError(f"Unknown DNS tool: {tool_name}. Only 'dig' is supported.")
 
         if not adapter.is_available():
             raise RuntimeError(
@@ -79,10 +69,6 @@ class DNSAdapterFactory:
         """
         tools = []
 
-        dog = DogAdapter()
-        if dog.is_available():
-            tools.append("dog")
-
         dig = DigAdapter()
         if dig.is_available():
             tools.append("dig")
@@ -96,5 +82,5 @@ class DNSAdapterFactory:
         Returns:
             Name of the preferred tool, or None if no tool is available
         """
-        tools = DNSAdapterFactory.get_available_tools()
-        return tools[0] if tools else None
+        dig = DigAdapter()
+        return "dig" if dig.is_available() else None
