@@ -33,17 +33,76 @@ class DigAdapter(DNSPort):
     Used as a fallback when dog is not available.
     """
 
+    def _get_authoritative_nameserver(self, domain: str) -> Optional[str]:
+        """Get an authoritative nameserver for the domain.
+
+        Args:
+            domain: The domain to find authoritative NS for
+
+        Returns:
+            IP address of an authoritative nameserver, or None if not found
+        """
+        try:
+            # Query for NS records
+            cmd = ["dig", "+short", domain, "NS"]
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=5, check=False
+            )
+
+            if result.returncode == 0 and result.stdout.strip():
+                # Get first nameserver
+                nameservers = [
+                    ns.strip().rstrip(".")
+                    for ns in result.stdout.strip().split("\n")
+                    if ns.strip()
+                ]
+                if nameservers:
+                    # Resolve the nameserver to an IP
+                    ns_host = nameservers[0]
+                    resolve_cmd = ["dig", "+short", ns_host, "A"]
+                    resolve_result = subprocess.run(
+                        resolve_cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
+                        check=False,
+                    )
+                    if resolve_result.returncode == 0 and resolve_result.stdout.strip():
+                        ips = [
+                            ip.strip()
+                            for ip in resolve_result.stdout.strip().split("\n")
+                            if ip.strip()
+                        ]
+                        if ips:
+                            return ips[0]
+            return None
+        except Exception:
+            return None
+
     def query(
         self, domain: str, record_type: RecordType, resolver: Optional[str] = None
     ) -> DNSResponse:
-        """Execute a DNS query using dig."""
+        """Execute a DNS query using dig, preferring authoritative nameservers."""
         start_time = datetime.now()
         query_obj = DNSQuery(domain=domain, record_type=record_type, resolver=resolver)
+
+        # If no resolver specified, try to use authoritative nameserver
+        if not resolver:
+            # For DS records, query the parent zone's nameservers
+            if record_type == RecordType.DS:
+                # Get parent domain (e.g., "ca" from "dmbtechservices.ca")
+                parts = domain.rstrip(".").split(".")
+                if len(parts) > 1:
+                    parent_domain = ".".join(parts[1:])
+                    resolver = self._get_authoritative_nameserver(parent_domain)
+            else:
+                # For other records, query the domain's own nameservers
+                resolver = self._get_authoritative_nameserver(domain)
 
         # Build dig command
         cmd = ["dig", "+noall", "+answer", domain, record_type.value]
         if resolver:
-            cmd.append(f"@{resolver}")
+            cmd.insert(1, f"@{resolver}")
 
         try:
             result = subprocess.run(
