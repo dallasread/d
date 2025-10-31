@@ -38,6 +38,13 @@ class DigAdapter(DNSPort):
         # Cache for authoritative nameservers to avoid repeated lookups
         self._ns_cache = {}
 
+    def clear_cache(self) -> None:
+        """Clear the authoritative nameserver cache.
+
+        This should be called when refreshing data to ensure fresh NS lookups.
+        """
+        self._ns_cache.clear()
+
     def _get_authoritative_nameserver(
         self, domain: str, for_ds_query: bool = False
     ) -> Optional[str]:

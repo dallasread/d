@@ -2728,6 +2728,11 @@ class DNSDebuggerApp(App):
             registry_adapter = RegistryAdapterFactory.create()
             email_adapter = EmailAdapterFactory.create()
 
+            # Clear caches to ensure fresh data on refresh
+            facade.clear_caches()
+            if hasattr(dns_adapter, "clear_cache"):
+                dns_adapter.clear_cache()
+
             # Define all fetch operations as async functions
             async def fetch_http_health():
                 self.update_loading_task("health_http", "loading")

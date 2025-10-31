@@ -121,6 +121,11 @@ class DashboardFacade:
         self.registry_adapter = RegistryAdapterFactory.create()
         self.email_adapter = EmailAdapterFactory.create()
 
+    def clear_caches(self) -> None:
+        """Clear all adapter caches (e.g., DNS nameserver cache)."""
+        if hasattr(self.dns_adapter, "clear_cache"):
+            self.dns_adapter.clear_cache()
+
     def get_http_health(self, domain: str) -> HTTPHealthData:
         """Get HTTP/HTTPS health data."""
         try:
