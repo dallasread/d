@@ -20,7 +20,7 @@ class HTTPPort(ABC):
         url: str,
         method: HTTPMethod = HTTPMethod.HEAD,
         follow_redirects: bool = True,
-        timeout: int = 10,
+        timeout: int = 5,
     ) -> HTTPResponse:
         """Execute an HTTP/HTTPS request.
 
@@ -39,13 +39,14 @@ class HTTPPort(ABC):
         pass
 
     @abstractmethod
-    def check_url(self, url: str) -> HTTPResponse:
+    def check_url(self, url: str, timeout: int = 5) -> HTTPResponse:
         """Quick check if a URL is accessible.
 
         Uses HEAD request by default for efficiency.
 
         Args:
             url: The URL to check
+            timeout: Request timeout in seconds (default: 5)
 
         Returns:
             HTTPResponse with status and timing information

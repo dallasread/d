@@ -18,7 +18,7 @@ class CurlAdapter(HTTPPort):
         url: str,
         method: HTTPMethod = HTTPMethod.HEAD,
         follow_redirects: bool = True,
-        timeout: int = 10,
+        timeout: int = 5,
     ) -> HTTPResponse:
         """Execute an HTTP request using curl."""
         start_time = datetime.now()
@@ -234,9 +234,9 @@ class CurlAdapter(HTTPPort):
                     return value.strip()
         return None
 
-    def check_url(self, url: str) -> HTTPResponse:
+    def check_url(self, url: str, timeout: int = 5) -> HTTPResponse:
         """Quick check if a URL is accessible using HEAD request."""
-        return self.request(url, method=HTTPMethod.HEAD)
+        return self.request(url, method=HTTPMethod.HEAD, timeout=timeout)
 
     def is_available(self) -> bool:
         """Check if curl is available."""

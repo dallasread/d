@@ -32,12 +32,11 @@ class OpenSSLAdapter(CertificatePort):
             host, port, servername
         )
 
-        # Get supported versions and cipher suites
-        supported_versions = self._get_supported_tls_versions(host, port)
-        cipher_suites = self.get_supported_cipher_suites(host, port)
-
-        # Check OCSP stapling
-        has_ocsp = self.check_ocsp_stapling(host, port)
+        # Skip slow TLS version, cipher suite, and OCSP checks
+        # These add 10+ seconds per domain and aren't essential
+        supported_versions = []
+        cipher_suites = []
+        has_ocsp = False
 
         connection_time = (datetime.now() - start_time).total_seconds() * 1000
 
