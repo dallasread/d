@@ -66,19 +66,11 @@ class OpenSSLAdapter(CertificatePort):
 
         try:
             # Get certificate chain using openssl s_client
-            cmd = [
-                "openssl",
-                "s_client",
-                "-connect",
-                f"{host}:{port}",
-                "-servername",
-                sni,
-                "-showcerts",
-                "-verify_return_error",
-            ]
+            # Use echo with Q command to quit immediately after getting certs
+            cmd = f"echo Q | openssl s_client -connect {host}:{port} -servername {sni} -showcerts 2>&1"
 
             result = subprocess.run(
-                cmd, input="", capture_output=True, text=True, timeout=10
+                cmd, shell=True, capture_output=True, text=True, timeout=3
             )
 
             # Parse certificates from output
@@ -301,18 +293,11 @@ class OpenSSLAdapter(CertificatePort):
         ]
 
         for version_enum, version_flag in versions_to_test:
-            cmd = [
-                "openssl",
-                "s_client",
-                f"-{version_flag}",
-                "-connect",
-                f"{host}:{port}",
-                "-brief",
-            ]
+            cmd = f"echo Q | openssl s_client -{version_flag} -connect {host}:{port} -brief 2>&1"
 
             try:
                 result = subprocess.run(
-                    cmd, input="", capture_output=True, text=True, timeout=5
+                    cmd, shell=True, capture_output=True, text=True, timeout=2
                 )
 
                 if result.returncode == 0 and "Verification error" not in result.stdout:
@@ -332,18 +317,10 @@ class OpenSSLAdapter(CertificatePort):
     def check_ocsp_stapling(self, host: str, port: int = 443) -> bool:
         """Check if OCSP stapling is enabled."""
         try:
-            cmd = [
-                "openssl",
-                "s_client",
-                "-connect",
-                f"{host}:{port}",
-                "-status",
-                "-servername",
-                host,
-            ]
+            cmd = f"echo Q | openssl s_client -connect {host}:{port} -status -servername {host} 2>&1"
 
             result = subprocess.run(
-                cmd, input="", capture_output=True, text=True, timeout=5
+                cmd, shell=True, capture_output=True, text=True, timeout=2
             )
 
             return "OCSP Response Status: successful" in result.stdout
@@ -354,18 +331,10 @@ class OpenSSLAdapter(CertificatePort):
     def get_supported_cipher_suites(self, host: str, port: int = 443) -> list[str]:
         """Get the list of supported cipher suites."""
         try:
-            cmd = [
-                "openssl",
-                "s_client",
-                "-connect",
-                f"{host}:{port}",
-                "-cipher",
-                "ALL",
-                "-brief",
-            ]
+            cmd = f"echo Q | openssl s_client -connect {host}:{port} -cipher ALL -brief 2>&1"
 
             result = subprocess.run(
-                cmd, input="", capture_output=True, text=True, timeout=5
+                cmd, shell=True, capture_output=True, text=True, timeout=2
             )
 
             # Parse cipher from output

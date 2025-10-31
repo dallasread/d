@@ -1329,8 +1329,8 @@ class DNSSECPanel(VerticalScroll):
                     if conn[1] == zone_idx and conn[2] > zone_idx
                 ]
 
-                # Determine left prefix for closing line (show connection if active and zone has DS)
-                if (outgoing_connections or active_incoming) and zone_data.has_ds:
+                # Determine left prefix for closing line (only show connection if outgoing)
+                if outgoing_connections:
                     output.append(
                         "[dim]│   [/dim]└─────────────────────────────────────────────────────────\n"
                     )
@@ -1339,8 +1339,8 @@ class DNSSECPanel(VerticalScroll):
                         "    └─────────────────────────────────────────────────────────\n"
                     )
 
-                # Draw connection lines between zones (only if this zone has DS records)
-                if outgoing_connections and zone_data.has_ds:
+                # Draw connection lines between zones (only if there are actual connections)
+                if outgoing_connections:
                     output.append("[dim]│   [/dim]\n")
                 else:
                     output.append("\n")
@@ -1407,14 +1407,14 @@ class DNSSECPanel(VerticalScroll):
 
             # Show RRSIG records
             if chain.has_rrsig_record:
-                output.append(f"{left_prefix}│\n")
+                output.append("    │\n")
                 output.append(
-                    f"{left_prefix}│ [green]✓ RRSIG records found; zone records are signed[/green]\n"
+                    "    │ [green]✓ RRSIG records found; zone records are signed[/green]\n"
                 )
 
             if chain.rrsig_records and len(chain.rrsig_records) > 0:
                 rrsig_count = len(chain.rrsig_records)
-                output.append(f"{left_prefix}│ RRSIG Signatures:\n")
+                output.append("    │ RRSIG Signatures:\n")
 
                 # Group by key tag
                 rrsigs_by_key = {}
@@ -1466,28 +1466,28 @@ class DNSSECPanel(VerticalScroll):
                     key_color = self._keytag_to_color(key_tag)
 
                     output.append(
-                        f"{left_prefix}│  [{key_color}]• Signed by [{key_type}] Key Tag {key_tag}[/{key_color}]\n"
+                        f"    │  [{key_color}]• Signed by [{key_type}] Key Tag {key_tag}[/{key_color}]\n"
                     )
                     output.append(
-                        f"{left_prefix}│     [{key_color}]Covers: {types_str}[/{key_color}]\n"
+                        f"    │     [{key_color}]Covers: {types_str}[/{key_color}]\n"
                     )
                     output.append(
-                        f"{left_prefix}│     [{key_color}]Algorithm: {algo_name}[/{key_color}]\n"
+                        f"    │     [{key_color}]Algorithm: {algo_name}[/{key_color}]\n"
                     )
                     output.append(
-                        f"{left_prefix}│     [{key_color}]Inception: {first_sig.signature_inception.strftime('%Y-%m-%d %H:%M')}[/{key_color}]\n"
+                        f"    │     [{key_color}]Inception: {first_sig.signature_inception.strftime('%Y-%m-%d %H:%M')}[/{key_color}]\n"
                     )
                     output.append(
-                        f"{left_prefix}│     [{key_color}]Expiration: {first_sig.signature_expiration.strftime('%Y-%m-%d %H:%M')} [{expiry_color}]({expiry_text})[/{expiry_color}][/{key_color}]\n"
+                        f"    │     [{key_color}]Expiration: {first_sig.signature_expiration.strftime('%Y-%m-%d %H:%M')} [{expiry_color}]({expiry_text})[/{expiry_color}][/{key_color}]\n"
                     )
                     output.append(
-                        f"{left_prefix}│     [{key_color}]Signer: {first_sig.signer_name}[/{key_color}]\n"
+                        f"    │     [{key_color}]Signer: {first_sig.signer_name}[/{key_color}]\n"
                     )
 
             if not chain.has_rrsig_record:
-                output.append(f"{left_prefix}│\n")
+                output.append("    │\n")
                 output.append(
-                    f"{left_prefix}│ [yellow]⚠ No RRSIG records found; zone records are not signed[/yellow]\n"
+                    "    │ [yellow]⚠ No RRSIG records found; zone records are not signed[/yellow]\n"
                 )
 
             output.append(
