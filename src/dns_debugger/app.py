@@ -1095,7 +1095,7 @@ class DNSSECPanel(VerticalScroll):
 
         # Single line: DNSKEY with fixed-width labels for table alignment
         match_suffix = f" {match_info}" if match_info else ""
-        checkmark = "✓ " if has_matching_ds else ""
+        checkmark = "[green]✓[/green] " if has_matching_ds else ""
 
         # Strip any spaces from the public key
         pubkey_clean = key.public_key.replace(" ", "")
@@ -1135,7 +1135,11 @@ class DNSSECPanel(VerticalScroll):
         return lines
 
     def _render_ds(
-        self, ds, has_matching_dnskey: bool = False, left_art: str = "    "
+        self,
+        ds,
+        has_matching_dnskey: bool = False,
+        left_art: str = "    ",
+        show_bogus_warning: bool = False,
     ) -> list:
         """Render a DS record on 2 lines.
 
@@ -1143,6 +1147,7 @@ class DNSSECPanel(VerticalScroll):
             ds: DSRecord object
             has_matching_dnskey: Whether this DS has a matching DNSKEY record
             left_art: ASCII art to show on the left margin (e.g., "╭─> ")
+            show_bogus_warning: Whether to show a warning for bogus DS records (no matching DNSKEY)
 
         Returns:
             List of formatted output lines
@@ -1158,14 +1163,20 @@ class DNSSECPanel(VerticalScroll):
         # Single line: DS with fixed-width labels for table alignment
         # Strip any spaces from the digest
         digest_clean = ds.digest.replace(" ", "")
-        checkmark = "✓ " if has_matching_dnskey else ""
+
+        # Show checkmark for matching, warning for bogus, or empty for no child zone yet
+        if has_matching_dnskey:
+            indicator = "[green]✓[/green] "
+        elif show_bogus_warning and not has_matching_dnskey:
+            indicator = "[#ff8800]▲[/#ff8800] "
+        else:
+            indicator = "  "
+
         # Color just the keytag value
         colored_keytag = f"[{key_color}]{ds.key_tag:<5}[/{key_color}]"
 
-        # Add spacing for non-matching records to align with checkmarks
-        spacing = "" if checkmark else "  "
         lines.append(
-            f"[dim]{left_art}[/dim]│ {checkmark}{spacing}DS     KEYTAG={colored_keytag} ALGO={algo_num:<1} HASH={digest_clean}\n"
+            f"[dim]{left_art}[/dim]│ {indicator}DS     KEYTAG={colored_keytag} ALGO={algo_num:<1} HASH={digest_clean}\n"
         )
 
         return lines
@@ -1302,6 +1313,15 @@ class DNSSECPanel(VerticalScroll):
 
                 # Show DS records that delegate to child
                 if zone_data.has_ds:
+                    # Determine if child zone has DNSKEYs to check against
+                    child_has_dnskeys = False
+                    if zone_idx + 1 < len(chain.parent_zones):
+                        child_zone = chain.parent_zones[zone_idx + 1]
+                        child_has_dnskeys = child_zone.has_dnskey
+                    elif zone_idx + 1 == len(chain.parent_zones):
+                        # Target domain is the child
+                        child_has_dnskeys = chain.has_dnskey_record
+
                     for ds in zone_data.ds_records:
                         # Check if this DS starts a connection
                         left_art = "    "
@@ -1310,11 +1330,15 @@ class DNSSECPanel(VerticalScroll):
                                 left_art = "╭─> "
                                 break
 
+                        # Show warning if child has DNSKEYs but this DS doesn't match any
+                        show_warning = child_has_dnskeys and (left_art == "    ")
+
                         output.extend(
                             self._render_ds(
                                 ds,
                                 has_matching_dnskey=(left_art != "    "),
                                 left_art=left_art,
+                                show_bogus_warning=show_warning,
                             )
                         )
                 else:
