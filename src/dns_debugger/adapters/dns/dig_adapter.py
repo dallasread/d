@@ -33,15 +33,28 @@ class DigAdapter(DNSPort):
     Used as a fallback when dog is not available.
     """
 
-    def _get_authoritative_nameserver(self, domain: str) -> Optional[str]:
+    def __init__(self):
+        """Initialize the dig adapter."""
+        # Cache for authoritative nameservers to avoid repeated lookups
+        self._ns_cache = {}
+
+    def _get_authoritative_nameserver(
+        self, domain: str, for_ds_query: bool = False
+    ) -> Optional[str]:
         """Get an authoritative nameserver for the domain.
 
         Args:
             domain: The domain to find authoritative NS for
+            for_ds_query: If True, this is for a DS record query (parent zone lookup)
 
         Returns:
             IP address of an authoritative nameserver, or None if not found
         """
+        # Check cache first
+        cache_key = f"{domain}:{for_ds_query}"
+        if cache_key in self._ns_cache:
+            return self._ns_cache[cache_key]
+
         try:
             # Query for NS records
             cmd = ["dig", "+short", domain, "NS"]
@@ -74,9 +87,17 @@ class DigAdapter(DNSPort):
                             if ip.strip()
                         ]
                         if ips:
-                            return ips[0]
+                            # Cache the result
+                            result = ips[0]
+                            self._ns_cache[cache_key] = result
+                            return result
+
+            # Cache None result if we didn't find one (will use system resolver)
+            self._ns_cache[cache_key] = None
             return None
         except Exception:
+            # Cache None on error
+            self._ns_cache[cache_key] = None
             return None
 
     def query(
@@ -94,10 +115,14 @@ class DigAdapter(DNSPort):
                 parts = domain.rstrip(".").split(".")
                 if len(parts) > 1:
                     parent_domain = ".".join(parts[1:])
-                    resolver = self._get_authoritative_nameserver(parent_domain)
+                    resolver = self._get_authoritative_nameserver(
+                        parent_domain, for_ds_query=True
+                    )
             else:
                 # For other records, query the domain's own nameservers
-                resolver = self._get_authoritative_nameserver(domain)
+                resolver = self._get_authoritative_nameserver(
+                    domain, for_ds_query=False
+                )
 
         # Build dig command
         cmd = ["dig", "+noall", "+answer", domain, record_type.value]
@@ -125,6 +150,7 @@ class DigAdapter(DNSPort):
 
         except subprocess.CalledProcessError as e:
             query_time = (datetime.now() - start_time).total_seconds() * 1000
+
             return DNSResponse(
                 query=query_obj,
                 records=[],

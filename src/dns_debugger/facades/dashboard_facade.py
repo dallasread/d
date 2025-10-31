@@ -114,6 +114,7 @@ class DashboardFacade:
     """Facade for fetching dashboard health check data."""
 
     def __init__(self):
+        """Initialize the facade."""
         self.dns_adapter = DNSAdapterFactory.create()
         self.cert_adapter = CertificateAdapterFactory.create()
         self.http_adapter = HTTPAdapterFactory.create()
