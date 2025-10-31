@@ -437,8 +437,17 @@ class DogAdapter(DNSPort):
             if not has_dnskey:
                 status = DNSSECStatus.INSECURE
             elif has_dnskey and has_ds:
-                # Domain has both DNSKEY and DS records - it's signed and secure
-                status = DNSSECStatus.SECURE
+                # Check if DS records actually match DNSKEYs
+                ds_keytags = {ds.key_tag for ds in ds_records}
+                dnskey_keytags = {key.key_tag for key in dnskey_records}
+                has_matching_keys = bool(ds_keytags & dnskey_keytags)
+
+                if has_matching_keys:
+                    # Domain has DNSKEY and matching DS records - secure
+                    status = DNSSECStatus.SECURE
+                else:
+                    # Domain has DS and DNSKEY but they don't match - bogus
+                    status = DNSSECStatus.BOGUS
             elif has_dnskey and not has_ds:
                 # Domain has DNSKEY but no DS in parent - signed but chain broken
                 status = DNSSECStatus.INDETERMINATE
@@ -450,6 +459,10 @@ class DogAdapter(DNSPort):
             warnings = []
             if has_dnskey and not has_ds:
                 warnings.append("Domain has DNSKEY but no DS record in parent zone")
+            elif has_dnskey and has_ds and not has_matching_keys:
+                warnings.append(
+                    f"DS key tags {ds_keytags} don't match DNSKEY tags {dnskey_keytags}"
+                )
             if chain.ksk_count == 0 and has_dnskey:
                 warnings.append("No Key Signing Key (KSK) found")
             if chain.zsk_count == 0 and has_dnskey:
