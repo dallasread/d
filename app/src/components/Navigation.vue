@@ -22,13 +22,13 @@ const logsStore = useLogsStore();
 const domainInput = ref('');
 
 const tabs = [
-  { name: 'Dashboard', path: '/', key: '0' },
-  { name: 'Registration', path: '/registration', key: '1' },
-  { name: 'DNS', path: '/dns', key: '2' },
-  { name: 'DNSSEC', path: '/dnssec', key: '3' },
-  { name: 'Certificate', path: '/certificate', key: '4' },
-  { name: 'HTTP', path: '/http', key: '5' },
-  { name: 'Email', path: '/email', key: '6' },
+  { name: 'Dashboard', path: '/', key: '1' },
+  { name: 'Registration', path: '/registration', key: '2' },
+  { name: 'DNS', path: '/dns', key: '3' },
+  { name: 'DNSSEC', path: '/dnssec', key: '4' },
+  { name: 'Certificate', path: '/certificate', key: '5' },
+  { name: 'HTTP', path: '/http', key: '6' },
+  { name: 'Email', path: '/email', key: '7' },
 ];
 
 const isActiveTab = (path: string) => {

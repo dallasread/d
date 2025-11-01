@@ -5,13 +5,13 @@ export function useKeyboardShortcuts() {
   const router = useRouter();
 
   const routes = [
-    { key: '0', path: '/', name: 'Dashboard' },
-    { key: '1', path: '/registration', name: 'Registration' },
-    { key: '2', path: '/dns', name: 'DNS' },
-    { key: '3', path: '/dnssec', name: 'DNSSEC' },
-    { key: '4', path: '/certificate', name: 'Certificate' },
-    { key: '5', path: '/http', name: 'HTTP' },
-    { key: '6', path: '/email', name: 'Email' },
+    { key: '1', path: '/', name: 'Dashboard' },
+    { key: '2', path: '/registration', name: 'Registration' },
+    { key: '3', path: '/dns', name: 'DNS' },
+    { key: '4', path: '/dnssec', name: 'DNSSEC' },
+    { key: '5', path: '/certificate', name: 'Certificate' },
+    { key: '6', path: '/http', name: 'HTTP' },
+    { key: '7', path: '/email', name: 'Email' },
   ];
 
   const handleKeyDown = (event: KeyboardEvent) => {
@@ -20,7 +20,7 @@ export function useKeyboardShortcuts() {
       return;
     }
 
-    // Number keys 0-6 for navigation
+    // Number keys 1-7 for navigation
     const route = routes.find((r) => r.key === event.key);
     if (route) {
       event.preventDefault();
