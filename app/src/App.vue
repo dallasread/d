@@ -64,9 +64,19 @@ onUnmounted(() => {
   </div>
 </template>
 
+<style>
+/* Global styles to prevent horizontal scroll */
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+</style>
+
 <style scoped>
 .app-container {
   width: 100%;
   min-height: 100vh;
+  overflow-x: hidden;
 }
 </style>
