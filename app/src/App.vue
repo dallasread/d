@@ -51,7 +51,7 @@ onUnmounted(() => {
 <template>
   <div class="app-container min-h-screen">
     <Navigation />
-    <main class="pt-0">
+    <main class="pt-[120px]">
       <RouterView />
     </main>
     <RawDataModal />

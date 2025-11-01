@@ -336,7 +336,7 @@ const copyOutput = (output: string) => {
                 <!-- Output section -->
                 <div class="px-4 py-3 bg-[#1e1e1e]">
                   <pre
-                    class="text-xs text-[#cccccc] font-mono overflow-x-auto whitespace-pre-wrap break-words max-h-96 overflow-y-auto"
+                    class="text-xs text-[#cccccc] font-mono overflow-x-auto whitespace-pre-wrap break-words"
                     >{{ log.output || '(empty)' }}</pre
                   >
                 </div>

@@ -101,7 +101,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="sticky top-0 z-50 bg-[#1e1e1e] border-b border-[#3e3e42]">
+  <div class="fixed top-0 left-0 right-0 z-50 bg-[#1e1e1e] border-b border-[#3e3e42]">
     <!-- Top bar with branding and search -->
     <div class="w-full px-3 md:px-6 py-3 md:py-4">
       <div class="flex items-center gap-6 max-w-full">
