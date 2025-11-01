@@ -130,6 +130,7 @@ impl DnsAdapter {
         cmd.arg("+noall")
             .arg("+answer")
             .arg("+dnssec")
+            .arg("+multi") // Get key tags in comments
             .arg(format!("@{}", ns))
             .arg("DNSKEY")
             .arg(domain);
@@ -231,10 +232,30 @@ impl DnsAdapter {
                     let flags = parts[0].parse::<u16>().ok()?;
                     let protocol = parts[1].parse::<u8>().ok()?;
                     let algorithm = parts[2].parse::<u8>().ok()?;
-                    let public_key = parts[3..].join(" ");
+                    // Extract key tag from comment if using +multi format
+                    // Comment format: "; key id = 55759" or "; KSK; alg = RSASHA256 ; key id = 5116"
+                    let mut key_tag = flags; // Fallback to flags if no comment
 
-                    // Calculate key tag (simplified - just use flags for now)
-                    let key_tag = flags; // In real implementation, calculate from public key
+                    // Look for "key id =" in the value
+                    if let Some(key_id_pos) = r.value.find("key id =") {
+                        let after_key_id = &r.value[key_id_pos + 9..];
+                        if let Some(tag_str) = after_key_id.split_whitespace().next() {
+                            if let Ok(tag) = tag_str.parse::<u16>() {
+                                key_tag = tag;
+                            }
+                        }
+                    }
+
+                    // Extract public key (everything after algorithm, excluding comments)
+                    let public_key = if let Some(comment_pos) = r.value.find(';') {
+                        r.value[..comment_pos]
+                            .split_whitespace()
+                            .skip(3)
+                            .collect::<Vec<_>>()
+                            .join(" ")
+                    } else {
+                        parts[3..].join(" ")
+                    };
 
                     Some(DnskeyRecord {
                         flags,

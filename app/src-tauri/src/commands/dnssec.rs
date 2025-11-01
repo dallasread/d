@@ -8,37 +8,63 @@ pub async fn validate_dnssec(domain: String) -> Result<DnssecValidation, String>
     let mut chain: Vec<ZoneData> = Vec::new();
     let mut warnings: Vec<String> = Vec::new();
 
-    // Parse domain parts
+    // Parse domain parts (e.g., "www.example.com" -> ["www", "example", "com"])
     let parts: Vec<&str> = domain.trim_end_matches('.').split('.').collect();
 
-    // Only query TLD and target domain (skip root - too slow)
-    // Start from TLD (e.g., "io" for "meat.io")
-    let zones_to_query: Vec<String> = if parts.len() >= 2 {
-        vec![
-            parts[parts.len() - 1..].join("."), // TLD (e.g., "io")
-            domain.clone(),                     // Target domain (e.g., "meat.io")
-        ]
-    } else {
-        vec![domain.clone()]
-    };
+    // Build full chain: root → TLD → domain → subdomain(s)
+    // For meat.io: root → io → meat.io
+    // For www.example.com: root → com → example.com → www.example.com
 
-    for current_zone in zones_to_query {
-        // Query DNSKEY for this zone
+    // Step 1: Query root zone (.)
+    match adapter.query_dnskey(".").await {
+        Ok(root_response) => {
+            let root_dnskeys = adapter.parse_dnskey_records(&root_response.records);
+            let root_rrsigs = adapter.parse_rrsig_records(&root_response.records);
+
+            // Query DS records for TLD from root
+            let tld = parts.last().unwrap_or(&"");
+            let root_ds = match adapter.query_ds(tld).await {
+                Ok(ds_response) => adapter.parse_ds_records(&ds_response.records),
+                Err(_) => Vec::new(),
+            };
+
+            chain.push(ZoneData {
+                zone_name: ".".to_string(),
+                dnskey_records: root_dnskeys,
+                ds_records: root_ds,
+                rrsig_records: root_rrsigs,
+            });
+        }
+        Err(e) => {
+            warnings.push(format!("Failed to query root zone: {}", e));
+        }
+    }
+
+    // Step 2: Build chain from TLD down to target domain recursively
+    // For "meat.io": query ["io", "meat.io"]
+    // For "www.example.com": query ["com", "example.com", "www.example.com"]
+    for i in (0..parts.len()).rev() {
+        let current_zone = parts[i..].join(".");
+        let child_zone = if i > 0 {
+            Some(parts[i - 1..].join("."))
+        } else {
+            None
+        };
+
         match adapter.query_dnskey(&current_zone).await {
             Ok(zone_response) => {
                 let zone_dnskeys = adapter.parse_dnskey_records(&zone_response.records);
                 let zone_rrsigs = adapter.parse_rrsig_records(&zone_response.records);
 
-                // For TLD: query DS records for the target domain
-                // For target: we already have its DNSKEY
-                let zone_ds = if current_zone != domain && parts.len() >= 2 {
-                    // This is the TLD, query DS for target domain
-                    match adapter.query_ds(&domain).await {
+                // Query DS records for child zone (if exists)
+                let zone_ds = if let Some(ref child) = child_zone {
+                    match adapter.query_ds(child).await {
                         Ok(ds_response) => adapter.parse_ds_records(&ds_response.records),
                         Err(e) => {
                             if e.contains("timeout") || e.contains("timed out") {
                                 warnings.push(format!(
-                                    "DS query timed out (TLD nameservers may be rate-limited)"
+                                    "DS query timed out for {} (TLD nameservers may be rate-limited)",
+                                    child
                                 ));
                             }
                             Vec::new()
@@ -75,20 +101,23 @@ pub async fn validate_dnssec(domain: String) -> Result<DnssecValidation, String>
         .map(|z| !z.dnskey_records.is_empty())
         .unwrap_or(false);
 
-    // Check if target domain has DS record in parent (TLD)
-    let tld_zone = if parts.len() >= 2 {
-        chain.iter().find(|z| z.zone_name == parts[parts.len() - 1])
+    // Check if target domain has DS record in parent zone
+    let parent_zone = if parts.len() > 1 {
+        let parent_name = parts[1..].join(".");
+        chain.iter().find(|z| z.zone_name == parent_name)
     } else {
         None
     };
-    let has_ds = tld_zone.map(|z| !z.ds_records.is_empty()).unwrap_or(false);
+    let has_ds = parent_zone
+        .map(|z| !z.ds_records.is_empty())
+        .unwrap_or(false);
 
     let status = if !has_dnskey {
         "INSECURE".to_string()
     } else if has_dnskey && has_ds {
         // Check if DS records match DNSKEY key tags
-        if let (Some(target), Some(tld)) = (target_zone, tld_zone) {
-            let ds_keytags: HashSet<u16> = tld.ds_records.iter().map(|ds| ds.key_tag).collect();
+        if let (Some(target), Some(parent)) = (target_zone, parent_zone) {
+            let ds_keytags: HashSet<u16> = parent.ds_records.iter().map(|ds| ds.key_tag).collect();
             let dnskey_keytags: HashSet<u16> = target
                 .dnskey_records
                 .iter()

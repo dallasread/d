@@ -46,6 +46,20 @@ const getZoneLabel = (zoneName: string) => {
   if (zoneName === '.') return 'root zone';
   return `${zoneName} (zone)`;
 };
+
+// Check if a DS record key tag matches any DNSKEY in the child zone
+const dsMatchesChild = (dsKeytag: number, childZone: any) => {
+  if (!childZone || !childZone.dnskey_records) return false;
+  return childZone.dnskey_records.some((key: any) => key.key_tag === dsKeytag);
+};
+
+// Get the child zone for a given zone index
+const getChildZone = (index: number) => {
+  if (!dnssecStore.validation || !dnssecStore.validation.chain) return null;
+  return index < dnssecStore.validation.chain.length - 1
+    ? dnssecStore.validation.chain[index + 1]
+    : null;
+};
 </script>
 
 <template>
@@ -203,9 +217,16 @@ const getZoneLabel = (zoneName: string) => {
                       <div
                         v-for="(ds, dsIndex) in zone.ds_records"
                         :key="dsIndex"
-                        class="font-mono text-xs text-[#cccccc] flex items-start gap-2"
+                        class="font-mono text-xs flex items-start gap-2"
+                        :class="
+                          dsMatchesChild(ds.key_tag, getChildZone(index))
+                            ? 'text-green-400'
+                            : 'text-[#cccccc]'
+                        "
                       >
-                        <span class="text-green-400 flex-shrink-0">✓</span>
+                        <span class="flex-shrink-0">
+                          {{ dsMatchesChild(ds.key_tag, getChildZone(index)) ? '├─> ✓' : '✓' }}
+                        </span>
                         <span class="flex-1 break-all">
                           DS&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;KEYTAG=<span
                             :class="getKeytagColor(ds.key_tag)"
