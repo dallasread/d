@@ -116,16 +116,19 @@ impl CertificateAdapter {
         let subject = self.parse_subject(&text, "Subject:");
         let issuer = self.parse_subject(&text, "Issuer:");
         let serial = self.extract_field(&text, "Serial Number:");
-        let not_before = self.extract_field(&text, "Not Before:");
-        let not_after = self.extract_field(&text, "Not After:");
+
+        // Parse NotBefore and NotAfter - handle both old and new openssl formats
+        // Old format: "Not Before: Sep 28 15:13:11 2025 GMT"
+        // New format: "v:NotBefore: Sep 28 15:13:11 2025 GMT; NotAfter: Dec 27 15:13:10 2025 GMT"
+        let (not_before, not_after) = self.extract_validity_dates(&text);
 
         Ok(CertificateInfo {
             subject,
             issuer,
             serial_number: serial.unwrap_or_default(),
             version: 3,
-            not_before: not_before.unwrap_or_default(),
-            not_after: not_after.unwrap_or_default(),
+            not_before,
+            not_after,
             subject_alternative_names: vec![],
             public_key_algorithm: "RSA".to_string(),
             public_key_size: Some(2048),
@@ -181,6 +184,41 @@ impl CertificateAdapter {
         }
 
         subject
+    }
+
+    fn extract_validity_dates(&self, text: &str) -> (String, String) {
+        // Try to find the v: line with NotBefore and NotAfter (new format)
+        if let Some(line) = text
+            .lines()
+            .find(|l| l.contains("NotBefore:") && l.contains("NotAfter:"))
+        {
+            // Format: v:NotBefore: Sep 28 15:13:11 2025 GMT; NotAfter: Dec 27 15:13:10 2025 GMT
+            let not_before = if let Some(start) = line.find("NotBefore:") {
+                let after_label = &line[start + "NotBefore:".len()..];
+                if let Some(end) = after_label.find(';') {
+                    after_label[..end].trim().to_string()
+                } else {
+                    after_label.trim().to_string()
+                }
+            } else {
+                String::new()
+            };
+
+            let not_after = if let Some(start) = line.find("NotAfter:") {
+                let after_label = &line[start + "NotAfter:".len()..];
+                after_label.trim().to_string()
+            } else {
+                String::new()
+            };
+
+            return (not_before, not_after);
+        }
+
+        // Fall back to old format with separate lines
+        let not_before = self.extract_field(text, "Not Before:").unwrap_or_default();
+        let not_after = self.extract_field(text, "Not After:").unwrap_or_default();
+
+        (not_before, not_after)
     }
 
     fn extract_field(&self, text: &str, field: &str) -> Option<String> {
