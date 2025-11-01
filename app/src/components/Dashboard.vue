@@ -494,7 +494,7 @@ const overallHealth = computed(() => {
           </div>
 
           <!-- HTTP Card -->
-          <div class="card lg:col-span-2">
+          <div class="card">
             <h2 class="text-xl font-semibold mb-4">HTTP/HTTPS</h2>
             <div v-if="httpStore.loading" class="space-y-2">
               <div class="h-3 bg-[#3e3e42] rounded animate-pulse"></div>

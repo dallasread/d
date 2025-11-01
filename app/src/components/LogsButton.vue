@@ -63,6 +63,11 @@ const logCount = computed(() => {
     <span class="text-sm font-medium text-[#858585] group-hover:text-white transition-colors">
       Logs
     </span>
+    <kbd
+      class="hidden md:inline-flex items-center justify-center w-5 h-5 text-[11px] font-medium rounded border bg-[#3e3e42] border-[#5a5a5f] text-[#b0b0b0]"
+    >
+      L
+    </kbd>
     <span
       v-if="logCount > 0"
       class="px-2 py-0.5 bg-blue-600 text-white text-xs font-semibold rounded-full"
