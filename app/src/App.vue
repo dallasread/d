@@ -2,6 +2,7 @@
 import { onMounted } from 'vue';
 import { RouterView } from 'vue-router';
 import { useAppStore } from './stores/app';
+import Navigation from './components/Navigation.vue';
 
 const appStore = useAppStore();
 
@@ -12,13 +13,16 @@ onMounted(() => {
 
 <template>
   <div class="app-container min-h-screen">
-    <RouterView />
+    <Navigation />
+    <main class="pt-0">
+      <RouterView />
+    </main>
   </div>
 </template>
 
 <style scoped>
 .app-container {
   width: 100%;
-  height: 100vh;
+  min-height: 100vh;
 }
 </style>

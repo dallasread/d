@@ -1,5 +1,4 @@
-<script setup lang="ts">
-</script>
+<script setup lang="ts"></script>
 
 <template>
   <div class="min-h-screen p-6">
@@ -7,15 +6,7 @@
       <h1 class="text-3xl font-bold mb-6">SSL/TLS Certificate</h1>
 
       <div class="panel">
-        <p class="text-theme-dark-text-secondary">
-          Certificate information and chain validation will appear here
-        </p>
-      </div>
-
-      <div class="mt-6">
-        <router-link to="/" class="text-blue-500 hover:text-blue-400">
-          ← Back to Dashboard
-        </router-link>
+        <p class="text-[#858585]">Certificate information and chain validation will appear here</p>
       </div>
     </div>
   </div>
