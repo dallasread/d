@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { useAppStore } from '../stores/app';
 import { useWhoisStore } from '../stores/whois';
+import PanelLoading from './PanelLoading.vue';
 
 const appStore = useAppStore();
 const whoisStore = useWhoisStore();
@@ -50,13 +51,7 @@ const expiryStatusClass = computed(() => {
       </div>
 
       <!-- Loading state -->
-      <div v-else-if="whoisStore.loading" class="panel">
-        <div class="space-y-4">
-          <div class="h-6 bg-[#3e3e42] rounded animate-pulse"></div>
-          <div class="h-4 bg-[#3e3e42] rounded animate-pulse w-3/4"></div>
-          <div class="h-4 bg-[#3e3e42] rounded animate-pulse w-1/2"></div>
-        </div>
-      </div>
+      <PanelLoading v-if="whoisStore.loading" title="WHOIS Registration" />
 
       <!-- Registration Info -->
       <div v-else-if="whoisStore.whoisInfo" class="space-y-6">

@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { useAppStore } from '../stores/app';
 import { useCertificateStore } from '../stores/certificate';
+import PanelLoading from './PanelLoading.vue';
 
 const appStore = useAppStore();
 const certStore = useCertificateStore();
@@ -46,13 +47,7 @@ const formatDate = (dateString: string) => {
       </div>
 
       <!-- Loading state -->
-      <div v-else-if="certStore.loading" class="panel">
-        <div class="space-y-4">
-          <div class="h-6 bg-[#3e3e42] rounded animate-pulse"></div>
-          <div class="h-4 bg-[#3e3e42] rounded animate-pulse w-3/4"></div>
-          <div class="h-4 bg-[#3e3e42] rounded animate-pulse w-1/2"></div>
-        </div>
-      </div>
+      <PanelLoading v-if="certStore.loading" title="SSL Certificate" />
 
       <!-- Certificate Info -->
       <div v-else-if="leafCert" class="space-y-6">

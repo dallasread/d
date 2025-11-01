@@ -2,11 +2,20 @@
 import { computed } from 'vue';
 import { useAppStore } from '../stores/app';
 import { useDNSStore } from '../stores/dns';
+import PanelLoading from './PanelLoading.vue';
 
 const appStore = useAppStore();
 const dnsStore = useDNSStore();
 
 const hasDomain = computed(() => !!appStore.domain);
+
+const dnsSubQueries = computed(() => [
+  { name: 'A Records (IPv4)', status: 'loading' as const },
+  { name: 'AAAA Records (IPv6)', status: 'loading' as const },
+  { name: 'MX Records (Mail)', status: 'loading' as const },
+  { name: 'TXT Records', status: 'loading' as const },
+  { name: 'NS Records (Nameservers)', status: 'loading' as const },
+]);
 </script>
 
 <template>
@@ -20,12 +29,7 @@ const hasDomain = computed(() => !!appStore.domain);
       </div>
 
       <!-- Loading state -->
-      <div v-else-if="dnsStore.loading" class="space-y-4">
-        <div class="panel">
-          <div class="h-6 bg-[#3e3e42] rounded animate-pulse mb-4"></div>
-          <div class="h-20 bg-[#3e3e42] rounded animate-pulse"></div>
-        </div>
-      </div>
+      <PanelLoading v-if="dnsStore.loading" title="DNS Records" :sub-queries="dnsSubQueries" />
 
       <!-- DNS Records -->
       <div v-else class="space-y-6">

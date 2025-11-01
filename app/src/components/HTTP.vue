@@ -2,11 +2,17 @@
 import { computed } from 'vue';
 import { useAppStore } from '../stores/app';
 import { useHttpStore } from '../stores/http';
+import PanelLoading from './PanelLoading.vue';
 
 const appStore = useAppStore();
 const httpStore = useHttpStore();
 
 const hasDomain = computed(() => !!appStore.domain);
+
+const httpSubQueries = computed(() => [
+  { name: 'HTTP (port 80)', status: 'loading' as const },
+  { name: 'HTTPS (port 443)', status: 'loading' as const },
+]);
 
 const getStatusClass = (status: number) => {
   if (status >= 200 && status < 300) return 'status-pass';
@@ -36,12 +42,7 @@ const getStatusText = (status: number) => {
       </div>
 
       <!-- Loading state -->
-      <div v-else-if="httpStore.loading" class="panel">
-        <div class="space-y-4">
-          <div class="h-6 bg-[#3e3e42] rounded animate-pulse"></div>
-          <div class="h-4 bg-[#3e3e42] rounded animate-pulse w-3/4"></div>
-        </div>
-      </div>
+      <PanelLoading v-if="httpStore.loading" title="HTTP/HTTPS" :sub-queries="httpSubQueries" />
 
       <!-- HTTP/HTTPS Info -->
       <div v-else class="space-y-6">
