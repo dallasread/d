@@ -179,11 +179,11 @@ onUnmounted(() => {
         >
           <span>{{ tab.name }}</span>
           <kbd
-            class="inline-flex items-center justify-center w-5 h-5 text-[11px] font-medium rounded border-b-2 shadow-sm"
+            class="inline-flex items-center justify-center w-5 h-5 text-[11px] font-medium rounded border border-b-2 shadow-sm"
             :class="[
               isActiveTab(tab.path)
-                ? 'bg-gradient-to-b from-blue-500/20 to-blue-600/20 border-blue-600/50 text-blue-300'
-                : 'bg-gradient-to-b from-[#4a4a4f] to-[#3a3a3f] border-[#2a2a2f] text-[#b0b0b0]',
+                ? 'bg-gradient-to-b from-blue-500/20 to-blue-600/30 border-blue-500/40 border-b-blue-600/60 text-blue-300'
+                : 'bg-gradient-to-b from-[#4a4a4f] to-[#3a3a3f] border-[#5a5a5f] border-b-[#2a2a2f] text-[#b0b0b0]',
             ]"
           >
             {{ tab.key }}
