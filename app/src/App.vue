@@ -3,8 +3,13 @@ import { onMounted } from 'vue';
 import { RouterView } from 'vue-router';
 import { useAppStore } from './stores/app';
 import Navigation from './components/Navigation.vue';
+import RawDataModal from './components/RawDataModal.vue';
+import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts';
 
 const appStore = useAppStore();
+
+// Enable keyboard shortcuts
+useKeyboardShortcuts();
 
 onMounted(() => {
   appStore.loadTheme();
@@ -17,6 +22,7 @@ onMounted(() => {
     <main class="pt-0">
       <RouterView />
     </main>
+    <RawDataModal />
   </div>
 </template>
 

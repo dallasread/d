@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAppStore } from '../stores/app';
 import { useDNSStore } from '../stores/dns';
@@ -69,6 +69,20 @@ const handleKeypress = (event: KeyboardEvent) => {
     handleSearch();
   }
 };
+
+const handleRefresh = () => {
+  if (appStore.domain) {
+    handleSearch();
+  }
+};
+
+onMounted(() => {
+  window.addEventListener('app:refresh', handleRefresh);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('app:refresh', handleRefresh);
+});
 </script>
 
 <template>
