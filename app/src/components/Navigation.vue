@@ -163,7 +163,7 @@ onUnmounted(() => {
     </div>
 
     <!-- Navigation tabs -->
-    <div class="w-full px-6 overflow-x-auto">
+    <div class="w-full px-6 overflow-x-auto overflow-y-hidden">
       <nav class="flex gap-1 -mb-px" aria-label="Tabs">
         <button
           v-for="tab in tabs"
