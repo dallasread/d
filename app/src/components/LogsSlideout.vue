@@ -89,8 +89,49 @@ const getToolIcon = (tool: string) => {
   }
 };
 
-const getStatusClass = (exitCode: number) => {
-  return exitCode === 0 ? 'status-pass' : 'status-fail';
+const getStatus = (log: any): 'success' | 'fail' => {
+  const tool = log.tool.toLowerCase();
+  const exitCode = log.exitCode;
+  const output = log.output || '';
+
+  // Tool-specific success detection
+  switch (tool) {
+    case 'dig':
+      // dig is successful if it got an answer or NOERROR status
+      // Even with non-zero exit codes, dig can return valid data
+      return output.includes('ANSWER SECTION') ||
+        output.includes('status: NOERROR') ||
+        output.includes('AUTHORITY SECTION')
+        ? 'success'
+        : 'fail';
+
+    case 'openssl':
+      // openssl s_client is successful if we got certificate data
+      // It often returns non-zero exit codes even on success
+      return output.includes('BEGIN CERTIFICATE') || output.includes('Verify return code: 0')
+        ? 'success'
+        : 'fail';
+
+    case 'whois':
+      // whois is successful if we got registrar/domain info
+      return output.includes('Registrar:') ||
+        output.includes('Domain Name:') ||
+        output.includes('registrar:')
+        ? 'success'
+        : 'fail';
+
+    case 'curl':
+      // curl is successful with exit code 0
+      return exitCode === 0 ? 'success' : 'fail';
+
+    default:
+      // Default: trust the exit code
+      return exitCode === 0 ? 'success' : 'fail';
+  }
+};
+
+const getStatusClass = (log: any) => {
+  return getStatus(log) === 'success' ? 'status-pass' : 'status-fail';
 };
 
 const clearLogs = () => {
@@ -208,12 +249,9 @@ const copyOutput = (output: string) => {
                       {{ log.tool }} {{ log.args.join(' ') }}
                     </code>
                     <span
-                      :class="[
-                        'text-xs px-2 py-0.5 rounded flex-shrink-0',
-                        getStatusClass(log.exitCode),
-                      ]"
+                      :class="['text-xs px-2 py-0.5 rounded flex-shrink-0', getStatusClass(log)]"
                     >
-                      {{ log.exitCode === 0 ? 'SUCCESS' : 'FAILED' }}
+                      {{ getStatus(log) === 'success' ? 'SUCCESS' : 'FAILED' }}
                     </span>
                   </div>
                 </div>

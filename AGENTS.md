@@ -16,6 +16,8 @@ This document describes each panel in the DNS debugger application.
 - Multiple panels (e.g., Dashboard, DNS) read from shared stores
 - This prevents redundant backend queries while maintaining data freshness
 
+**Separate data from interface:** Let's keep data separate from how it is displayed because this application will have several mediums to display the data.
+
 ---
 
 ## Dashboard
