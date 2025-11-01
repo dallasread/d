@@ -66,29 +66,62 @@ impl DnsAdapter {
 
     fn parse_dig_output(&self, output: &str, record_type: &str) -> Result<Vec<DnsRecord>, String> {
         let mut records = Vec::new();
+        let mut current_record: Option<DnsRecord> = None;
+        let mut accumulated_value = String::new();
 
         for line in output.lines() {
             let line = line.trim();
-            if line.is_empty() || line.starts_with(';') {
+
+            // Skip empty lines
+            if line.is_empty() {
+                continue;
+            }
+
+            // Check if this is a comment line (for +multi format)
+            if line.starts_with(';') {
+                // Append comment to accumulated value for multi-line records
+                if current_record.is_some() {
+                    accumulated_value.push(' ');
+                    accumulated_value.push_str(line);
+                }
                 continue;
             }
 
             let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() < 5 {
-                continue;
+
+            // Check if this is the start of a new record (has domain, TTL, IN, TYPE)
+            if parts.len() >= 5 && (parts[2] == "IN" || parts[1] == "IN") {
+                // Save previous record if exists
+                if let Some(mut record) = current_record.take() {
+                    record.value = accumulated_value.clone();
+                    records.push(record);
+                    accumulated_value.clear();
+                }
+
+                // Start new record
+                let name = parts[0].to_string();
+                let ttl = parts[1].parse::<u32>().unwrap_or(0);
+                let rr_type = parts[3].to_string();
+                let value = parts[4..].join(" ");
+
+                accumulated_value = value;
+                current_record = Some(DnsRecord {
+                    name,
+                    record_type: rr_type,
+                    value: String::new(), // Will be filled when record is complete
+                    ttl,
+                });
+            } else if current_record.is_some() {
+                // Continuation line for multi-line record (e.g., DNSKEY with +multi)
+                accumulated_value.push(' ');
+                accumulated_value.push_str(line);
             }
+        }
 
-            let name = parts[0].to_string();
-            let ttl = parts[1].parse::<u32>().unwrap_or(0);
-            let rr_type = parts[3].to_string();
-            let value = parts[4..].join(" ");
-
-            records.push(DnsRecord {
-                name,
-                record_type: rr_type,
-                value,
-                ttl,
-            });
+        // Don't forget the last record
+        if let Some(mut record) = current_record.take() {
+            record.value = accumulated_value;
+            records.push(record);
         }
 
         if records.is_empty() {
