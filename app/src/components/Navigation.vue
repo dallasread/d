@@ -170,7 +170,7 @@ onUnmounted(() => {
           :key="tab.path"
           @click="navigateToTab(tab.path)"
           :class="[
-            'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2',
+            'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 cursor-pointer',
             isActiveTab(tab.path)
               ? 'border-blue-500 text-blue-400'
               : 'border-transparent text-[#858585] hover:text-[#cccccc] hover:border-[#3e3e42]',
@@ -179,11 +179,11 @@ onUnmounted(() => {
         >
           <span>{{ tab.name }}</span>
           <kbd
-            class="inline-flex items-center justify-center w-5 h-5 text-[11px] font-medium rounded border border-b-2 shadow-sm"
+            class="inline-flex items-center justify-center w-5 h-5 text-[11px] font-medium rounded border"
             :class="[
               isActiveTab(tab.path)
-                ? 'bg-gradient-to-b from-blue-500/20 to-blue-600/30 border-blue-500/40 border-b-blue-600/60 text-blue-300'
-                : 'bg-gradient-to-b from-[#4a4a4f] to-[#3a3a3f] border-[#5a5a5f] border-b-[#2a2a2f] text-[#b0b0b0]',
+                ? 'bg-blue-500/15 border-blue-500/40 text-blue-300'
+                : 'bg-[#3e3e42] border-[#5a5a5f] text-[#b0b0b0]',
             ]"
           >
             {{ tab.key }}
