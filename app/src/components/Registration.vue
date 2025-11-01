@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { useAppStore } from '../stores/app';
 import { useWhoisStore } from '../stores/whois';
 import PanelLoading from './PanelLoading.vue';
+import { CheckIcon, XMarkIcon } from '@heroicons/vue/24/solid';
 
 const appStore = useAppStore();
 const whoisStore = useWhoisStore();
@@ -138,12 +139,11 @@ const expiryStatusClass = computed(() => {
         <div v-if="whoisStore.whoisInfo.dnssec" class="panel">
           <h2 class="text-xl font-semibold mb-4">DNSSEC</h2>
           <div class="flex items-center gap-2">
-            <span
+            <CheckIcon
               v-if="whoisStore.whoisInfo.dnssec.toLowerCase().includes('signed')"
-              class="status-pass"
-              >✓</span
-            >
-            <span v-else class="text-[#858585]">✗</span>
+              class="w-5 h-5 status-pass"
+            />
+            <XMarkIcon v-else class="w-5 h-5 text-[#858585]" />
             <span class="font-medium">{{ whoisStore.whoisInfo.dnssec }}</span>
           </div>
         </div>

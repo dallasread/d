@@ -3,6 +3,13 @@ import { computed } from 'vue';
 import { useAppStore } from '../stores/app';
 import { useDnssecStore } from '../stores/dnssec';
 import PanelLoading from './PanelLoading.vue';
+import {
+  CheckCircleIcon,
+  XCircleIcon,
+  ExclamationTriangleIcon,
+  CheckIcon,
+  ArrowRightIcon,
+} from '@heroicons/vue/24/solid';
 
 const appStore = useAppStore();
 const dnssecStore = useDnssecStore();
@@ -22,18 +29,18 @@ const statusColor = computed(() => {
   }
 });
 
-const statusIcon = computed(() => {
-  if (!dnssecStore.validation) return '○';
+const statusIconComponent = computed(() => {
+  if (!dnssecStore.validation) return null;
 
   switch (dnssecStore.validation.status) {
     case 'SECURE':
-      return '✓';
+      return CheckCircleIcon;
     case 'INSECURE':
-      return '△';
+      return ExclamationTriangleIcon;
     case 'BOGUS':
-      return '✗';
+      return XCircleIcon;
     default:
-      return '○';
+      return null;
   }
 });
 
@@ -60,6 +67,12 @@ const getChildZone = (index: number) => {
   return index < dnssecStore.validation.chain.length - 1
     ? dnssecStore.validation.chain[index + 1]
     : null;
+};
+
+// Get the child zone name for DS record label
+const getChildZoneName = (index: number) => {
+  const child = getChildZone(index);
+  return child ? child.zone_name : null;
 };
 
 // DNSSEC sub-queries for loading state
@@ -118,7 +131,7 @@ const dnssecSubQueries = computed(() => [
                 statusColor === 'gray' && 'bg-gray-500/10 text-gray-400 border border-gray-500/30',
               ]"
             >
-              <span class="text-xl">{{ statusIcon }}</span>
+              <component v-if="statusIconComponent" :is="statusIconComponent" class="w-5 h-5" />
               <span>{{ dnssecStore.validation.status }}</span>
             </div>
           </div>
@@ -188,7 +201,7 @@ const dnssecSubQueries = computed(() => [
                         :key="keyIndex"
                         class="font-mono text-xs text-[#cccccc] flex items-start gap-2"
                       >
-                        <span class="text-green-400 flex-shrink-0">✓</span>
+                        <CheckIcon class="w-3 h-3 text-green-400 flex-shrink-0 mt-0.5" />
                         <span class="flex-1 break-all">
                           DNSKEY KEYTAG=<span :class="getKeytagColor(dnskey.key_tag)">{{
                             dnskey.key_tag
@@ -204,6 +217,14 @@ const dnssecSubQueries = computed(() => [
 
                     <!-- DS Records -->
                     <div v-if="zone.ds_records && zone.ds_records.length > 0" class="space-y-1">
+                      <!-- DS Records Header -->
+                      <div
+                        v-if="getChildZoneName(index)"
+                        class="text-xs text-[#858585] mb-1 flex items-center gap-1"
+                      >
+                        <ArrowRightIcon class="w-3 h-3" />
+                        <span>DS records for child zone: {{ getChildZoneName(index) }}</span>
+                      </div>
                       <div
                         v-for="(ds, dsIndex) in zone.ds_records"
                         :key="dsIndex"
@@ -214,8 +235,12 @@ const dnssecSubQueries = computed(() => [
                             : 'text-[#cccccc]'
                         "
                       >
-                        <span class="flex-shrink-0">
-                          {{ dsMatchesChild(ds.key_tag, getChildZone(index)) ? '├─> ✓' : '✓' }}
+                        <span class="flex-shrink-0 flex items-center gap-0.5 mt-0.5">
+                          <ArrowRightIcon
+                            v-if="dsMatchesChild(ds.key_tag, getChildZone(index))"
+                            class="w-3 h-3"
+                          />
+                          <CheckIcon class="w-3 h-3" />
                         </span>
                         <span class="flex-1 break-all">
                           DS&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;KEYTAG=<span

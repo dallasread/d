@@ -6,6 +6,8 @@ import { useDnssecStore } from '../stores/dnssec';
 import { useCertificateStore } from '../stores/certificate';
 import { useWhoisStore } from '../stores/whois';
 import { useHttpStore } from '../stores/http';
+import { CheckIcon, XMarkIcon } from '@heroicons/vue/24/solid';
+import { ArrowPathIcon } from '@heroicons/vue/24/outline';
 
 const appStore = useAppStore();
 const dnsStore = useDNSStore();
@@ -120,11 +122,11 @@ const queries = computed<QueryStatus[]>(() => {
   ];
 });
 
-const getStatusIcon = (query: QueryStatus) => {
-  if (query.completed) return '✓';
-  if (query.error) return '✗';
-  if (query.loading) return '●';
-  return '○';
+const getStatusIconComponent = (query: QueryStatus) => {
+  if (query.completed) return CheckIcon;
+  if (query.error) return XMarkIcon;
+  if (query.loading) return ArrowPathIcon;
+  return null;
 };
 
 const getStatusColor = (query: QueryStatus) => {
@@ -134,11 +136,11 @@ const getStatusColor = (query: QueryStatus) => {
   return 'text-gray-400';
 };
 
-const getSubQueryIcon = (status: string) => {
-  if (status === 'completed') return '✓';
-  if (status === 'failed') return '✗';
-  if (status === 'loading') return '●';
-  return '○';
+const getSubQueryIconComponent = (status: string) => {
+  if (status === 'completed') return CheckIcon;
+  if (status === 'failed') return XMarkIcon;
+  if (status === 'loading') return ArrowPathIcon;
+  return null;
 };
 
 const getSubQueryColor = (status: string) => {
@@ -199,15 +201,15 @@ const toggleExpand = (queryName: string) => {
             :class="query.subQueries && 'cursor-pointer'"
             @click="query.subQueries && toggleExpand(query.name)"
           >
-            <span
+            <component
+              :is="getStatusIconComponent(query)"
+              v-if="getStatusIconComponent(query)"
               :class="[
-                'text-lg font-mono flex-shrink-0 w-6 text-center',
+                'w-5 h-5 flex-shrink-0',
                 getStatusColor(query),
-                query.loading && 'animate-pulse',
+                query.loading && 'animate-spin',
               ]"
-            >
-              {{ getStatusIcon(query) }}
-            </span>
+            />
             <span class="flex-1 text-[#cccccc] font-medium">{{ query.name }}</span>
 
             <!-- Expand/collapse arrow -->
@@ -230,15 +232,15 @@ const toggleExpand = (queryName: string) => {
               :key="subQuery.name"
               class="flex items-center gap-3 py-1.5 pl-6"
             >
-              <span
+              <component
+                :is="getSubQueryIconComponent(subQuery.status)"
+                v-if="getSubQueryIconComponent(subQuery.status)"
                 :class="[
-                  'text-sm font-mono flex-shrink-0 w-5 text-center',
+                  'w-4 h-4 flex-shrink-0',
                   getSubQueryColor(subQuery.status),
-                  subQuery.status === 'loading' && 'animate-pulse',
+                  subQuery.status === 'loading' && 'animate-spin',
                 ]"
-              >
-                {{ getSubQueryIcon(subQuery.status) }}
-              </span>
+              />
               <span class="flex-1 text-sm text-[#999]">{{ subQuery.name }}</span>
             </div>
           </div>

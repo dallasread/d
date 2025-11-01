@@ -1,6 +1,7 @@
 use crate::adapters::dns::DnsAdapter;
 use crate::models::dns::{DnssecValidation, ZoneData};
 use std::collections::HashSet;
+use tauri::AppHandle;
 
 /// Validate DNSSEC chain of trust for a domain.
 ///
@@ -44,8 +45,11 @@ use std::collections::HashSet;
 /// We use `dig +multi` format to extract real key tags from comments in the output
 /// (e.g., "; key id = 5116"). Key tags are NOT the same as flags (256/257).
 #[tauri::command]
-pub async fn validate_dnssec(domain: String) -> Result<DnssecValidation, String> {
-    let adapter = DnsAdapter::new();
+pub async fn validate_dnssec(
+    app_handle: AppHandle,
+    domain: String,
+) -> Result<DnssecValidation, String> {
+    let adapter = DnsAdapter::with_app_handle(app_handle);
     let mut chain: Vec<ZoneData> = Vec::new();
     let mut warnings: Vec<String> = Vec::new();
 

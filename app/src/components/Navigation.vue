@@ -7,6 +7,7 @@ import { useDnssecStore } from '../stores/dnssec';
 import { useCertificateStore } from '../stores/certificate';
 import { useWhoisStore } from '../stores/whois';
 import { useHttpStore } from '../stores/http';
+import { useLogsStore } from '../stores/logs';
 
 const router = useRouter();
 const route = useRoute();
@@ -16,6 +17,7 @@ const dnssecStore = useDnssecStore();
 const certStore = useCertificateStore();
 const whoisStore = useWhoisStore();
 const httpStore = useHttpStore();
+const logsStore = useLogsStore();
 
 const domainInput = ref('');
 
@@ -41,9 +43,10 @@ const handleSearch = async () => {
   if (domainInput.value.trim()) {
     const domain = domainInput.value.trim();
 
-    // If domain changed, clear all caches
+    // If domain changed, clear all caches and logs
     if (domain !== appStore.domain) {
       if (dnsStore.clearCache) dnsStore.clearCache();
+      logsStore.clearLogs();
       // Clear other store caches as they're implemented
     }
 
@@ -82,8 +85,9 @@ const handleKeypress = (event: KeyboardEvent) => {
 
 const handleRefresh = () => {
   if (appStore.domain) {
-    // Clear cache on refresh
+    // Clear cache and logs on refresh
     if (dnsStore.clearCache) dnsStore.clearCache();
+    logsStore.clearLogs();
     // Clear other store caches as they're implemented
 
     handleSearch();

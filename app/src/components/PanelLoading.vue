@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { CheckIcon, XMarkIcon } from '@heroicons/vue/24/solid';
+import { ArrowPathIcon } from '@heroicons/vue/24/outline';
+
 interface SubQuery {
   name: string;
   status: 'pending' | 'loading' | 'completed' | 'failed';
@@ -11,11 +14,11 @@ interface Props {
 
 defineProps<Props>();
 
-const getIcon = (status: string) => {
-  if (status === 'completed') return '✓';
-  if (status === 'failed') return '✗';
-  if (status === 'loading') return '●';
-  return '○';
+const getIconComponent = (status: string) => {
+  if (status === 'completed') return CheckIcon;
+  if (status === 'failed') return XMarkIcon;
+  if (status === 'loading') return ArrowPathIcon;
+  return null;
 };
 
 const getColor = (status: string) => {
@@ -58,15 +61,15 @@ const getColor = (status: string) => {
         :key="subQuery.name"
         class="flex items-center gap-3 py-2 border-l-2 border-[#3e3e42] pl-4"
       >
-        <span
+        <component
+          :is="getIconComponent(subQuery.status)"
+          v-if="getIconComponent(subQuery.status)"
           :class="[
-            'text-base font-mono flex-shrink-0 w-6 text-center',
+            'w-4 h-4 flex-shrink-0',
             getColor(subQuery.status),
-            subQuery.status === 'loading' && 'animate-pulse'
+            subQuery.status === 'loading' && 'animate-spin',
           ]"
-        >
-          {{ getIcon(subQuery.status) }}
-        </span>
+        />
         <span class="flex-1 text-[#cccccc]">{{ subQuery.name }}</span>
         <span v-if="subQuery.status === 'loading'" class="text-xs text-[#858585]">querying...</span>
         <span v-else-if="subQuery.status === 'failed'" class="text-xs text-red-400">failed</span>

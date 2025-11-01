@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { useAppStore } from '../stores/app';
 import { useCertificateStore } from '../stores/certificate';
 import PanelLoading from './PanelLoading.vue';
+import { CheckIcon, XMarkIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/solid';
 
 const appStore = useAppStore();
 const certStore = useCertificateStore();
@@ -82,10 +83,14 @@ const formatDate = (dateString: string) => {
             </div>
             <div>
               <p class="text-sm text-[#858585]">Status</p>
-              <p :class="['font-medium', expiryStatusClass]">
-                <span v-if="isExpired" class="status-fail">✗ Expired</span>
-                <span v-else-if="daysUntilExpiry !== null">
-                  {{ daysUntilExpiry > 30 ? '✓' : '⚠' }} {{ daysUntilExpiry }} days remaining
+              <p :class="['font-medium flex items-center gap-1.5', expiryStatusClass]">
+                <span v-if="isExpired" class="flex items-center gap-1.5 status-fail">
+                  <XMarkIcon class="w-4 h-4" /> Expired
+                </span>
+                <span v-else-if="daysUntilExpiry !== null" class="flex items-center gap-1.5">
+                  <CheckIcon v-if="daysUntilExpiry > 30" class="w-4 h-4" />
+                  <ExclamationTriangleIcon v-else class="w-4 h-4" />
+                  {{ daysUntilExpiry }} days remaining
                 </span>
               </p>
             </div>
@@ -223,14 +228,17 @@ const formatDate = (dateString: string) => {
             </div>
           </div>
           <div class="mt-4">
-            <p class="text-sm">
+            <p class="text-sm flex items-center gap-2">
               <span class="text-[#858585]">Chain Valid:</span>
               <span
-                :class="
-                  certStore.tlsInfo.certificate_chain.is_valid ? 'status-pass' : 'status-fail'
-                "
+                :class="[
+                  'flex items-center gap-1.5',
+                  certStore.tlsInfo.certificate_chain.is_valid ? 'status-pass' : 'status-fail',
+                ]"
               >
-                {{ certStore.tlsInfo.certificate_chain.is_valid ? '✓ Yes' : '✗ No' }}
+                <CheckIcon v-if="certStore.tlsInfo.certificate_chain.is_valid" class="w-4 h-4" />
+                <XMarkIcon v-else class="w-4 h-4" />
+                {{ certStore.tlsInfo.certificate_chain.is_valid ? 'Yes' : 'No' }}
               </span>
             </p>
             <div

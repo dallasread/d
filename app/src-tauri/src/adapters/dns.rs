@@ -1,12 +1,28 @@
+use crate::models::command_log::CommandLog;
 use crate::models::dns::{DnsRecord, DnsResponse, DnskeyRecord, DsRecord, RrsigRecord};
 use std::process::Command;
 use std::time::Instant;
+use tauri::{AppHandle, Emitter};
 
-pub struct DnsAdapter;
+pub struct DnsAdapter {
+    app_handle: Option<AppHandle>,
+}
 
 impl DnsAdapter {
     pub fn new() -> Self {
-        DnsAdapter
+        DnsAdapter { app_handle: None }
+    }
+
+    pub fn with_app_handle(app_handle: AppHandle) -> Self {
+        DnsAdapter {
+            app_handle: Some(app_handle),
+        }
+    }
+
+    fn emit_log(&self, log: CommandLog) {
+        if let Some(handle) = &self.app_handle {
+            let _ = handle.emit("command-log", log);
+        }
     }
 
     pub async fn query(&self, domain: &str, record_type: &str) -> Result<DnsResponse, String> {
@@ -18,6 +34,13 @@ impl DnsAdapter {
         }
 
         // Execute dig command
+        let args = vec![
+            "+noall".to_string(),
+            "+answer".to_string(),
+            record_type.to_string(),
+            domain.to_string(),
+        ];
+
         let output = Command::new("dig")
             .arg("+noall")
             .arg("+answer")
@@ -27,20 +50,38 @@ impl DnsAdapter {
             .map_err(|e| format!("Failed to execute dig: {}", e))?;
 
         let query_time = start.elapsed().as_secs_f64();
+        let exit_code = output.status.code().unwrap_or(-1);
+
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+        // Emit command log
+        let log_output = if !stdout.is_empty() {
+            stdout.clone()
+        } else {
+            stderr.clone()
+        };
+
+        self.emit_log(CommandLog::new(
+            "dig".to_string(),
+            args,
+            log_output,
+            exit_code,
+            query_time * 1000.0, // Convert to milliseconds
+            Some(domain.to_string()),
+        ));
 
         if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(format!("dig command failed: {}", stderr));
         }
 
-        let stdout = String::from_utf8_lossy(&output.stdout);
         let records = self.parse_dig_output(&stdout, record_type)?;
 
         Ok(DnsResponse {
             records,
             query_time,
             resolver: "system".to_string(),
-            raw_output: Some(stdout.to_string()),
+            raw_output: Some(stdout),
         })
     }
 
@@ -145,6 +186,11 @@ impl DnsAdapter {
     pub async fn query_dnskey(&self, domain: &str) -> Result<DnsResponse, String> {
         let start = Instant::now();
 
+        // Special case for root zone - query directly without nameserver lookup
+        if domain == "." {
+            return self.query_root_dnskey().await;
+        }
+
         // First get the nameservers for this domain
         let nameservers = self.get_nameservers(domain).await?;
 
@@ -190,6 +236,81 @@ impl DnsAdapter {
             records,
             query_time,
             resolver: ns.to_string(),
+            raw_output: Some(stdout.to_string()),
+        })
+    }
+
+    // Query root zone DNSKEY records using dig . DNSKEY +short
+    pub async fn query_root_dnskey(&self) -> Result<DnsResponse, String> {
+        let start = Instant::now();
+
+        if !self.is_dig_available() {
+            return Err("dig command not found".to_string());
+        }
+
+        let args = vec![".".to_string(), "DNSKEY".to_string(), "+short".to_string()];
+
+        let output = Command::new("dig")
+            .arg(".")
+            .arg("DNSKEY")
+            .arg("+short")
+            .output()
+            .map_err(|e| format!("Failed to execute dig: {}", e))?;
+
+        let query_time = start.elapsed().as_secs_f64();
+        let exit_code = output.status.code().unwrap_or(-1);
+
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+        // Emit command log
+        let log_output = if !stdout.is_empty() {
+            stdout.clone()
+        } else {
+            stderr.clone()
+        };
+
+        self.emit_log(CommandLog::new(
+            "dig".to_string(),
+            args,
+            log_output,
+            exit_code,
+            query_time * 1000.0,
+            Some(".".to_string()),
+        ));
+
+        if !output.status.success() {
+            return Err(format!("dig command failed: {}", stderr));
+        }
+
+        // Parse +short format: "flags protocol algorithm public_key"
+        let mut records = Vec::new();
+        for line in stdout.lines() {
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 4 {
+                // Build a DnsRecord in standard format for consistency
+                records.push(DnsRecord {
+                    name: ".".to_string(),
+                    record_type: "DNSKEY".to_string(),
+                    value: line.to_string(),
+                    ttl: 0, // +short doesn't include TTL
+                });
+            }
+        }
+
+        if records.is_empty() {
+            return Err("No root DNSKEY records found".to_string());
+        }
+
+        Ok(DnsResponse {
+            records,
+            query_time,
+            resolver: "root".to_string(),
             raw_output: Some(stdout.to_string()),
         })
     }
