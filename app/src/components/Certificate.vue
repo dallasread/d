@@ -40,12 +40,26 @@ const isExpired = computed(() => {
 const formatDate = (dateString: string) => {
   if (!dateString) return 'N/A';
   try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'Invalid Date';
+    // OpenSSL outputs dates in format like "Jan  1 00:00:00 2024 GMT"
+    // Try to parse it directly first
+    let date = new Date(dateString);
+
+    // If that fails, try to clean up the format
+    if (isNaN(date.getTime())) {
+      // Remove extra spaces and GMT
+      const cleaned = dateString.replace(/\s+/g, ' ').replace(' GMT', '').trim();
+      date = new Date(cleaned);
+    }
+
+    if (isNaN(date.getTime())) {
+      console.warn('Could not parse date:', dateString);
+      return dateString; // Return the original string if we can't parse it
+    }
+
     return date.toISOString().split('T')[0]; // YYYY-MM-DD format
   } catch (e) {
-    console.error('Error formatting date:', e);
-    return 'Invalid Date';
+    console.error('Error formatting date:', e, 'for dateString:', dateString);
+    return dateString; // Return original string on error
   }
 };
 
