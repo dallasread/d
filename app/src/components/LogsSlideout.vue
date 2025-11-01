@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useLogsStore } from '../stores/logs';
 import { useAppStore } from '../stores/app';
@@ -8,13 +8,36 @@ const route = useRoute();
 const logsStore = useLogsStore();
 const appStore = useAppStore();
 
-defineProps<{
+const props = defineProps<{
   isOpen: boolean;
 }>();
 
 const emit = defineEmits<{
   close: [];
 }>();
+
+// Handle ESC key to close
+const handleKeyDown = (event: KeyboardEvent) => {
+  if (event.key === 'Escape' && props.isOpen) {
+    emit('close');
+  }
+};
+
+// Watch for isOpen changes to add/remove listener
+watch(
+  () => props.isOpen,
+  (isOpen) => {
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    } else {
+      window.removeEventListener('keydown', handleKeyDown);
+    }
+  }
+);
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown);
+});
 
 const expandedLogIds = ref<Set<string>>(new Set());
 
