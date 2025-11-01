@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, nextTick, watch, onUnmounted } from 'vue';
+import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import { useAppStore } from '../stores/app';
 import { useDnssecStore } from '../stores/dnssec';
 import PanelLoading from './PanelLoading.vue';
@@ -84,87 +84,122 @@ const dnssecSubQueries = computed(() => [
   { name: 'Domain DNSKEY', status: 'loading' as const },
 ]);
 
-// Arrow paths for linking DS to DNSKEY records
-const arrowPaths = ref<Array<{ d: string; color: string }>>([]);
+// Arrow connections linking DS records to matching DNSKEY records
+interface ArrowConnection {
+  path: string;
+  color: string;
+  dsY: number;
+  dnskeyY: number;
+}
 
-// Calculate arrow paths between DS records and matching DNSKEYs
-const calculateArrows = () => {
-  arrowPaths.value = [];
+const arrowConnections = ref<ArrowConnection[]>([]);
 
-  if (!dnssecStore.validation || !dnssecStore.validation.chain) return;
+// Calculate arrow paths between DS records and their matching DNSKEY records
+// Visual style: vertical lines on the left with horizontal arrows pointing to records
+// Example:  |->  DS record
+//           |
+//           |->  DNSKEY record
+const calculateArrowPaths = () => {
+  arrowConnections.value = [];
 
-  const validation = dnssecStore.validation;
+  if (!dnssecStore.validation?.chain) return;
 
-  // Wait for DOM to render
   nextTick(() => {
-    // Iterate through each zone (except the last one which has no children)
-    for (let zoneIndex = 0; zoneIndex < validation.chain.length - 1; zoneIndex++) {
-      const parentZone = validation.chain[zoneIndex];
-      const childZone = validation.chain[zoneIndex + 1];
+    setTimeout(() => {
+      const chain = dnssecStore.validation!.chain;
 
-      if (!parentZone.ds_records || !childZone.dnskey_records) continue;
+      // Iterate through each zone (parent) that has DS records
+      for (let parentIndex = 0; parentIndex < chain.length - 1; parentIndex++) {
+        const parentZone = chain[parentIndex];
+        const childZone = chain[parentIndex + 1];
 
-      // For each DS record in the parent zone
-      parentZone.ds_records.forEach((ds, dsIndex) => {
-        // Find matching DNSKEY in child zone by key_tag
-        const matchingDnskeyIndex = childZone.dnskey_records.findIndex(
-          (key) => key.key_tag === ds.key_tag
-        );
+        if (!parentZone.ds_records?.length || !childZone.dnskey_records?.length) continue;
 
-        if (matchingDnskeyIndex === -1) return;
+        // For each DS record in parent zone
+        parentZone.ds_records.forEach((ds, dsIndex) => {
+          // Find matching DNSKEY in child zone by key_tag
+          const matchingDnskeyIndex = childZone.dnskey_records.findIndex(
+            (dnskey) => dnskey.key_tag === ds.key_tag
+          );
 
-        // Get DOM elements
-        const dsElement = document.getElementById(
-          `ds-zone${zoneIndex}-keytag${ds.key_tag}-index${dsIndex}`
-        );
-        const dnskeyElement = document.getElementById(
-          `dnskey-zone${zoneIndex + 1}-keytag${ds.key_tag}-index${matchingDnskeyIndex}`
-        );
+          if (matchingDnskeyIndex === -1) return;
 
-        if (!dsElement || !dnskeyElement) return;
+          // Get DOM elements
+          const dsEl = document.getElementById(
+            `ds-zone${parentIndex}-keytag${ds.key_tag}-idx${dsIndex}`
+          );
+          const dnskeyEl = document.getElementById(
+            `dnskey-zone${parentIndex + 1}-keytag${ds.key_tag}-idx${matchingDnskeyIndex}`
+          );
 
-        // Get the container for relative positioning
-        const container = dsElement.closest('.panel');
-        if (!container) return;
+          if (!dsEl || !dnskeyEl) return;
 
-        const containerRect = container.getBoundingClientRect();
-        const dsRect = dsElement.getBoundingClientRect();
-        const dnskeyRect = dnskeyElement.getBoundingClientRect();
+          const container = document.querySelector('.dnssec-chain-container');
+          if (!container) return;
 
-        // Calculate start and end points (right side of DS, left side of DNSKEY)
-        const x1 = dsRect.right - containerRect.left;
-        const y1 = dsRect.top + dsRect.height / 2 - containerRect.top;
-        const x2 = dnskeyRect.left - containerRect.left - 10;
-        const y2 = dnskeyRect.top + dnskeyRect.height / 2 - containerRect.top;
+          const containerRect = container.getBoundingClientRect();
+          const dsRect = dsEl.getBoundingClientRect();
+          const dnskeyRect = dnskeyEl.getBoundingClientRect();
 
-        // Create a hand-drawn style curved path with slight randomness
-        const dx = x2 - x1;
-        const curve = Math.abs(dx) * 0.3;
+          // Fixed X position on the left side (20px from container left)
+          const leftX = 20;
 
-        // Add slight randomness for hand-drawn effect
-        const wobble1 = Math.random() * 4 - 2;
-        const wobble2 = Math.random() * 4 - 2;
+          // Start point: DS record center
+          const y1 = dsRect.top + dsRect.height / 2 - containerRect.top;
 
-        const path = `M ${x1} ${y1} C ${x1 + curve} ${y1 + wobble1}, ${x2 - curve} ${y2 + wobble2}, ${x2} ${y2}`;
+          // End point: DNSKEY record center
+          const y2 = dnskeyRect.top + dnskeyRect.height / 2 - containerRect.top;
 
-        // Use orange color for arrows
-        arrowPaths.value.push({ d: path, color: '#fb923c' });
-      });
-    }
+          // Horizontal arrow length
+          const arrowLength = 20;
+
+          // Add more pronounced randomness for hand-drawn effect
+          const wobble = () => (Math.random() - 0.5) * 6;
+          const wobbleSmall = () => (Math.random() - 0.5) * 3;
+
+          const w1 = wobble();
+          const w2 = wobble();
+          const w3 = wobble();
+          const w4 = wobbleSmall();
+          const w5 = wobbleSmall();
+
+          // Create one continuous flowing arc from DS through vertical to DNSKEY
+          // Using cubic bezier for smooth S-curve with no sharp corners
+          const midY = (y1 + y2) / 2;
+
+          const path = `
+            M ${leftX + w4} ${y1 + w5}
+            C ${leftX + 15 + w2} ${y1 + w1}, ${leftX + 15 + w3} ${y1 + wobble()}, ${leftX + arrowLength} ${y1 + wobbleSmall()}
+            M ${leftX + wobbleSmall()} ${y1 + wobbleSmall()}
+            C ${leftX + 8 + w4} ${y1 + 20 + w1}, ${leftX + 8 + w5} ${y2 - 20 + w2}, ${leftX + wobbleSmall()} ${y2 + wobbleSmall()}
+            M ${leftX + w4} ${y2 + w5}
+            C ${leftX + 15 + w3} ${y2 + w1}, ${leftX + 15 + w2} ${y2 + wobble()}, ${leftX + arrowLength} ${y2 + wobbleSmall()}
+          `
+            .trim()
+            .replace(/\s+/g, ' ');
+
+          arrowConnections.value.push({
+            path,
+            color: '#858585', // dim gray (matches app theme)
+            dsY: y1,
+            dnskeyY: y2,
+          });
+        });
+      }
+    }, 100);
   });
 };
 
-// Watch for changes in validation data
-watch(() => dnssecStore.validation, calculateArrows, { deep: true });
+// Watch for validation changes
+watch(() => dnssecStore.validation, calculateArrowPaths, { deep: true });
 
 onMounted(() => {
-  calculateArrows();
-  // Recalculate on window resize
-  window.addEventListener('resize', calculateArrows);
+  calculateArrowPaths();
+  window.addEventListener('resize', calculateArrowPaths);
 });
 
 onUnmounted(() => {
-  window.removeEventListener('resize', calculateArrows);
+  window.removeEventListener('resize', calculateArrowPaths);
 });
 </script>
 
@@ -248,41 +283,47 @@ onUnmounted(() => {
             No DNSSEC chain data available
           </div>
 
-          <div v-else class="space-y-3 relative">
-            <!-- SVG overlay for drawing arrows -->
+          <div v-else class="space-y-3 relative dnssec-chain-container pl-12">
+            <!-- SVG overlay for arrow connections -->
             <svg
-              class="absolute inset-0 pointer-events-none"
-              style="width: 100%; height: 100%; z-index: 10"
+              class="absolute inset-0 pointer-events-none overflow-visible"
+              style="width: 100%; height: 100%; z-index: 5"
             >
               <defs>
                 <marker
                   id="arrowhead-orange"
-                  markerWidth="10"
-                  markerHeight="10"
-                  refX="9"
+                  markerWidth="6"
+                  markerHeight="6"
+                  refX="5"
                   refY="3"
                   orient="auto"
                 >
-                  <polygon points="0 0, 10 3, 0 6" fill="#fb923c" />
+                  <polygon points="0 0, 6 3, 0 6" fill="#fb923c" />
                 </marker>
               </defs>
-              <!-- Draw arrows between DS and DNSKEY records -->
-              <path
-                v-for="(arrow, idx) in arrowPaths"
-                :key="idx"
-                :d="arrow.d"
-                :stroke="arrow.color"
-                stroke-width="2"
-                fill="none"
-                marker-end="url(#arrowhead-orange)"
-                opacity="0.7"
-              />
+              <g v-for="(arrow, idx) in arrowConnections" :key="idx">
+                <!-- Main path (vertical and horizontal lines) -->
+                <path
+                  :d="arrow.path"
+                  :stroke="arrow.color"
+                  stroke-width="2"
+                  fill="none"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <!-- Arrowheads with hand-drawn curved ( shape -->
+                <path
+                  :d="`M ${40 + Math.random() * 2 - 1},${arrow.dsY - 8 + Math.random() * 2 - 1} Q ${50 + Math.random() * 3 - 1.5},${arrow.dsY - 4 + Math.random() * 2 - 1} ${56 + Math.random() * 2 - 1},${arrow.dsY + Math.random() * 2 - 1} Q ${50 + Math.random() * 3 - 1.5},${arrow.dsY + 4 + Math.random() * 2 - 1} ${40 + Math.random() * 2 - 1},${arrow.dsY + 8 + Math.random() * 2 - 1}`"
+                  :fill="arrow.color"
+                />
+                <path
+                  :d="`M ${40 + Math.random() * 2 - 1},${arrow.dnskeyY - 8 + Math.random() * 2 - 1} Q ${50 + Math.random() * 3 - 1.5},${arrow.dnskeyY - 4 + Math.random() * 2 - 1} ${56 + Math.random() * 2 - 1},${arrow.dnskeyY + Math.random() * 2 - 1} Q ${50 + Math.random() * 3 - 1.5},${arrow.dnskeyY + 4 + Math.random() * 2 - 1} ${40 + Math.random() * 2 - 1},${arrow.dnskeyY + 8 + Math.random() * 2 - 1}`"
+                  :fill="arrow.color"
+                />
+              </g>
             </svg>
-            <div
-              v-for="(zone, index) in dnssecStore.validation.chain"
-              :key="index"
-              class="relative"
-            >
+
+            <div v-for="(zone, index) in dnssecStore.validation.chain" :key="index">
               <!-- Zone Header -->
               <div class="mb-2">
                 <div class="flex-1">
@@ -311,7 +352,7 @@ onUnmounted(() => {
                       <div
                         v-for="(dnskey, keyIndex) in zone.dnskey_records"
                         :key="keyIndex"
-                        :id="`dnskey-zone${index}-keytag${dnskey.key_tag}-index${keyIndex}`"
+                        :id="`dnskey-zone${index}-keytag${dnskey.key_tag}-idx${keyIndex}`"
                         class="font-mono text-xs text-[#cccccc] flex items-start gap-2"
                       >
                         <CheckIcon class="w-3 h-3 text-green-400 flex-shrink-0 mt-0.5" />
@@ -329,19 +370,22 @@ onUnmounted(() => {
                     </div>
 
                     <!-- DS Records -->
-                    <div v-if="zone.ds_records && zone.ds_records.length > 0" class="space-y-1">
+                    <div
+                      v-if="zone.ds_records && zone.ds_records.length > 0"
+                      class="space-y-1 mt-3"
+                    >
                       <!-- DS Records Header -->
-                      <div
-                        v-if="getChildZoneName(index)"
-                        class="text-xs text-[#858585] mb-1 flex items-center gap-1"
-                      >
+                      <div class="text-xs text-[#858585] mb-1 flex items-center gap-1">
                         <ArrowRightIcon class="w-3 h-3" />
-                        <span>DS records for child zone: {{ getChildZoneName(index) }}</span>
+                        <span v-if="getChildZoneName(index)"
+                          >DS records for child zone: {{ getChildZoneName(index) }}</span
+                        >
+                        <span v-else>DS records (delegation to child zone)</span>
                       </div>
                       <div
                         v-for="(ds, dsIndex) in zone.ds_records"
                         :key="dsIndex"
-                        :id="`ds-zone${index}-keytag${ds.key_tag}-index${dsIndex}`"
+                        :id="`ds-zone${index}-keytag${ds.key_tag}-idx${dsIndex}`"
                         class="font-mono text-xs flex items-start gap-2"
                         :class="
                           dsMatchesChild(ds.key_tag, getChildZone(index))
@@ -350,10 +394,6 @@ onUnmounted(() => {
                         "
                       >
                         <span class="flex-shrink-0 flex items-center gap-0.5 mt-0.5">
-                          <ArrowRightIcon
-                            v-if="dsMatchesChild(ds.key_tag, getChildZone(index))"
-                            class="w-3 h-3"
-                          />
                           <CheckIcon class="w-3 h-3" />
                         </span>
                         <span class="flex-1 break-all">
@@ -380,11 +420,43 @@ onUnmounted(() => {
                       </div>
                     </div>
 
-                    <!-- RRSIG indicator -->
-                    <div v-if="zone.rrsig_records && zone.rrsig_records.length > 0" class="mt-2">
-                      <div class="font-mono text-xs text-gray-400">
-                        RRSIG records found; zone records are signed
-                      </div>
+                    <!-- RRSIG Records (show details only for target zone) -->
+                    <div
+                      v-if="zone.rrsig_records && zone.rrsig_records.length > 0"
+                      class="space-y-1 mt-3"
+                    >
+                      <!-- Show full details for target zone (last zone in chain) -->
+                      <template v-if="index === dnssecStore.validation.chain.length - 1">
+                        <div class="text-xs text-[#858585] mb-1 flex items-center gap-1">
+                          <ArrowRightIcon class="w-3 h-3" />
+                          <span>RRSIG records (signatures)</span>
+                        </div>
+                        <div
+                          v-for="(rrsig, rrsigIndex) in zone.rrsig_records"
+                          :key="rrsigIndex"
+                          class="font-mono text-xs text-purple-400 flex items-start gap-2"
+                        >
+                          <CheckIcon class="w-3 h-3 flex-shrink-0 mt-0.5" />
+                          <span class="flex-1 break-all">
+                            RRSIG TYPE={{ rrsig.type_covered }} KEYTAG=<span
+                              :class="getKeytagColor(rrsig.key_tag)"
+                              >{{ rrsig.key_tag }}</span
+                            >
+                            ALGO={{ rrsig.algorithm }} SIGNER={{ rrsig.signer_name }} EXPIRES={{
+                              rrsig.signature_expiration
+                            }}
+                          </span>
+                        </div>
+                      </template>
+                      <!-- Show compact indicator for other zones -->
+                      <template v-else>
+                        <div class="font-mono text-xs text-gray-400">
+                          {{ zone.rrsig_records.length }} RRSIG record{{
+                            zone.rrsig_records.length !== 1 ? 's' : ''
+                          }}
+                          found
+                        </div>
+                      </template>
                     </div>
                   </div>
                 </div>

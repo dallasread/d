@@ -191,7 +191,10 @@ impl DnsAdapter {
         Ok(response.records.iter().map(|r| r.value.clone()).collect())
     }
 
-    // Query DNSKEY records from authoritative server
+    // Query DNSKEY records from zone's own authoritative nameservers
+    // DNSKEY records are served by the zone itself, not the parent
+    // Example: To get DNSKEY for "example.com", we query example.com's nameservers
+    //          To get DNSKEY for "io", we query io's nameservers
     pub async fn query_dnskey(&self, domain: &str) -> Result<DnsResponse, String> {
         let start = Instant::now();
 
@@ -200,15 +203,14 @@ impl DnsAdapter {
             return self.query_root_dnskey().await;
         }
 
-        // First get the nameservers for this domain
+        // Get the zone's own authoritative nameservers
         let nameservers = self.get_nameservers(domain).await?;
 
         if nameservers.is_empty() {
             return Err("No nameservers found for domain".to_string());
         }
 
-        // Query the first authoritative nameserver
-        let ns = &nameservers[0];
+        let ns = nameservers[0].clone();
 
         if !self.is_dig_available() {
             return Err("dig command not found".to_string());
@@ -228,9 +230,36 @@ impl DnsAdapter {
             .map_err(|e| format!("Failed to execute dig: {}", e))?;
 
         let query_time = start.elapsed().as_secs_f64();
+        let exit_code = output.status.code().unwrap_or(-1);
 
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+        // Emit command log
+        let log_output = if !stdout.is_empty() {
+            stdout.clone()
+        } else {
+            stderr.clone()
+        };
+
+        let args = vec![
+            "+noall".to_string(),
+            "+answer".to_string(),
+            "+dnssec".to_string(),
+            "+multi".to_string(),
+            format!("@{}", ns),
+            "DNSKEY".to_string(),
+            domain.to_string(),
+        ];
+
+        self.emit_log(CommandLog::new(
+            "dig".to_string(),
+            args,
+            log_output,
+            exit_code,
+            query_time * 1000.0,
+            Some(domain.to_string()),
+        ));
 
         // Don't rely solely on exit code for DNSSEC queries
         // dig often returns non-zero exit codes for valid DNSSEC queries
@@ -248,8 +277,8 @@ impl DnsAdapter {
         Ok(DnsResponse {
             records,
             query_time,
-            resolver: ns.to_string(),
-            raw_output: Some(stdout.to_string()),
+            resolver: ns.clone(),
+            raw_output: Some(stdout),
         })
     }
 
@@ -337,18 +366,25 @@ impl DnsAdapter {
 
         // Get parent domain
         let parts: Vec<&str> = domain.split('.').collect();
-        if parts.len() < 2 {
+
+        // For TLDs (single part like "io", "com"), query from root servers
+        // For domains (like "example.com"), query from parent zone
+        let (_parent_domain, ns) = if parts.len() == 1 {
+            // TLD: query from root servers (use any root server, e.g., a.root-servers.net)
+            (".".to_string(), "a.root-servers.net".to_string())
+        } else if parts.len() >= 2 {
+            // Regular domain: query from parent zone's nameservers
+            let parent = parts[1..].join(".");
+            let parent_ns = self.get_nameservers(&parent).await?;
+
+            if parent_ns.is_empty() {
+                return Err("No parent nameservers found".to_string());
+            }
+
+            (parent, parent_ns[0].clone())
+        } else {
             return Err("Invalid domain for DS query".to_string());
-        }
-
-        let parent_domain = parts[1..].join(".");
-        let parent_ns = self.get_nameservers(&parent_domain).await?;
-
-        if parent_ns.is_empty() {
-            return Err("No parent nameservers found".to_string());
-        }
-
-        let ns = &parent_ns[0];
+        };
 
         if !self.is_dig_available() {
             return Err("dig command not found".to_string());
@@ -369,9 +405,37 @@ impl DnsAdapter {
             .map_err(|e| format!("Failed to execute dig: {}", e))?;
 
         let query_time = start.elapsed().as_secs_f64();
+        let exit_code = output.status.code().unwrap_or(-1);
 
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+        // Emit command log
+        let log_output = if !stdout.is_empty() {
+            stdout.clone()
+        } else {
+            stderr.clone()
+        };
+
+        let args = vec![
+            "+noall".to_string(),
+            "+answer".to_string(),
+            "+dnssec".to_string(),
+            "+time=2".to_string(),
+            "+tries=1".to_string(),
+            format!("@{}", ns),
+            "DS".to_string(),
+            domain.to_string(),
+        ];
+
+        self.emit_log(CommandLog::new(
+            "dig".to_string(),
+            args,
+            log_output,
+            exit_code,
+            query_time * 1000.0,
+            Some(domain.to_string()),
+        ));
 
         // Don't rely solely on exit code for DS queries
         // dig often returns non-zero exit codes for valid queries
@@ -389,8 +453,8 @@ impl DnsAdapter {
         Ok(DnsResponse {
             records,
             query_time,
-            resolver: ns.to_string(),
-            raw_output: Some(stdout.to_string()),
+            resolver: ns.clone(),
+            raw_output: Some(stdout),
         })
     }
 

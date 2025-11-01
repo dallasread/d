@@ -5,7 +5,6 @@ import { useAppStore } from './stores/app';
 import { useLogsStore } from './stores/logs';
 import Navigation from './components/Navigation.vue';
 import RawDataModal from './components/RawDataModal.vue';
-import LogsButton from './components/LogsButton.vue';
 import LogsSlideout from './components/LogsSlideout.vue';
 import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
@@ -50,14 +49,11 @@ onUnmounted(() => {
 
 <template>
   <div class="app-container min-h-screen">
-    <Navigation />
+    <Navigation @toggle-logs="toggleLogs" />
     <main class="pt-[120px]">
       <RouterView />
     </main>
     <RawDataModal />
-
-    <!-- Show logs button on all pages -->
-    <LogsButton @click="toggleLogs" />
 
     <!-- Logs slideout -->
     <LogsSlideout :is-open="isLogsOpen" @close="closeLogs" />

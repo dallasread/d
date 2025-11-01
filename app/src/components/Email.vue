@@ -132,19 +132,6 @@ const hasDomain = computed(() => !!appStore.domain);
             </div>
           </div>
         </div>
-
-        <!-- Coming Soon Notice -->
-        <div class="panel bg-blue-900/20 border-blue-800">
-          <h3 class="text-lg font-semibold text-blue-400 mb-2">🚧 Coming Soon</h3>
-          <p class="text-sm text-blue-300 mb-2">
-            Email configuration analysis is currently under development. The display above shows an
-            example of what this panel will look like.
-          </p>
-          <p class="text-xs text-blue-300/80">
-            This panel will check MX records, SPF, DKIM (common selectors), and DMARC records to
-            provide a security score and configuration recommendations.
-          </p>
-        </div>
       </div>
     </div>
   </div>

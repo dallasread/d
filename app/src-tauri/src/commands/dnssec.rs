@@ -86,7 +86,13 @@ pub async fn validate_dnssec(
             let tld = parts.last().unwrap_or(&"");
             let root_ds = match adapter.query_ds(tld).await {
                 Ok(ds_response) => adapter.parse_ds_records(&ds_response.records),
-                Err(_) => Vec::new(),
+                Err(e) => {
+                    warnings.push(format!(
+                        "Failed to query DS records for {} from root: {}",
+                        tld, e
+                    ));
+                    Vec::new()
+                }
             };
 
             chain.push(ZoneData {

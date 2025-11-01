@@ -21,6 +21,10 @@ const logsStore = useLogsStore();
 
 const domainInput = ref('');
 
+const emit = defineEmits<{
+  toggleLogs: [];
+}>();
+
 const tabs = [
   { name: 'Dashboard', path: '/', key: '1' },
   { name: 'Registration', path: '/registration', key: '2' },
@@ -41,7 +45,7 @@ const navigateToTab = (path: string) => {
 
 const handleSearch = async () => {
   if (domainInput.value.trim()) {
-    const domain = domainInput.value.trim();
+    const domain = domainInput.value.trim().toLowerCase();
 
     // If domain changed, clear all caches and logs
     if (domain !== appStore.domain) {
@@ -82,6 +86,11 @@ const handleKeypress = (event: KeyboardEvent) => {
 
 const handleRefresh = () => {
   if (appStore.domain) {
+    // Set domain input to current domain if not already set
+    if (!domainInput.value) {
+      domainInput.value = appStore.domain;
+    }
+
     // Clear cache and logs on refresh
     if (dnsStore.clearCache) dnsStore.clearCache();
     logsStore.clearLogs();
@@ -90,6 +99,62 @@ const handleRefresh = () => {
     handleSearch();
   }
 };
+
+const toggleLogs = () => {
+  emit('toggleLogs');
+};
+
+// Map routes to relevant tools (same as LogsSlideout)
+const routeToolMap: Record<string, string[]> = {
+  '/': [], // Dashboard shows all
+  '/registration': ['whois'],
+  '/dns': ['dig'],
+  '/dnssec': ['dig'],
+  '/certificate': ['openssl'],
+  '/http': ['curl'],
+  '/email': ['dig'],
+};
+
+const logCount = computed(() => {
+  let logs = logsStore.logs;
+
+  // Filter by domain if set
+  if (appStore.domain) {
+    logs = logs.filter((log) => log.domain === appStore.domain);
+  }
+
+  // Filter by current route/panel
+  const tools = routeToolMap[route.path];
+  if (tools && tools.length > 0) {
+    logs = logs.filter((log) => {
+      if (!tools.includes(log.tool)) {
+        return false;
+      }
+
+      // Special filtering for email tab - only show MX and TXT queries
+      if (route.path === '/email' && log.tool === 'dig') {
+        const args = log.args.join(' ');
+        return args.includes(' MX') || args.includes(' TXT');
+      }
+
+      // Special filtering for DNS tab - exclude DNSKEY and DS queries (those are DNSSEC)
+      if (route.path === '/dns' && log.tool === 'dig') {
+        const args = log.args.join(' ');
+        return !args.includes(' DNSKEY') && !args.includes(' DS');
+      }
+
+      // Special filtering for DNSSEC tab - only show DNSKEY and DS queries
+      if (route.path === '/dnssec' && log.tool === 'dig') {
+        const args = log.args.join(' ');
+        return args.includes(' DNSKEY') || args.includes(' DS');
+      }
+
+      return true;
+    });
+  }
+
+  return logs.length;
+});
 
 onMounted(() => {
   window.addEventListener('app:refresh', handleRefresh);
@@ -131,33 +196,50 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- Loading indicator -->
-        <div v-if="appStore.loading" class="flex-shrink-0">
-          <div
-            class="flex items-center gap-2 px-3 py-2 bg-blue-600/10 border border-blue-600/30 rounded-md"
+        <!-- Action buttons -->
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <!-- Refresh button -->
+          <button
+            @click="handleRefresh"
+            :disabled="!appStore.domain || appStore.loading"
+            class="flex items-center gap-2 px-3 py-2 bg-[#252526] hover:bg-[#2d2d30] border border-[#3e3e42] rounded-lg transition-colors group disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Refresh domain data"
           >
-            <svg
-              class="animate-spin h-4 w-4 text-blue-500"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
+            <kbd
+              class="hidden md:inline-flex items-center justify-center w-5 h-5 text-[11px] font-medium rounded border bg-[#3e3e42] border-[#5a5a5f] text-[#b0b0b0]"
             >
-              <circle
-                class="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                stroke-width="4"
-              ></circle>
-              <path
-                class="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              ></path>
-            </svg>
-            <span class="text-sm text-blue-400">Analyzing...</span>
-          </div>
+              R
+            </kbd>
+            <span
+              class="text-sm font-medium text-[#858585] group-hover:text-white transition-colors"
+            >
+              Refresh
+            </span>
+          </button>
+
+          <!-- Logs button -->
+          <button
+            @click="toggleLogs"
+            class="flex items-center gap-2 px-3 py-2 bg-[#252526] hover:bg-[#2d2d30] border border-[#3e3e42] rounded-lg transition-colors group"
+            title="View command logs"
+          >
+            <kbd
+              class="hidden md:inline-flex items-center justify-center w-5 h-5 text-[11px] font-medium rounded border bg-[#3e3e42] border-[#5a5a5f] text-[#b0b0b0]"
+            >
+              L
+            </kbd>
+            <span
+              v-if="logCount > 0"
+              class="px-2 py-0.5 bg-blue-600 text-white text-xs font-semibold rounded-full"
+            >
+              {{ logCount }}
+            </span>
+            <span
+              class="hidden sm:inline text-sm font-medium text-[#858585] group-hover:text-white transition-colors"
+            >
+              Logs
+            </span>
+          </button>
         </div>
       </div>
     </div>
@@ -177,7 +259,6 @@ onUnmounted(() => {
           ]"
           :aria-current="isActiveTab(tab.path) ? 'page' : undefined"
         >
-          <span>{{ tab.name }}</span>
           <kbd
             class="hidden md:inline-flex items-center justify-center w-5 h-5 text-[11px] font-medium rounded border"
             :class="[
@@ -188,6 +269,7 @@ onUnmounted(() => {
           >
             {{ tab.key }}
           </kbd>
+          <span>{{ tab.name }}</span>
         </button>
       </nav>
     </div>
