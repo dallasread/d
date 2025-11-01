@@ -64,10 +64,7 @@ const handleSearch = async () => {
         httpStore.fetchHttp(domain),
       ]);
 
-      // Navigate to dashboard if not already there
-      if (route.path !== '/') {
-        router.push('/');
-      }
+      // Stay on current page - don't auto-navigate
     } catch (error) {
       console.error('Error fetching domain data:', error);
       appStore.setError('Failed to fetch domain data. Please try again.');
