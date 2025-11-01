@@ -26,17 +26,17 @@ This document outlines the plan to migrate the D DNS Debugger from a Python/Text
 
 **Stack:**
 - Backend: Rust (Tauri commands)
-- Frontend: React + TypeScript
-- State Management: Zustand or Redux
+- Frontend: Vue 3 + TypeScript (Composition API)
+- State Management: Pinia
 - Styling: TailwindCSS
 - Build Target: macOS (initially)
 
 **Architecture Pattern:**
 ```
 ┌─────────────────────────────────────┐
-│   React Frontend (TypeScript)       │
+│   Vue 3 Frontend (TypeScript)       │
 │   - UI Components (7 panels)        │
-│   - State Management                │
+│   - Pinia State Stores              │
 │   - Theme System                    │
 ├─────────────────────────────────────┤
 │   Tauri IPC Layer                   │
@@ -52,10 +52,15 @@ This document outlines the plan to migrate the D DNS Debugger from a Python/Text
 
 ### Phase 1: Project Setup
 1. **Initialize Tauri project structure in app/ folder**
-   - Create new Tauri app with React template
+   - Create new Tauri app with Vue 3 + TypeScript template
    - Configure for macOS builds
-   - Set up TypeScript + TailwindCSS
-   - Configure build scripts
+   - Set up TailwindCSS with custom configuration
+   - Install and configure Pinia for state management
+   - Configure build scripts (Vite)
+   - Set up proper TypeScript paths and aliases
+   - Configure Vue Router for panel navigation
+   - Set up ESLint + Prettier for code quality
+   - Configure Vue-specific ESLint rules
 
 ### Phase 2: Rust Backend (Tauri Commands)
 
@@ -124,21 +129,23 @@ This document outlines the plan to migrate the D DNS Debugger from a Python/Text
    - EmailConfiguration, SPFRecord, DKIMRecord, DMARCRecord
    - Health check models (6 health types)
 
-### Phase 4: React Frontend
+### Phase 4: Vue Frontend
 
-10. **Set up React frontend with routing for 7 panels**
-    - Tab-based navigation
-    - Keyboard shortcuts (0-6 for tabs, R for refresh, L for logs)
+10. **Set up Vue frontend with routing for 7 panels**
+    - Vue Router for panel navigation
+    - Tab-based navigation component
+    - Keyboard shortcuts composable (0-6 for tabs, R for refresh, L for logs)
     - Panel container component
-    - Loading states
+    - Loading states with Vue transitions
 
-11. **Implement Dashboard panel UI**
+11. **Implement Dashboard panel component (Dashboard.vue)**
     - 3x2 grid layout + registration card
     - 6 health check cards
     - Overall health summary
     - Color-coded status indicators
+    - Reactive updates from Pinia store
 
-12. **Implement Registration panel UI**
+12. **Implement Registration panel component (Registration.vue)**
     - Registrar information
     - Dates (created, updated, expires)
     - Expiration countdown
@@ -147,14 +154,14 @@ This document outlines the plan to migrate the D DNS Debugger from a Python/Text
     - Status codes
     - DNSSEC indicator
 
-13. **Implement DNS panel UI**
+13. **Implement DNS panel component (DNS.vue)**
     - A records table
     - AAAA records table
     - MX records with priority
     - TXT records display
     - NS records table
 
-14. **Implement DNSSEC panel UI with chain visualization**
+14. **Implement DNSSEC panel component (DNSSEC.vue)**
     - Zone-by-zone chain display
     - DNSKEY table (keytag, algo, type, pubkey)
     - DS table (keytag, algo, digest type, hash)
@@ -162,7 +169,7 @@ This document outlines the plan to migrate the D DNS Debugger from a Python/Text
     - Color-coded keytag matching
     - Chain of trust validation status
 
-15. **Implement Certificate panel UI**
+15. **Implement Certificate panel component (Certificate.vue)**
     - Certificate subject display
     - Issuer information
     - Validity dates
@@ -172,7 +179,7 @@ This document outlines the plan to migrate the D DNS Debugger from a Python/Text
     - Fingerprint
     - Chain status
 
-16. **Implement HTTP/HTTPS panel UI**
+16. **Implement HTTP/HTTPS panel component (HTTP.vue)**
     - Status for apex domain
     - Status for www subdomain
     - Color-coded status codes
@@ -180,7 +187,7 @@ This document outlines the plan to migrate the D DNS Debugger from a Python/Text
     - Redirect chain visualization
     - Headers display
 
-17. **Implement Email panel UI with security scoring**
+17. **Implement Email panel component (Email.vue)**
     - MX records table
     - Email provider detection
     - SPF status and policy
@@ -190,12 +197,13 @@ This document outlines the plan to migrate the D DNS Debugger from a Python/Text
 
 ### Phase 5: Application Features
 
-18. **Implement state management using Zustand or Redux**
-    - Global AppState
-    - Domain-specific state slices
+18. **Implement state management using Pinia**
+    - Create main app store (useAppStore)
+    - Create domain-specific stores (DNS, Certificate, etc.)
     - State update actions
-    - Cache management
-    - Loading state tracking
+    - Cache management with getters
+    - Loading state tracking per data source
+    - Persist theme preference with localStorage
 
 19. **Implement parallel data fetching with loading indicators**
     - Concurrent Tauri command invocations
@@ -266,18 +274,30 @@ async fn fetch_all_data(domain: String) -> Result<AppState, String> {
 }
 ```
 
-### Frontend Data Fetching Pattern
+### Frontend Data Fetching Pattern (Vue + Pinia)
 
 ```typescript
-// Invoke Tauri command
-const fetchData = async (domain: string) => {
-  try {
-    const data = await invoke<AppState>('fetch_all_data', { domain });
-    updateState(data);
-  } catch (error) {
-    handleError(error);
-  }
-};
+// In Pinia store
+import { invoke } from '@tauri-apps/api/tauri';
+
+export const useAppStore = defineStore('app', () => {
+  const state = ref<AppState | null>(null);
+  const loading = ref(false);
+  
+  const fetchData = async (domain: string) => {
+    loading.value = true;
+    try {
+      const data = await invoke<AppState>('fetch_all_data', { domain });
+      state.value = data;
+    } catch (error) {
+      handleError(error);
+    } finally {
+      loading.value = false;
+    }
+  };
+  
+  return { state, loading, fetchData };
+});
 ```
 
 ### DNSSEC Chain Algorithm
@@ -320,27 +340,33 @@ app/
 │   │   └── utils/          # Helper functions
 │   ├── Cargo.toml
 │   └── tauri.conf.json
-├── src/                    # React frontend
-│   ├── components/         # React components
-│   │   ├── Dashboard.tsx
-│   │   ├── Registration.tsx
-│   │   ├── DNS.tsx
-│   │   ├── DNSSEC.tsx
-│   │   ├── Certificate.tsx
-│   │   ├── HTTP.tsx
-│   │   ├── Email.tsx
-│   │   └── RawDataModal.tsx
-│   ├── models/             # TypeScript types
-│   ├── store/              # State management
-│   ├── themes/             # Theme definitions
+├── src/                    # Vue frontend
+│   ├── components/         # Vue components
+│   │   ├── Dashboard.vue
+│   │   ├── Registration.vue
+│   │   ├── DNS.vue
+│   │   ├── DNSSEC.vue
+│   │   ├── Certificate.vue
+│   │   ├── HTTP.vue
+│   │   ├── Email.vue
+│   │   └── RawDataModal.vue
+│   ├── composables/        # Vue composables (keyboard shortcuts, etc.)
+│   ├── models/             # TypeScript types/interfaces
+│   ├── stores/             # Pinia stores
+│   ├── router/             # Vue Router configuration
+│   ├── styles/             # Global styles and theme definitions
 │   ├── utils/              # Helper functions
-│   ├── App.tsx
-│   └── main.tsx
+│   ├── App.vue
+│   └── main.ts
 ├── public/                 # Static assets
+├── index.html
 ├── package.json
 ├── tsconfig.json
 ├── tailwind.config.js
-└── vite.config.ts
+├── postcss.config.js
+├── vite.config.ts
+├── .eslintrc.json
+└── .prettierrc
 ```
 
 ## Dependencies
@@ -359,11 +385,26 @@ regex = "1.0"
 ```json
 {
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "@tauri-apps/api": "^1.5.0",
-    "zustand": "^4.4.0",
-    "tailwindcss": "^3.3.0"
+    "vue": "^3.4.0",
+    "vue-router": "^4.2.0",
+    "pinia": "^2.1.0",
+    "@tauri-apps/api": "^1.5.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.0",
+    "typescript": "^5.3.0",
+    "vite": "^5.0.0",
+    "vue-tsc": "^1.8.0",
+    "tailwindcss": "^3.4.0",
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0",
+    "eslint": "^8.55.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "eslint-plugin-vue": "^9.19.0",
+    "prettier": "^3.1.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.0.0"
   }
 }
 ```
@@ -371,11 +412,13 @@ regex = "1.0"
 ## Migration Benefits
 
 1. **Native macOS app** - Better performance than TUI
-2. **Rich UI** - More visual design possibilities
+2. **Rich UI** - More visual design possibilities with TailwindCSS
 3. **Easier distribution** - Single .app bundle or DMG
-4. **Better accessibility** - Mouse + keyboard support
-5. **Maintainability** - Separation of concerns with Rust/React
+4. **Better accessibility** - Mouse + keyboard support, screen reader friendly
+5. **Maintainability** - Separation of concerns with Rust/Vue, reusable components
 6. **Extensibility** - Easier to add features like export, sharing, etc.
+7. **Modern tooling** - Vite for fast HMR, TypeScript for type safety
+8. **Vue 3 benefits** - Composition API for logic reuse, lightweight runtime, excellent TypeScript support
 
 ## Challenges & Solutions
 
