@@ -35,12 +35,16 @@ onMounted(async () => {
   unlistenCommandLog = await listen('command-log', (event) => {
     logsStore.addLog(event.payload as any);
   });
+
+  // Listen for keyboard shortcut to toggle logs
+  window.addEventListener('app:toggle-logs', toggleLogs);
 });
 
 onUnmounted(() => {
   if (unlistenCommandLog) {
     unlistenCommandLog();
   }
+  window.removeEventListener('app:toggle-logs', toggleLogs);
 });
 </script>
 

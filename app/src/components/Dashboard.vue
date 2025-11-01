@@ -64,6 +64,105 @@ const getHttpStatusClass = (status: number) => {
   if (status >= 300 && status < 400) return 'status-warn';
   return 'status-fail';
 };
+
+// Overall health calculation
+const healthChecks = computed(() => {
+  const checks = [];
+
+  // DNS checks
+  checks.push({
+    name: 'DNS Resolution',
+    status: aRecordCount.value > 0 || aaaaRecordCount.value > 0 ? 'pass' : 'fail',
+    message:
+      aRecordCount.value > 0 || aaaaRecordCount.value > 0
+        ? 'Domain resolves correctly'
+        : 'No A/AAAA records found',
+  });
+
+  checks.push({
+    name: 'Nameservers',
+    status: nsRecordCount.value >= 2 ? 'pass' : nsRecordCount.value > 0 ? 'warn' : 'fail',
+    message:
+      nsRecordCount.value >= 2
+        ? `${nsRecordCount.value} nameservers configured`
+        : nsRecordCount.value > 0
+          ? 'Only 1 nameserver (recommend 2+)'
+          : 'No nameservers found',
+  });
+
+  // Certificate checks
+  if (certDaysUntilExpiry.value !== null) {
+    checks.push({
+      name: 'SSL Certificate',
+      status:
+        certDaysUntilExpiry.value > 30 ? 'pass' : certDaysUntilExpiry.value > 0 ? 'warn' : 'fail',
+      message:
+        certDaysUntilExpiry.value > 30
+          ? `Valid for ${certDaysUntilExpiry.value} days`
+          : certDaysUntilExpiry.value > 0
+            ? `Expires in ${certDaysUntilExpiry.value} days`
+            : 'Certificate expired',
+    });
+  }
+
+  // HTTPS checks
+  if (httpsStatus.value > 0) {
+    checks.push({
+      name: 'HTTPS',
+      status:
+        httpsStatus.value >= 200 && httpsStatus.value < 300
+          ? 'pass'
+          : httpsStatus.value >= 300 && httpsStatus.value < 400
+            ? 'warn'
+            : 'fail',
+      message:
+        httpsStatus.value >= 200 && httpsStatus.value < 300
+          ? `Responding with ${httpsStatus.value}`
+          : httpsStatus.value >= 300 && httpsStatus.value < 400
+            ? `Redirecting (${httpsStatus.value})`
+            : `Error ${httpsStatus.value}`,
+    });
+  }
+
+  // Email checks
+  checks.push({
+    name: 'Email (MX)',
+    status: mxRecordCount.value > 0 ? 'pass' : 'warn',
+    message:
+      mxRecordCount.value > 0
+        ? `${mxRecordCount.value} MX record(s) configured`
+        : 'No MX records found',
+  });
+
+  return checks;
+});
+
+const overallHealth = computed(() => {
+  const total = healthChecks.value.length;
+  const passed = healthChecks.value.filter((c) => c.status === 'pass').length;
+  const warnings = healthChecks.value.filter((c) => c.status === 'warn').length;
+  const failed = healthChecks.value.filter((c) => c.status === 'fail').length;
+
+  const percentage = Math.round((passed / total) * 100);
+
+  let status: 'healthy' | 'warning' | 'critical';
+  if (failed > 0) {
+    status = 'critical';
+  } else if (warnings > 0) {
+    status = 'warning';
+  } else {
+    status = 'healthy';
+  }
+
+  return {
+    percentage,
+    status,
+    passed,
+    warnings,
+    failed,
+    total,
+  };
+});
 </script>
 
 <template>
@@ -89,135 +188,218 @@ const getHttpStatusClass = (status: number) => {
       </div>
 
       <!-- Dashboard content when domain is set -->
-      <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <!-- Registration Card (full height left) -->
-        <div class="card lg:row-span-2">
-          <h2 class="text-xl font-semibold mb-4">Registration</h2>
-          <div v-if="whoisStore.loading" class="space-y-3">
-            <div class="h-4 bg-[#3e3e42] rounded animate-pulse"></div>
-            <div class="h-4 bg-[#3e3e42] rounded animate-pulse w-3/4"></div>
-          </div>
-          <div v-else-if="whoisStore.whoisInfo" class="space-y-3">
+      <div v-else class="space-y-4">
+        <!-- Overall Health Card -->
+        <div
+          class="card p-6"
+          :class="{
+            'border-l-4 border-l-green-500': overallHealth.status === 'healthy',
+            'border-l-4 border-l-yellow-500': overallHealth.status === 'warning',
+            'border-l-4 border-l-red-500': overallHealth.status === 'critical',
+          }"
+        >
+          <div class="flex items-center justify-between mb-4">
             <div>
-              <p class="text-xs text-[#858585]">Registrar</p>
-              <p class="text-sm font-medium">{{ registrar }}</p>
+              <h2 class="text-2xl font-bold mb-1">Overall Health</h2>
+              <p class="text-sm text-[#858585]">{{ appStore.domain }}</p>
             </div>
-            <div>
-              <p class="text-xs text-[#858585]">Expires</p>
-              <p class="text-sm font-medium">{{ expirationDate }}</p>
-            </div>
-            <div>
-              <p class="text-xs text-[#858585]">Nameservers</p>
-              <p class="text-sm font-medium">
-                {{ whoisStore.whoisInfo.nameservers.length }} servers
-              </p>
-            </div>
-            <div v-if="whoisStore.whoisInfo.dnssec">
-              <p class="text-xs text-[#858585]">DNSSEC</p>
-              <p class="text-sm font-medium">{{ whoisStore.whoisInfo.dnssec }}</p>
-            </div>
-          </div>
-          <p v-else class="text-[#858585] text-sm">No registration data</p>
-        </div>
-
-        <!-- DNS Card -->
-        <div class="card">
-          <h2 class="text-xl font-semibold mb-4">DNS</h2>
-          <div v-if="dnsStore.loading" class="space-y-2">
-            <div class="h-3 bg-[#3e3e42] rounded animate-pulse"></div>
-            <div class="h-3 bg-[#3e3e42] rounded animate-pulse w-2/3"></div>
-          </div>
-          <div v-else class="space-y-2 text-sm">
-            <div class="flex justify-between">
-              <span class="text-[#858585]">A Records:</span>
-              <span :class="getStatusClass(aRecordCount, 1)">{{ aRecordCount }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-[#858585]">AAAA Records:</span>
-              <span :class="getStatusClass(aaaaRecordCount, 1)">{{ aaaaRecordCount }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-[#858585]">MX Records:</span>
-              <span :class="getStatusClass(mxRecordCount, 1)">{{ mxRecordCount }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-[#858585]">NS Records:</span>
-              <span :class="getStatusClass(nsRecordCount, 2)">{{ nsRecordCount }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Email Card -->
-        <div class="card">
-          <h2 class="text-xl font-semibold mb-4">Email</h2>
-          <div class="text-sm">
-            <p class="text-[#858585]">Email security configuration</p>
-            <p class="text-xs text-[#858585] mt-2">Coming soon</p>
-          </div>
-        </div>
-
-        <!-- DNSSEC Card -->
-        <div class="card">
-          <h2 class="text-xl font-semibold mb-4">DNSSEC</h2>
-          <div class="text-sm">
-            <p class="text-[#858585]">DNSSEC validation status</p>
-            <p class="text-xs text-[#858585] mt-2">Coming soon</p>
-          </div>
-        </div>
-
-        <!-- Certificate Card -->
-        <div class="card">
-          <h2 class="text-xl font-semibold mb-4">Certificate</h2>
-          <div v-if="certStore.loading" class="space-y-2">
-            <div class="h-3 bg-[#3e3e42] rounded animate-pulse"></div>
-            <div class="h-3 bg-[#3e3e42] rounded animate-pulse w-3/4"></div>
-          </div>
-          <div v-else-if="certInfo" class="space-y-2 text-sm">
-            <div>
-              <p class="text-xs text-[#858585]">Issued To</p>
-              <p class="text-sm font-medium truncate">
-                {{ certInfo.subject.common_name || 'N/A' }}
-              </p>
-            </div>
-            <div>
-              <p class="text-xs text-[#858585]">Issued By</p>
-              <p class="text-sm font-medium truncate">
-                {{ certInfo.issuer.organization || 'N/A' }}
-              </p>
-            </div>
-            <div>
-              <p class="text-xs text-[#858585]">Expires</p>
-              <p :class="['text-sm font-medium', getCertStatusClass(certDaysUntilExpiry)]">
-                {{ certDaysUntilExpiry !== null ? `${certDaysUntilExpiry} days` : 'N/A' }}
+            <div class="text-right">
+              <div
+                class="text-4xl font-bold"
+                :class="{
+                  'text-green-500': overallHealth.status === 'healthy',
+                  'text-yellow-500': overallHealth.status === 'warning',
+                  'text-red-500': overallHealth.status === 'critical',
+                }"
+              >
+                {{ overallHealth.percentage }}%
+              </div>
+              <p
+                class="text-xs uppercase font-semibold tracking-wide mt-1"
+                :class="{
+                  'text-green-500': overallHealth.status === 'healthy',
+                  'text-yellow-500': overallHealth.status === 'warning',
+                  'text-red-500': overallHealth.status === 'critical',
+                }"
+              >
+                {{ overallHealth.status }}
               </p>
             </div>
           </div>
-          <p v-else class="text-[#858585] text-sm">No certificate data</p>
+
+          <!-- Health checks summary -->
+          <div class="flex gap-6 mb-4 text-sm">
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-green-500"></span>
+              <span class="text-[#858585]">{{ overallHealth.passed }} Passed</span>
+            </div>
+            <div v-if="overallHealth.warnings > 0" class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-yellow-500"></span>
+              <span class="text-[#858585]">{{ overallHealth.warnings }} Warnings</span>
+            </div>
+            <div v-if="overallHealth.failed > 0" class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-red-500"></span>
+              <span class="text-[#858585]">{{ overallHealth.failed }} Failed</span>
+            </div>
+          </div>
+
+          <!-- Individual checks -->
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div
+              v-for="check in healthChecks"
+              :key="check.name"
+              class="flex items-start gap-2 p-3 rounded bg-[#252526]"
+            >
+              <span
+                class="text-lg flex-shrink-0 mt-0.5"
+                :class="{
+                  'text-green-500': check.status === 'pass',
+                  'text-yellow-500': check.status === 'warn',
+                  'text-red-500': check.status === 'fail',
+                }"
+              >
+                {{ check.status === 'pass' ? '✓' : check.status === 'warn' ? '⚠' : '✗' }}
+              </span>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium">{{ check.name }}</p>
+                <p class="text-xs text-[#858585] mt-0.5">{{ check.message }}</p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <!-- HTTP Card -->
-        <div class="card lg:col-span-2">
-          <h2 class="text-xl font-semibold mb-4">HTTP/HTTPS</h2>
-          <div v-if="httpStore.loading" class="space-y-2">
-            <div class="h-3 bg-[#3e3e42] rounded animate-pulse"></div>
-            <div class="h-3 bg-[#3e3e42] rounded animate-pulse w-1/2"></div>
+        <!-- Existing cards grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <!-- Registration Card (full height left) -->
+          <div class="card lg:row-span-2">
+            <h2 class="text-xl font-semibold mb-4">Registration</h2>
+            <div v-if="whoisStore.loading" class="space-y-3">
+              <div class="h-4 bg-[#3e3e42] rounded animate-pulse"></div>
+              <div class="h-4 bg-[#3e3e42] rounded animate-pulse w-3/4"></div>
+            </div>
+            <div v-else-if="whoisStore.whoisInfo" class="space-y-3">
+              <div>
+                <p class="text-xs text-[#858585]">Registrar</p>
+                <p class="text-sm font-medium">{{ registrar }}</p>
+              </div>
+              <div>
+                <p class="text-xs text-[#858585]">Expires</p>
+                <p class="text-sm font-medium">{{ expirationDate }}</p>
+              </div>
+              <div>
+                <p class="text-xs text-[#858585]">Nameservers</p>
+                <p class="text-sm font-medium">
+                  {{ whoisStore.whoisInfo.nameservers.length }} servers
+                </p>
+              </div>
+              <div v-if="whoisStore.whoisInfo.dnssec">
+                <p class="text-xs text-[#858585]">DNSSEC</p>
+                <p class="text-sm font-medium">{{ whoisStore.whoisInfo.dnssec }}</p>
+              </div>
+            </div>
+            <p v-else class="text-[#858585] text-sm">No registration data</p>
           </div>
-          <div v-else-if="httpStore.httpsResponse" class="space-y-2 text-sm">
-            <div class="flex justify-between">
-              <span class="text-[#858585]">HTTPS Status:</span>
-              <span :class="getHttpStatusClass(httpsStatus)">{{ httpsStatus || 'N/A' }}</span>
+
+          <!-- DNS Card -->
+          <div class="card">
+            <h2 class="text-xl font-semibold mb-4">DNS</h2>
+            <div v-if="dnsStore.loading" class="space-y-2">
+              <div class="h-3 bg-[#3e3e42] rounded animate-pulse"></div>
+              <div class="h-3 bg-[#3e3e42] rounded animate-pulse w-2/3"></div>
             </div>
-            <div class="flex justify-between">
-              <span class="text-[#858585]">Response Time:</span>
-              <span class="text-white">{{ httpResponseTime }}ms</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-[#858585]">Redirects:</span>
-              <span class="text-white">{{ httpStore.httpsResponse.redirects.length }}</span>
+            <div v-else class="space-y-2 text-sm">
+              <div class="flex justify-between">
+                <span class="text-[#858585]">A Records:</span>
+                <span :class="getStatusClass(aRecordCount, 1)">{{ aRecordCount }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-[#858585]">AAAA Records:</span>
+                <span :class="getStatusClass(aaaaRecordCount, 1)">{{ aaaaRecordCount }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-[#858585]">MX Records:</span>
+                <span :class="getStatusClass(mxRecordCount, 1)">{{ mxRecordCount }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-[#858585]">NS Records:</span>
+                <span :class="getStatusClass(nsRecordCount, 2)">{{ nsRecordCount }}</span>
+              </div>
             </div>
           </div>
-          <p v-else class="text-[#858585] text-sm">No HTTP data</p>
+
+          <!-- Email Card -->
+          <div class="card">
+            <h2 class="text-xl font-semibold mb-4">Email</h2>
+            <div class="text-sm">
+              <p class="text-[#858585]">Email security configuration</p>
+              <p class="text-xs text-[#858585] mt-2">Coming soon</p>
+            </div>
+          </div>
+
+          <!-- DNSSEC Card -->
+          <div class="card">
+            <h2 class="text-xl font-semibold mb-4">DNSSEC</h2>
+            <div class="text-sm">
+              <p class="text-[#858585]">DNSSEC validation status</p>
+              <p class="text-xs text-[#858585] mt-2">Coming soon</p>
+            </div>
+          </div>
+
+          <!-- Certificate Card -->
+          <div class="card">
+            <h2 class="text-xl font-semibold mb-4">Certificate</h2>
+            <div v-if="certStore.loading" class="space-y-2">
+              <div class="h-3 bg-[#3e3e42] rounded animate-pulse"></div>
+              <div class="h-3 bg-[#3e3e42] rounded animate-pulse w-3/4"></div>
+            </div>
+            <div v-else-if="certInfo" class="space-y-2 text-sm">
+              <div>
+                <p class="text-xs text-[#858585]">Issued To</p>
+                <p class="text-sm font-medium truncate">
+                  {{ certInfo.subject.common_name || 'N/A' }}
+                </p>
+              </div>
+              <div>
+                <p class="text-xs text-[#858585]">Issued By</p>
+                <p class="text-sm font-medium truncate">
+                  {{ certInfo.issuer.organization || 'N/A' }}
+                </p>
+              </div>
+              <div>
+                <p class="text-xs text-[#858585]">Expires</p>
+                <p :class="['text-sm font-medium', getCertStatusClass(certDaysUntilExpiry)]">
+                  {{ certDaysUntilExpiry !== null ? `${certDaysUntilExpiry} days` : 'N/A' }}
+                </p>
+              </div>
+            </div>
+            <p v-else class="text-[#858585] text-sm">No certificate data</p>
+          </div>
+
+          <!-- HTTP Card -->
+          <div class="card lg:col-span-2">
+            <h2 class="text-xl font-semibold mb-4">HTTP/HTTPS</h2>
+            <div v-if="httpStore.loading" class="space-y-2">
+              <div class="h-3 bg-[#3e3e42] rounded animate-pulse"></div>
+              <div class="h-3 bg-[#3e3e42] rounded animate-pulse w-1/2"></div>
+            </div>
+            <div v-else-if="httpStore.httpsResponse" class="space-y-2 text-sm">
+              <div class="flex justify-between">
+                <span class="text-[#858585]">HTTPS Status:</span>
+                <span :class="getHttpStatusClass(httpsStatus)">{{ httpsStatus || 'N/A' }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-[#858585]">Response Time:</span>
+                <span class="text-white">{{ httpResponseTime }}ms</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-[#858585]">Redirects:</span>
+                <span class="text-white">{{ httpStore.httpsResponse.redirects.length }}</span>
+              </div>
+            </div>
+            <p v-else class="text-[#858585] text-sm">No HTTP data</p>
+          </div>
         </div>
+        <!-- End existing cards grid -->
       </div>
     </div>
   </div>

@@ -1,30 +1,68 @@
-use crate::models::certificate::{CertificateInfo, CertificateSubject, CertificateChain, TlsInfo};
-use std::process::Command;
+use crate::models::certificate::{CertificateChain, CertificateInfo, CertificateSubject, TlsInfo};
+use crate::models::command_log::CommandLog;
 use regex::Regex;
+use std::process::Command;
+use std::time::Instant;
+use tauri::{AppHandle, Emitter};
 
-pub struct CertificateAdapter;
+pub struct CertificateAdapter {
+    app_handle: Option<AppHandle>,
+}
 
 impl CertificateAdapter {
     pub fn new() -> Self {
-        CertificateAdapter
+        CertificateAdapter { app_handle: None }
+    }
+
+    pub fn with_app_handle(app_handle: AppHandle) -> Self {
+        CertificateAdapter {
+            app_handle: Some(app_handle),
+        }
+    }
+
+    fn emit_log(&self, log: CommandLog) {
+        if let Some(handle) = &self.app_handle {
+            let _ = handle.emit("command-log", log);
+        }
     }
 
     pub async fn get_certificate_info(&self, host: &str, port: u16) -> Result<TlsInfo, String> {
+        let start = Instant::now();
         if !self.is_openssl_available() {
             return Err("openssl command not found. Please install OpenSSL.".to_string());
         }
 
         // Get certificate chain using openssl s_client
+        let command = format!(
+            "echo Q | openssl s_client -connect {}:{} -showcerts 2>/dev/null",
+            host, port
+        );
+
         let output = Command::new("sh")
             .arg("-c")
-            .arg(format!(
-                "echo Q | openssl s_client -connect {}:{} -showcerts 2>/dev/null",
-                host, port
-            ))
+            .arg(&command)
             .output()
             .map_err(|e| format!("Failed to execute openssl: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
+        let exit_code = output.status.code().unwrap_or(1);
+        let duration = start.elapsed().as_millis() as f64;
+
+        // Log the command
+        self.emit_log(CommandLog::new(
+            "openssl".to_string(),
+            vec![
+                "s_client".to_string(),
+                "-connect".to_string(),
+                format!("{}:{}", host, port),
+                "-showcerts".to_string(),
+            ],
+            stdout.to_string(),
+            exit_code,
+            duration,
+            Some(host.to_string()),
+        ));
+
         let certificates = self.parse_certificate_chain(&stdout)?;
 
         Ok(TlsInfo {
@@ -42,12 +80,15 @@ impl CertificateAdapter {
     fn parse_certificate_chain(&self, output: &str) -> Result<Vec<CertificateInfo>, String> {
         let mut certificates = Vec::new();
 
-        // Extract PEM certificates
-        let cert_regex = Regex::new(r"-----BEGIN CERTIFICATE-----\n(.*?)\n-----END CERTIFICATE-----")
-            .unwrap();
+        // Extract PEM certificates - use (?s) flag for DOTALL mode (. matches newlines)
+        let cert_regex =
+            Regex::new(r"(?s)-----BEGIN CERTIFICATE-----(.*?)-----END CERTIFICATE-----").unwrap();
 
         for cap in cert_regex.captures_iter(output) {
-            let pem = format!("-----BEGIN CERTIFICATE-----\n{}\n-----END CERTIFICATE-----", &cap[1]);
+            let pem = format!(
+                "-----BEGIN CERTIFICATE-----{}-----END CERTIFICATE-----",
+                &cap[1]
+            );
 
             if let Ok(cert_info) = self.parse_single_certificate(&pem) {
                 certificates.push(cert_info);
@@ -150,9 +191,6 @@ impl CertificateAdapter {
     }
 
     fn is_openssl_available(&self) -> bool {
-        Command::new("openssl")
-            .arg("version")
-            .output()
-            .is_ok()
+        Command::new("openssl").arg("version").output().is_ok()
     }
 }

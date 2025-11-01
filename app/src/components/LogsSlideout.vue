@@ -295,22 +295,20 @@ const copyOutput = (output: string) => {
 
 /* Accordion transition for log expansion */
 .accordion-enter-active {
-  transition: all 0.2s ease;
+  transition: max-height 0.2s ease;
 }
 
 .accordion-leave-active {
-  transition: all 0.1s ease;
+  transition: max-height 0.1s ease;
 }
 
 .accordion-enter-from,
 .accordion-leave-to {
   max-height: 0;
-  opacity: 0;
 }
 
 .accordion-enter-to,
 .accordion-leave-from {
   max-height: 500px;
-  opacity: 1;
 }
 </style>

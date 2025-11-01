@@ -59,11 +59,11 @@ export function useKeyboardShortcuts() {
       return;
     }
 
-    // L for logs/raw data
+    // L for logs slideout
     if (event.key.toLowerCase() === 'l') {
       event.preventDefault();
-      console.log('Show raw data modal');
-      window.dispatchEvent(new CustomEvent('app:show-raw-data'));
+      console.log('Toggle logs slideout');
+      window.dispatchEvent(new CustomEvent('app:toggle-logs'));
       return;
     }
 

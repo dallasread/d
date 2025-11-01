@@ -12,14 +12,11 @@ export const useCertificateStore = defineStore('certificate', () => {
     loading.value = true;
     error.value = null;
 
-    console.log('Fetching certificate for:', host, 'port:', port || 443);
-
     try {
       const result = await invoke<TlsInfo>('get_certificate', {
         host,
         port: port || 443,
       });
-      console.log('Certificate result:', result);
       tlsInfo.value = result;
     } catch (e) {
       error.value = e as string;
