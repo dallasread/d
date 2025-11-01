@@ -12,21 +12,41 @@ const hasDomain = computed(() => !!appStore.domain);
 const leafCert = computed(() => certStore.tlsInfo?.certificate_chain.certificates[0]);
 
 const daysUntilExpiry = computed(() => {
-  if (!leafCert.value) return null;
-  const expiryDate = new Date(leafCert.value.not_after);
-  const now = new Date();
-  const days = Math.floor((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  return days;
+  if (!leafCert.value || !leafCert.value.not_after) return null;
+  try {
+    const expiryDate = new Date(leafCert.value.not_after);
+    if (isNaN(expiryDate.getTime())) return null;
+    const now = new Date();
+    const days = Math.floor((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    return days;
+  } catch (e) {
+    console.error('Error calculating days until expiry:', e);
+    return null;
+  }
 });
 
 const isExpired = computed(() => {
-  if (!leafCert.value) return false;
-  return new Date(leafCert.value.not_after) < new Date();
+  if (!leafCert.value || !leafCert.value.not_after) return false;
+  try {
+    const expiryDate = new Date(leafCert.value.not_after);
+    if (isNaN(expiryDate.getTime())) return false;
+    return expiryDate < new Date();
+  } catch (e) {
+    console.error('Error checking expiration:', e);
+    return false;
+  }
 });
 
 const formatDate = (dateString: string) => {
-  const date = new Date(dateString);
-  return date.toISOString().split('T')[0]; // YYYY-MM-DD format
+  if (!dateString) return 'N/A';
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Invalid Date';
+    return date.toISOString().split('T')[0]; // YYYY-MM-DD format
+  } catch (e) {
+    console.error('Error formatting date:', e);
+    return 'Invalid Date';
+  }
 };
 
 const getStatusText = computed(() => {
