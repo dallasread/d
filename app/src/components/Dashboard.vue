@@ -23,18 +23,31 @@ const nsRecordCount = computed(() => dnsStore.nsRecords?.records.length || 0);
 // Certificate info
 const certInfo = computed(() => certStore.tlsInfo?.certificate_chain.certificates[0]);
 const certDaysUntilExpiry = computed(() => {
-  if (!certInfo.value) return null;
-  const expiryDate = new Date(certInfo.value.not_after);
-  const now = new Date();
-  const days = Math.floor((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  return days;
+  if (!certInfo.value || !certInfo.value.not_after) return null;
+  try {
+    const expiryDate = new Date(certInfo.value.not_after);
+    if (isNaN(expiryDate.getTime())) return null;
+    const now = new Date();
+    const days = Math.floor((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    return days;
+  } catch (e) {
+    console.error('Error parsing certificate date:', e);
+    return null;
+  }
 });
 
 // WHOIS info
 const registrar = computed(() => whoisStore.whoisInfo?.registrar || 'N/A');
 const expirationDate = computed(() => {
   if (!whoisStore.whoisInfo?.expiration_date) return 'N/A';
-  return new Date(whoisStore.whoisInfo.expiration_date).toLocaleDateString();
+  try {
+    const date = new Date(whoisStore.whoisInfo.expiration_date);
+    if (isNaN(date.getTime())) return 'N/A';
+    return date.toLocaleDateString();
+  } catch (e) {
+    console.error('Error parsing expiration date:', e);
+    return 'N/A';
+  }
 });
 
 // HTTP status
