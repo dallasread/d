@@ -32,10 +32,22 @@ impl WhoisAdapter {
             return Err("whois command not found. Please install whois.".to_string());
         }
 
-        let args = vec![domain.to_string()];
+        // Determine the appropriate WHOIS server based on TLD
+        let whois_server = self.get_whois_server(domain);
 
-        let output = Command::new("whois")
-            .arg(domain)
+        let mut args = vec![];
+        let mut cmd = Command::new("whois");
+
+        if let Some(server) = whois_server {
+            args.push("-h".to_string());
+            args.push(server.clone());
+            cmd.arg("-h").arg(server);
+        }
+
+        args.push(domain.to_string());
+        cmd.arg(domain);
+
+        let output = cmd
             .output()
             .map_err(|e| format!("Failed to execute whois: {}", e))?;
 
@@ -123,6 +135,44 @@ impl WhoisAdapter {
             .captures_iter(text)
             .filter_map(|cap| cap.get(1).map(|m| m.as_str().to_string()))
             .collect()
+    }
+
+    fn get_whois_server(&self, domain: &str) -> Option<String> {
+        // Extract TLD from domain
+        let tld = domain.split('.').last()?.to_lowercase();
+
+        // Map common TLDs to their WHOIS servers
+        let server = match tld.as_str() {
+            "com" | "net" => "whois.verisign-grs.com",
+            "org" => "whois.pir.org",
+            "io" => "whois.nic.io",
+            "uk" => "whois.nic.uk",
+            "de" => "whois.denic.de",
+            "fr" => "whois.nic.fr",
+            "nl" => "whois.domain-registry.nl",
+            "eu" => "whois.eu",
+            "au" => "whois.auda.org.au",
+            "ca" => "whois.cira.ca",
+            "jp" => "whois.jprs.jp",
+            "cn" => "whois.cnnic.cn",
+            "in" => "whois.registry.in",
+            "br" => "whois.registro.br",
+            "mx" => "whois.mx",
+            "ru" => "whois.tcinet.ru",
+            "us" => "whois.nic.us",
+            "info" => "whois.afilias.net",
+            "biz" => "whois.biz",
+            "me" => "whois.nic.me",
+            "tv" => "whois.nic.tv",
+            "cc" => "whois.nic.cc",
+            "name" => "whois.nic.name",
+            "co" => "whois.nic.co",
+            "app" => "whois.nic.google",
+            "dev" => "whois.nic.google",
+            _ => return None, // Let whois command auto-detect for unknown TLDs
+        };
+
+        Some(server.to_string())
     }
 
     fn is_whois_available(&self) -> bool {
