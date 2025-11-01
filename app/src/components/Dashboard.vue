@@ -5,12 +5,14 @@ import { useDNSStore } from '../stores/dns';
 import { useCertificateStore } from '../stores/certificate';
 import { useWhoisStore } from '../stores/whois';
 import { useHttpStore } from '../stores/http';
+import { useDnssecStore } from '../stores/dnssec';
 
 const appStore = useAppStore();
 const dnsStore = useDNSStore();
 const certStore = useCertificateStore();
 const whoisStore = useWhoisStore();
 const httpStore = useHttpStore();
+const dnssecStore = useDnssecStore();
 
 const hasDomain = computed(() => !!appStore.domain);
 
@@ -164,6 +166,91 @@ const healthChecks = computed(() => {
         ? `${mxRecordCount.value} MX record(s) configured`
         : 'No MX records found',
   });
+
+  // WHOIS/Registration checks
+  if (whoisStore.whoisInfo) {
+    const expirationDate = whoisStore.whoisInfo.expiration_date
+      ? new Date(whoisStore.whoisInfo.expiration_date)
+      : null;
+    if (expirationDate && !isNaN(expirationDate.getTime())) {
+      const daysUntilExpiry = Math.floor(
+        (expirationDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+      );
+      let regStatus: 'pass' | 'warn' | 'fail';
+      let regMessage: string;
+      if (daysUntilExpiry > 90) {
+        regStatus = 'pass';
+        regMessage = `Expires in ${daysUntilExpiry} days`;
+      } else if (daysUntilExpiry > 30) {
+        regStatus = 'warn';
+        regMessage = `Expires in ${daysUntilExpiry} days`;
+      } else if (daysUntilExpiry > 0) {
+        regStatus = 'fail';
+        regMessage = `Expires soon (${daysUntilExpiry} days)`;
+      } else {
+        regStatus = 'fail';
+        regMessage = 'Domain expired';
+      }
+      checks.push({
+        name: 'Registration',
+        status: regStatus,
+        message: regMessage,
+      });
+    }
+  }
+
+  // DNSSEC checks
+  if (dnssecStore.validation) {
+    let dnssecStatus: 'pass' | 'warn' | 'fail';
+    let dnssecMessage: string;
+    if (dnssecStore.validation.status === 'SECURE') {
+      dnssecStatus = 'pass';
+      dnssecMessage = 'DNSSEC validated';
+    } else if (dnssecStore.validation.status === 'INSECURE') {
+      dnssecStatus = 'warn';
+      dnssecMessage = 'DNSSEC not configured';
+    } else if (dnssecStore.validation.status === 'BOGUS') {
+      dnssecStatus = 'fail';
+      dnssecMessage = 'DNSSEC validation failed';
+    } else {
+      dnssecStatus = 'warn';
+      dnssecMessage = 'DNSSEC status unknown';
+    }
+    checks.push({
+      name: 'DNSSEC',
+      status: dnssecStatus,
+      message: dnssecMessage,
+    });
+  }
+
+  // WWW subdomain check
+  if (httpStore.wwwHttpsResponse && httpStore.apexHttpsResponse) {
+    const wwwWorks =
+      httpStore.wwwHttpsResponse.status_code >= 200 && httpStore.wwwHttpsResponse.status_code < 400;
+    const apexWorks =
+      httpStore.apexHttpsResponse.status_code >= 200 &&
+      httpStore.apexHttpsResponse.status_code < 400;
+
+    if (wwwWorks && apexWorks) {
+      checks.push({
+        name: 'WWW Subdomain',
+        status: 'pass',
+        message: 'Both apex and www accessible',
+      });
+    } else if (wwwWorks || apexWorks) {
+      checks.push({
+        name: 'WWW Subdomain',
+        status: 'warn',
+        message: wwwWorks ? 'Only www accessible' : 'Only apex accessible',
+      });
+    } else {
+      checks.push({
+        name: 'WWW Subdomain',
+        status: 'fail',
+        message: 'Neither apex nor www accessible',
+      });
+    }
+  }
 
   return checks;
 });
