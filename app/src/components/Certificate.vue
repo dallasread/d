@@ -188,6 +188,11 @@ const getStatusClass = computed(() => {
       <!-- No Data -->
       <div v-if="!leafCert && !certStore.loading && hasDomain && !certStore.error" class="panel">
         <p class="text-[#858585]">No certificate data available</p>
+        <p class="text-xs text-[#666] mt-2">
+          Debug: tlsInfo={{ certStore.tlsInfo }}, loading={{ certStore.loading }}, error={{
+            certStore.error
+          }}
+        </p>
       </div>
     </div>
   </div>
