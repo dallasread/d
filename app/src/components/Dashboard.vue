@@ -388,8 +388,8 @@ const overallHealth = computed(() => {
 
         <!-- Existing cards grid -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <!-- Registration Card (full height left) -->
-          <div class="card lg:row-span-2">
+          <!-- Registration Card -->
+          <div class="card">
             <h2 class="text-xl font-semibold mb-4">Registration</h2>
             <div v-if="whoisStore.loading" class="space-y-3">
               <div class="h-4 bg-[#3e3e42] rounded animate-pulse"></div>
