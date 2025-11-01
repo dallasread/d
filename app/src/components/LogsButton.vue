@@ -34,7 +34,31 @@ const logCount = computed(() => {
   // Filter by current route/panel
   const tools = routeToolMap[route.path];
   if (tools && tools.length > 0) {
-    logs = logs.filter((log) => tools.includes(log.tool));
+    logs = logs.filter((log) => {
+      if (!tools.includes(log.tool)) {
+        return false;
+      }
+
+      // Special filtering for email tab - only show MX and TXT queries
+      if (route.path === '/email' && log.tool === 'dig') {
+        const args = log.args.join(' ');
+        return args.includes(' MX') || args.includes(' TXT');
+      }
+
+      // Special filtering for DNS tab - exclude DNSKEY and DS queries (those are DNSSEC)
+      if (route.path === '/dns' && log.tool === 'dig') {
+        const args = log.args.join(' ');
+        return !args.includes(' DNSKEY') && !args.includes(' DS');
+      }
+
+      // Special filtering for DNSSEC tab - only show DNSKEY and DS queries
+      if (route.path === '/dnssec' && log.tool === 'dig') {
+        const args = log.args.join(' ');
+        return args.includes(' DNSKEY') || args.includes(' DS');
+      }
+
+      return true;
+    });
   }
 
   return logs.length;
