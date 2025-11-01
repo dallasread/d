@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 import { useAppStore } from '../stores/app';
 import { useDNSStore } from '../stores/dns';
 import { useCertificateStore } from '../stores/certificate';
@@ -7,6 +8,7 @@ import { useWhoisStore } from '../stores/whois';
 import { useHttpStore } from '../stores/http';
 import { useDnssecStore } from '../stores/dnssec';
 
+const router = useRouter();
 const appStore = useAppStore();
 const dnsStore = useDNSStore();
 const certStore = useCertificateStore();
@@ -389,8 +391,18 @@ const overallHealth = computed(() => {
         <!-- Existing cards grid -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <!-- Registration Card -->
-          <div class="card">
-            <h2 class="text-xl font-semibold mb-4">Registration</h2>
+          <div
+            class="card cursor-pointer hover:border-blue-500/50 transition-colors"
+            @click="router.push('/registration')"
+          >
+            <div class="flex items-start justify-between mb-4">
+              <h2 class="text-xl font-semibold">Registration</h2>
+              <kbd
+                class="inline-flex items-center justify-center w-5 h-5 text-[11px] font-medium rounded border bg-[#3e3e42] border-[#5a5a5f] text-[#b0b0b0]"
+              >
+                2
+              </kbd>
+            </div>
             <div v-if="whoisStore.loading" class="space-y-3">
               <div class="h-4 bg-[#3e3e42] rounded animate-pulse"></div>
               <div class="h-4 bg-[#3e3e42] rounded animate-pulse w-3/4"></div>
@@ -419,8 +431,18 @@ const overallHealth = computed(() => {
           </div>
 
           <!-- DNS Card -->
-          <div class="card">
-            <h2 class="text-xl font-semibold mb-4">DNS</h2>
+          <div
+            class="card cursor-pointer hover:border-blue-500/50 transition-colors"
+            @click="router.push('/dns')"
+          >
+            <div class="flex items-start justify-between mb-4">
+              <h2 class="text-xl font-semibold">DNS</h2>
+              <kbd
+                class="inline-flex items-center justify-center w-5 h-5 text-[11px] font-medium rounded border bg-[#3e3e42] border-[#5a5a5f] text-[#b0b0b0]"
+              >
+                3
+              </kbd>
+            </div>
             <div v-if="dnsStore.loading" class="space-y-2">
               <div class="h-3 bg-[#3e3e42] rounded animate-pulse"></div>
               <div class="h-3 bg-[#3e3e42] rounded animate-pulse w-2/3"></div>
@@ -446,8 +468,18 @@ const overallHealth = computed(() => {
           </div>
 
           <!-- Email Card -->
-          <div class="card">
-            <h2 class="text-xl font-semibold mb-4">Email</h2>
+          <div
+            class="card cursor-pointer hover:border-blue-500/50 transition-colors"
+            @click="router.push('/email')"
+          >
+            <div class="flex items-start justify-between mb-4">
+              <h2 class="text-xl font-semibold">Email</h2>
+              <kbd
+                class="inline-flex items-center justify-center w-5 h-5 text-[11px] font-medium rounded border bg-[#3e3e42] border-[#5a5a5f] text-[#b0b0b0]"
+              >
+                7
+              </kbd>
+            </div>
             <div class="text-sm">
               <p class="text-[#858585]">Email security configuration</p>
               <p class="text-xs text-[#858585] mt-2">Coming soon</p>
@@ -455,8 +487,18 @@ const overallHealth = computed(() => {
           </div>
 
           <!-- DNSSEC Card -->
-          <div class="card">
-            <h2 class="text-xl font-semibold mb-4">DNSSEC</h2>
+          <div
+            class="card cursor-pointer hover:border-blue-500/50 transition-colors"
+            @click="router.push('/dnssec')"
+          >
+            <div class="flex items-start justify-between mb-4">
+              <h2 class="text-xl font-semibold">DNSSEC</h2>
+              <kbd
+                class="inline-flex items-center justify-center w-5 h-5 text-[11px] font-medium rounded border bg-[#3e3e42] border-[#5a5a5f] text-[#b0b0b0]"
+              >
+                4
+              </kbd>
+            </div>
             <div class="text-sm">
               <p class="text-[#858585]">DNSSEC validation status</p>
               <p class="text-xs text-[#858585] mt-2">Coming soon</p>
@@ -464,8 +506,18 @@ const overallHealth = computed(() => {
           </div>
 
           <!-- Certificate Card -->
-          <div class="card">
-            <h2 class="text-xl font-semibold mb-4">Certificate</h2>
+          <div
+            class="card cursor-pointer hover:border-blue-500/50 transition-colors"
+            @click="router.push('/certificate')"
+          >
+            <div class="flex items-start justify-between mb-4">
+              <h2 class="text-xl font-semibold">Certificate</h2>
+              <kbd
+                class="inline-flex items-center justify-center w-5 h-5 text-[11px] font-medium rounded border bg-[#3e3e42] border-[#5a5a5f] text-[#b0b0b0]"
+              >
+                5
+              </kbd>
+            </div>
             <div v-if="certStore.loading" class="space-y-2">
               <div class="h-3 bg-[#3e3e42] rounded animate-pulse"></div>
               <div class="h-3 bg-[#3e3e42] rounded animate-pulse w-3/4"></div>
@@ -494,8 +546,18 @@ const overallHealth = computed(() => {
           </div>
 
           <!-- HTTP Card -->
-          <div class="card">
-            <h2 class="text-xl font-semibold mb-4">HTTP/HTTPS</h2>
+          <div
+            class="card cursor-pointer hover:border-blue-500/50 transition-colors"
+            @click="router.push('/http')"
+          >
+            <div class="flex items-start justify-between mb-4">
+              <h2 class="text-xl font-semibold">HTTP/HTTPS</h2>
+              <kbd
+                class="inline-flex items-center justify-center w-5 h-5 text-[11px] font-medium rounded border bg-[#3e3e42] border-[#5a5a5f] text-[#b0b0b0]"
+              >
+                6
+              </kbd>
+            </div>
             <div v-if="httpStore.loading" class="space-y-2">
               <div class="h-3 bg-[#3e3e42] rounded animate-pulse"></div>
               <div class="h-3 bg-[#3e3e42] rounded animate-pulse w-1/2"></div>
