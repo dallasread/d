@@ -191,6 +191,19 @@ const dnssecSubQueries = computed(() => [
                   </h3>
 
                   <div class="border border-[#3e3e42] rounded p-3 bg-[#1a1a1a]">
+                    <!-- No DNSSEC records message -->
+                    <div
+                      v-if="
+                        (!zone.dnskey_records || zone.dnskey_records.length === 0) &&
+                        (!zone.ds_records || zone.ds_records.length === 0) &&
+                        (!zone.rrsig_records || zone.rrsig_records.length === 0)
+                      "
+                      class="font-mono text-xs text-[#858585] flex items-start gap-2"
+                    >
+                      <span class="flex-shrink-0">○</span>
+                      <span>No DNSSEC records found for this zone</span>
+                    </div>
+
                     <!-- DNSKEY Records -->
                     <div
                       v-if="zone.dnskey_records && zone.dnskey_records.length > 0"

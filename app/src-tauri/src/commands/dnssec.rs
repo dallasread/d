@@ -149,15 +149,14 @@ pub async fn validate_dnssec(
                     warnings.push(format!("No DNSKEY records found for {}", domain));
                 }
 
-                // Only add zone to chain if it has any DNSSEC records
-                if !zone_ds.is_empty() || !zone_dnskeys.is_empty() || !zone_rrsigs.is_empty() {
-                    chain.push(ZoneData {
-                        zone_name: current_zone.clone(),
-                        dnskey_records: zone_dnskeys,
-                        ds_records: zone_ds, // Points to child zone's DNSKEYs
-                        rrsig_records: zone_rrsigs,
-                    });
-                }
+                // Always add zone to chain (even if no DNSSEC records)
+                // This ensures we show every step in the resolve chain
+                chain.push(ZoneData {
+                    zone_name: current_zone.clone(),
+                    dnskey_records: zone_dnskeys,
+                    ds_records: zone_ds, // Points to child zone's DNSKEYs
+                    rrsig_records: zone_rrsigs,
+                });
             }
             Err(e) => {
                 // Only warn for target domain failures
