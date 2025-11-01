@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { useAppStore } from '../stores/app';
 import { useDNSStore } from '../stores/dns';
 import PanelLoading from './PanelLoading.vue';
+import { CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon } from '@heroicons/vue/24/solid';
 
 const appStore = useAppStore();
 const dnsStore = useDNSStore();
@@ -16,6 +17,54 @@ const dnsSubQueries = computed(() => [
   { name: 'TXT Records', status: 'loading' as const },
   { name: 'NS Records (Nameservers)', status: 'loading' as const },
 ]);
+
+// Diagnostic insights
+const diagnostics = computed(() => {
+  const issues = [];
+  const warnings = [];
+  const successes = [];
+
+  // Check for missing critical records
+  if (
+    dnsStore.aRecords &&
+    dnsStore.aRecords.records.length === 0 &&
+    dnsStore.aaaaRecords &&
+    dnsStore.aaaaRecords.records.length === 0
+  ) {
+    issues.push('No A or AAAA records found - domain will not resolve');
+  } else if (dnsStore.aRecords && dnsStore.aRecords.records.length > 0) {
+    successes.push(`Domain resolves to ${dnsStore.aRecords.records.length} IPv4 address(es)`);
+  }
+
+  // Check nameserver configuration
+  if (dnsStore.nsRecords) {
+    if (dnsStore.nsRecords.records.length === 0) {
+      issues.push('No NS records found - DNS delegation is broken');
+    } else if (dnsStore.nsRecords.records.length === 1) {
+      warnings.push('Only 1 nameserver configured - recommend at least 2 for redundancy');
+    } else {
+      successes.push(
+        `${dnsStore.nsRecords.records.length} nameservers configured (good redundancy)`
+      );
+    }
+  }
+
+  // Check mail configuration
+  if (dnsStore.mxRecords) {
+    if (dnsStore.mxRecords.records.length === 0) {
+      warnings.push('No MX records - email delivery may fail');
+    } else {
+      successes.push(`${dnsStore.mxRecords.records.length} MX record(s) configured for email`);
+    }
+  }
+
+  // Check IPv6 support
+  if (dnsStore.aaaaRecords && dnsStore.aaaaRecords.records.length === 0) {
+    warnings.push('No IPv6 (AAAA) records - domain not accessible via IPv6');
+  }
+
+  return { issues, warnings, successes };
+});
 </script>
 
 <template>
@@ -33,6 +82,53 @@ const dnsSubQueries = computed(() => [
 
       <!-- DNS Records -->
       <div v-else class="space-y-6">
+        <!-- Diagnostic Summary -->
+        <div
+          class="panel"
+          v-if="
+            diagnostics.issues.length > 0 ||
+            diagnostics.warnings.length > 0 ||
+            diagnostics.successes.length > 0
+          "
+        >
+          <h2 class="text-xl font-semibold mb-4">DNS Health Check</h2>
+
+          <!-- Issues -->
+          <div v-if="diagnostics.issues.length > 0" class="space-y-2 mb-3">
+            <div
+              v-for="(issue, index) in diagnostics.issues"
+              :key="`issue-${index}`"
+              class="flex items-start gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded"
+            >
+              <XCircleIcon class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+              <span class="text-sm text-red-300">{{ issue }}</span>
+            </div>
+          </div>
+
+          <!-- Warnings -->
+          <div v-if="diagnostics.warnings.length > 0" class="space-y-2 mb-3">
+            <div
+              v-for="(warning, index) in diagnostics.warnings"
+              :key="`warning-${index}`"
+              class="flex items-start gap-2 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded"
+            >
+              <ExclamationTriangleIcon class="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+              <span class="text-sm text-yellow-300">{{ warning }}</span>
+            </div>
+          </div>
+
+          <!-- Successes -->
+          <div v-if="diagnostics.successes.length > 0" class="space-y-2">
+            <div
+              v-for="(success, index) in diagnostics.successes"
+              :key="`success-${index}`"
+              class="flex items-start gap-2 p-3 bg-green-500/10 border border-green-500/30 rounded"
+            >
+              <CheckCircleIcon class="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+              <span class="text-sm text-green-300">{{ success }}</span>
+            </div>
+          </div>
+        </div>
         <!-- A Records -->
         <div class="panel">
           <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
