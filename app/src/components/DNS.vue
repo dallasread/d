@@ -130,8 +130,8 @@ const diagnostics = computed(() => {
           </div>
         </div>
         <!-- A Records -->
-        <div class="panel">
-          <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+        <div class="panel py-4">
+          <h2 class="text-lg font-semibold mb-3 flex items-center gap-2">
             A Records
             <span class="text-sm font-normal text-[#858585]">(IPv4)</span>
             <span v-if="dnsStore.aRecords" class="text-sm font-normal text-blue-400">
@@ -142,9 +142,11 @@ const diagnostics = computed(() => {
             <table class="w-full text-sm">
               <thead class="border-b border-[#3e3e42]">
                 <tr>
-                  <th class="text-left py-2 px-3 text-[#858585] font-medium">Name</th>
-                  <th class="text-left py-2 px-3 text-[#858585] font-medium">TTL</th>
-                  <th class="text-left py-2 px-3 text-[#858585] font-medium">IP Address</th>
+                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">Name</th>
+                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">TTL</th>
+                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">
+                    IP Address
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -153,9 +155,9 @@ const diagnostics = computed(() => {
                   :key="index"
                   class="border-b border-[#3e3e42]/50"
                 >
-                  <td class="py-2 px-3">{{ record.name }}</td>
-                  <td class="py-2 px-3 text-[#858585]">{{ record.ttl }}</td>
-                  <td class="py-2 px-3 font-mono text-blue-400">{{ record.value }}</td>
+                  <td class="py-1.5 px-2">{{ record.name }}</td>
+                  <td class="py-1.5 px-2 text-[#858585]">{{ record.ttl }}</td>
+                  <td class="py-1.5 px-2 font-mono text-blue-400">{{ record.value }}</td>
                 </tr>
               </tbody>
             </table>
@@ -167,8 +169,8 @@ const diagnostics = computed(() => {
         </div>
 
         <!-- AAAA Records -->
-        <div class="panel">
-          <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+        <div class="panel py-4">
+          <h2 class="text-lg font-semibold mb-3 flex items-center gap-2">
             AAAA Records
             <span class="text-sm font-normal text-[#858585]">(IPv6)</span>
             <span v-if="dnsStore.aaaaRecords" class="text-sm font-normal text-blue-400">
@@ -179,9 +181,11 @@ const diagnostics = computed(() => {
             <table class="w-full text-sm">
               <thead class="border-b border-[#3e3e42]">
                 <tr>
-                  <th class="text-left py-2 px-3 text-[#858585] font-medium">Name</th>
-                  <th class="text-left py-2 px-3 text-[#858585] font-medium">TTL</th>
-                  <th class="text-left py-2 px-3 text-[#858585] font-medium">IP Address</th>
+                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">Name</th>
+                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">TTL</th>
+                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">
+                    IP Address
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -190,9 +194,9 @@ const diagnostics = computed(() => {
                   :key="index"
                   class="border-b border-[#3e3e42]/50"
                 >
-                  <td class="py-2 px-3">{{ record.name }}</td>
-                  <td class="py-2 px-3 text-[#858585]">{{ record.ttl }}</td>
-                  <td class="py-2 px-3 font-mono text-blue-400">{{ record.value }}</td>
+                  <td class="py-1.5 px-2">{{ record.name }}</td>
+                  <td class="py-1.5 px-2 text-[#858585]">{{ record.ttl }}</td>
+                  <td class="py-1.5 px-2 font-mono text-blue-400">{{ record.value }}</td>
                 </tr>
               </tbody>
             </table>
@@ -204,8 +208,8 @@ const diagnostics = computed(() => {
         </div>
 
         <!-- MX Records -->
-        <div class="panel">
-          <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+        <div class="panel py-4">
+          <h2 class="text-lg font-semibold mb-3 flex items-center gap-2">
             MX Records
             <span class="text-sm font-normal text-[#858585]">(Mail Exchange)</span>
             <span v-if="dnsStore.mxRecords" class="text-sm font-normal text-blue-400">
@@ -216,10 +220,12 @@ const diagnostics = computed(() => {
             <table class="w-full text-sm">
               <thead class="border-b border-[#3e3e42]">
                 <tr>
-                  <th class="text-left py-2 px-3 text-[#858585] font-medium">Name</th>
-                  <th class="text-left py-2 px-3 text-[#858585] font-medium">TTL</th>
-                  <th class="text-left py-2 px-3 text-[#858585] font-medium">Priority</th>
-                  <th class="text-left py-2 px-3 text-[#858585] font-medium">Mail Server</th>
+                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">Name</th>
+                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">TTL</th>
+                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">Priority</th>
+                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">
+                    Mail Server
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -228,10 +234,10 @@ const diagnostics = computed(() => {
                   :key="index"
                   class="border-b border-[#3e3e42]/50"
                 >
-                  <td class="py-2 px-3">{{ record.name }}</td>
-                  <td class="py-2 px-3 text-[#858585]">{{ record.ttl }}</td>
-                  <td class="py-2 px-3 text-blue-400">{{ record.value.split(' ')[0] }}</td>
-                  <td class="py-2 px-3 font-mono">
+                  <td class="py-1.5 px-2">{{ record.name }}</td>
+                  <td class="py-1.5 px-2 text-[#858585]">{{ record.ttl }}</td>
+                  <td class="py-1.5 px-2 text-blue-400">{{ record.value.split(' ')[0] }}</td>
+                  <td class="py-1.5 px-2 font-mono">
                     {{ record.value.split(' ')[1] || record.value }}
                   </td>
                 </tr>
@@ -245,8 +251,8 @@ const diagnostics = computed(() => {
         </div>
 
         <!-- NS Records -->
-        <div class="panel">
-          <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+        <div class="panel py-4">
+          <h2 class="text-lg font-semibold mb-3 flex items-center gap-2">
             NS Records
             <span class="text-sm font-normal text-[#858585]">(Nameservers)</span>
             <span v-if="dnsStore.nsRecords" class="text-sm font-normal text-blue-400">
@@ -257,9 +263,11 @@ const diagnostics = computed(() => {
             <table class="w-full text-sm">
               <thead class="border-b border-[#3e3e42]">
                 <tr>
-                  <th class="text-left py-2 px-3 text-[#858585] font-medium">Name</th>
-                  <th class="text-left py-2 px-3 text-[#858585] font-medium">TTL</th>
-                  <th class="text-left py-2 px-3 text-[#858585] font-medium">Nameserver</th>
+                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">Name</th>
+                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">TTL</th>
+                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">
+                    Nameserver
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -268,9 +276,9 @@ const diagnostics = computed(() => {
                   :key="index"
                   class="border-b border-[#3e3e42]/50"
                 >
-                  <td class="py-2 px-3">{{ record.name }}</td>
-                  <td class="py-2 px-3 text-[#858585]">{{ record.ttl }}</td>
-                  <td class="py-2 px-3 font-mono text-blue-400">{{ record.value }}</td>
+                  <td class="py-1.5 px-2">{{ record.name }}</td>
+                  <td class="py-1.5 px-2 text-[#858585]">{{ record.ttl }}</td>
+                  <td class="py-1.5 px-2 font-mono text-blue-400">{{ record.value }}</td>
                 </tr>
               </tbody>
             </table>
@@ -282,8 +290,8 @@ const diagnostics = computed(() => {
         </div>
 
         <!-- TXT Records -->
-        <div class="panel">
-          <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+        <div class="panel py-4">
+          <h2 class="text-lg font-semibold mb-3 flex items-center gap-2">
             TXT Records
             <span class="text-sm font-normal text-[#858585]">(Text)</span>
             <span v-if="dnsStore.txtRecords" class="text-sm font-normal text-blue-400">
@@ -294,9 +302,9 @@ const diagnostics = computed(() => {
             <table class="w-full text-sm">
               <thead class="border-b border-[#3e3e42]">
                 <tr>
-                  <th class="text-left py-2 px-3 text-[#858585] font-medium">Name</th>
-                  <th class="text-left py-2 px-3 text-[#858585] font-medium">TTL</th>
-                  <th class="text-left py-2 px-3 text-[#858585] font-medium">Value</th>
+                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">Name</th>
+                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">TTL</th>
+                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">Value</th>
                 </tr>
               </thead>
               <tbody>
@@ -305,9 +313,9 @@ const diagnostics = computed(() => {
                   :key="index"
                   class="border-b border-[#3e3e42]/50"
                 >
-                  <td class="py-2 px-3">{{ record.name }}</td>
-                  <td class="py-2 px-3 text-[#858585]">{{ record.ttl }}</td>
-                  <td class="py-2 px-3 font-mono text-sm break-all">{{ record.value }}</td>
+                  <td class="py-1.5 px-2">{{ record.name }}</td>
+                  <td class="py-1.5 px-2 text-[#858585]">{{ record.ttl }}</td>
+                  <td class="py-1.5 px-2 font-mono text-sm break-all">{{ record.value }}</td>
                 </tr>
               </tbody>
             </table>

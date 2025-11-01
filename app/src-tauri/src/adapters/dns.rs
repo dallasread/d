@@ -71,11 +71,20 @@ impl DnsAdapter {
             Some(domain.to_string()),
         ));
 
-        if !output.status.success() {
+        // Don't rely solely on exit code - dig often returns non-zero even on success
+        // Check if we got actual DNS data instead
+        let has_answer = stdout.contains("ANSWER SECTION")
+            || stdout.contains("AUTHORITY SECTION")
+            || stdout.contains("status: NOERROR");
+
+        // If we have valid DNS response data, proceed even with non-zero exit code
+        if !output.status.success() && !has_answer {
             return Err(format!("dig command failed: {}", stderr));
         }
 
-        let records = self.parse_dig_output(&stdout, record_type)?;
+        let records = self
+            .parse_dig_output(&stdout, record_type)
+            .unwrap_or_else(|_| Vec::new());
 
         Ok(DnsResponse {
             records,
@@ -220,12 +229,16 @@ impl DnsAdapter {
 
         let query_time = start.elapsed().as_secs_f64();
 
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+
+        // Don't rely solely on exit code for DNSSEC queries
+        // dig often returns non-zero exit codes for valid DNSSEC queries
+        let has_data = stdout.contains("DNSKEY") || stdout.contains("ANSWER SECTION");
+
+        if !output.status.success() && !has_data && !stderr.is_empty() {
             return Err(format!("dig command failed: {}", stderr));
         }
-
-        let stdout = String::from_utf8_lossy(&output.stdout);
 
         // For DNSSEC queries, empty results are valid (means DNSSEC not enabled)
         let records = self
@@ -279,7 +292,10 @@ impl DnsAdapter {
             Some(".".to_string()),
         ));
 
-        if !output.status.success() {
+        // Don't fail on non-zero exit codes if we got valid data
+        let has_data = !stdout.is_empty() && stdout.lines().any(|line| !line.trim().is_empty());
+
+        if !output.status.success() && !has_data {
             return Err(format!("dig command failed: {}", stderr));
         }
 
@@ -354,12 +370,16 @@ impl DnsAdapter {
 
         let query_time = start.elapsed().as_secs_f64();
 
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+
+        // Don't rely solely on exit code for DS queries
+        // dig often returns non-zero exit codes for valid queries
+        let has_data = stdout.contains("DS") || stdout.contains("ANSWER SECTION");
+
+        if !output.status.success() && !has_data && !stderr.is_empty() {
             return Err(format!("dig command failed: {}", stderr));
         }
-
-        let stdout = String::from_utf8_lossy(&output.stdout);
 
         // For DNSSEC queries, empty results are valid (means DNSSEC not enabled)
         let records = self

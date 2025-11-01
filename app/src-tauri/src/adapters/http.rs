@@ -83,7 +83,12 @@ impl HttpAdapter {
             Some(domain.to_string()),
         ));
 
-        if !output.status.success() {
+        // Don't rely solely on exit code - curl often returns non-zero even on success
+        // Check if we got actual HTTP response data instead
+        let has_http_response = stdout.contains("HTTP/") || stdout.contains("__STATUS_CODE__:");
+
+        // Only fail if we have no HTTP response data AND got an error
+        if !output.status.success() && !has_http_response {
             return Err(format!("curl command failed: {}", stderr));
         }
 

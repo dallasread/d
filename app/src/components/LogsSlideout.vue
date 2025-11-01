@@ -122,9 +122,12 @@ const getStatus = (log: any): 'success' | 'fail' => {
     case 'dig':
       // dig is successful if it got an answer or NOERROR status
       // Even with non-zero exit codes, dig can return valid data
+      // Also check for actual DNS record types (A, AAAA, MX, etc.)
       return output.includes('ANSWER SECTION') ||
         output.includes('status: NOERROR') ||
-        output.includes('AUTHORITY SECTION')
+        output.includes('AUTHORITY SECTION') ||
+        output.includes('\tIN\t') || // Standard dig format with IN class
+        output.match(/\d+\s+IN\s+(A|AAAA|MX|TXT|NS|DNSKEY|DS|SOA|CNAME|PTR)/)
         ? 'success'
         : 'fail';
 
@@ -144,8 +147,9 @@ const getStatus = (log: any): 'success' | 'fail' => {
         : 'fail';
 
     case 'curl':
-      // curl is successful with exit code 0
-      return exitCode === 0 ? 'success' : 'fail';
+      // curl is successful if we got HTTP response data
+      // Don't rely solely on exit code as curl returns non-zero for various reasons
+      return output.includes('HTTP/') || output.includes('__STATUS_CODE__:') ? 'success' : 'fail';
 
     default:
       // Default: trust the exit code
@@ -182,19 +186,17 @@ const copyOutput = (output: string) => {
   <Transition name="slide">
     <div
       v-if="isOpen"
-      class="fixed top-0 right-0 h-full w-full md:w-2/3 lg:w-1/2 bg-[#1e1e1e] shadow-2xl z-50 flex flex-col"
+      class="fixed top-[120px] right-0 h-[calc(100vh-120px)] w-full md:w-2/3 lg:w-1/2 bg-[#1e1e1e] shadow-2xl z-50 flex flex-col"
     >
       <!-- Header -->
       <div class="flex justify-between items-center p-6 border-b border-[#3e3e42]">
         <div>
-          <h2 class="text-xl font-bold text-white mb-1">Command Logs</h2>
+          <h2 class="text-xl font-bold text-white mb-1">Logs</h2>
           <p class="text-sm text-[#858585]">
             <span v-if="route.path !== '/'">
               {{ route.path.substring(1).charAt(0).toUpperCase() + route.path.substring(2) }} panel
               logs
             </span>
-            <span v-else>All executed commands</span>
-            <span v-if="appStore.domain" class="text-blue-400"> for {{ appStore.domain }} </span>
           </p>
         </div>
         <div class="flex items-center gap-2">
@@ -256,7 +258,7 @@ const copyOutput = (output: string) => {
             <!-- Accordion header -->
             <button
               @click="toggleLog(log.id)"
-              class="w-full px-4 py-3 flex items-center justify-between hover:bg-[#2d2d30] transition-colors"
+              class="w-full px-4 py-3 flex items-center justify-between hover:bg-[#2d2d30] transition-colors cursor-pointer"
             >
               <div class="flex items-center gap-3 flex-1 text-left min-w-0">
                 <!-- Tool icon -->
@@ -281,7 +283,7 @@ const copyOutput = (output: string) => {
 
                 <!-- Duration and expand icon -->
                 <div class="flex items-center gap-3 flex-shrink-0">
-                  <span class="text-xs text-[#858585]">
+                  <span class="text-xs text-[#858585] w-16 text-right">
                     {{ formatDuration(log.duration) }}
                   </span>
                   <svg
