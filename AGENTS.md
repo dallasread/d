@@ -84,7 +84,13 @@ The purpose of this panel is show the status of the SSL reported for the domain.
 
 ### Purpose
 
-The purpose of this panel is to know if a typical HTTP/HTTPS request works for the domain. We want to see the status codes, response times, and redirect chains (status + location).
+The purpose of this panel is to diagnose HTTP and HTTPS connectivity for both the apex domain and www subdomain. We want to see the status codes, response times, redirect chains (status + location), and important headers like Server, Content-Type, and Content-Length.
+
+This allows us to identify:
+- If the domain redirects HTTP to HTTPS
+- If the apex domain redirects to www or vice versa
+- Response times for each protocol and subdomain
+- Complete redirect chains showing all intermediate hops
 
 ### Tools
 

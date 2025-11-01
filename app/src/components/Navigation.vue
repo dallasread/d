@@ -134,14 +134,6 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- Current domain display -->
-        <div v-if="appStore.domain && !appStore.loading" class="flex-shrink-0">
-          <div class="px-3 py-1.5 bg-[#252526] border border-[#3e3e42] rounded-md">
-            <p class="text-xs text-[#858585]">Current</p>
-            <p class="text-sm font-medium text-white">{{ appStore.domain }}</p>
-          </div>
-        </div>
-
         <!-- Loading indicator -->
         <div v-if="appStore.loading" class="flex-shrink-0">
           <div

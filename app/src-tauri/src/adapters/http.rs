@@ -1,21 +1,46 @@
-use crate::models::http::{HttpResponse, HttpRedirect};
-use std::process::Command;
+use crate::models::command_log::CommandLog;
+use crate::models::http::{HttpRedirect, HttpResponse};
 use std::collections::HashMap;
+use std::process::Command;
 use std::time::Instant;
+use tauri::{AppHandle, Emitter};
 
-pub struct HttpAdapter;
+pub struct HttpAdapter {
+    app_handle: Option<AppHandle>,
+}
 
 impl HttpAdapter {
     pub fn new() -> Self {
-        HttpAdapter
+        HttpAdapter { app_handle: None }
+    }
+
+    pub fn with_app_handle(app_handle: AppHandle) -> Self {
+        HttpAdapter {
+            app_handle: Some(app_handle),
+        }
+    }
+
+    fn emit_log(&self, log: CommandLog) {
+        if let Some(handle) = &self.app_handle {
+            let _ = handle.emit("command-log", log);
+        }
     }
 
     pub async fn fetch(&self, url: &str) -> Result<HttpResponse, String> {
+        let start = Instant::now();
         if !self.is_curl_available() {
             return Err("curl command not found. Please install curl.".to_string());
         }
 
-        let start = Instant::now();
+        let args = vec![
+            "-L".to_string(),
+            "-I".to_string(),
+            "-s".to_string(),
+            "-S".to_string(),
+            "-w".to_string(),
+            "\\n__STATUS_CODE__:%{http_code}\\n__FINAL_URL__:%{url_effective}\\n__TIME__:%{time_total}".to_string(),
+            url.to_string(),
+        ];
 
         let output = Command::new("curl")
             .arg("-L") // Follow redirects
@@ -28,18 +53,49 @@ impl HttpAdapter {
             .output()
             .map_err(|e| format!("Failed to execute curl: {}", e))?;
 
-        let response_time = start.elapsed().as_secs_f64();
+        let query_time = start.elapsed().as_secs_f64();
+        let exit_code = output.status.code().unwrap_or(-1);
+
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+        // Emit command log
+        let log_output = if !stdout.is_empty() {
+            stdout.clone()
+        } else {
+            stderr.clone()
+        };
+
+        // Extract domain from URL for logging
+        let domain = url
+            .trim_start_matches("http://")
+            .trim_start_matches("https://")
+            .split('/')
+            .next()
+            .unwrap_or(url);
+
+        self.emit_log(CommandLog::new(
+            "curl".to_string(),
+            args,
+            log_output,
+            exit_code,
+            query_time * 1000.0, // Convert to milliseconds
+            Some(domain.to_string()),
+        ));
 
         if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(format!("curl command failed: {}", stderr));
         }
 
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        self.parse_curl_output(&stdout, url, response_time)
+        self.parse_curl_output(&stdout, url, query_time)
     }
 
-    fn parse_curl_output(&self, output: &str, original_url: &str, response_time: f64) -> Result<HttpResponse, String> {
+    fn parse_curl_output(
+        &self,
+        output: &str,
+        original_url: &str,
+        response_time: f64,
+    ) -> Result<HttpResponse, String> {
         let mut status_code = 0;
         let mut final_url = original_url.to_string();
         let mut headers = HashMap::new();
@@ -110,9 +166,6 @@ impl HttpAdapter {
     }
 
     fn is_curl_available(&self) -> bool {
-        Command::new("curl")
-            .arg("--version")
-            .output()
-            .is_ok()
+        Command::new("curl").arg("--version").output().is_ok()
     }
 }
