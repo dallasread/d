@@ -1,4 +1,5 @@
-pub mod dns;
 pub mod certificate;
-pub mod whois;
+pub mod dns;
+pub mod dnssec;
 pub mod http;
+pub mod whois;

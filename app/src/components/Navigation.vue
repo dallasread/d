@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAppStore } from '../stores/app';
 import { useDNSStore } from '../stores/dns';
+import { useDnssecStore } from '../stores/dnssec';
 import { useCertificateStore } from '../stores/certificate';
 import { useWhoisStore } from '../stores/whois';
 import { useHttpStore } from '../stores/http';
@@ -11,6 +12,7 @@ const router = useRouter();
 const route = useRoute();
 const appStore = useAppStore();
 const dnsStore = useDNSStore();
+const dnssecStore = useDnssecStore();
 const certStore = useCertificateStore();
 const whoisStore = useWhoisStore();
 const httpStore = useHttpStore();
@@ -46,6 +48,7 @@ const handleSearch = async () => {
       // Fetch all data in parallel
       await Promise.all([
         dnsStore.fetchDnsRecords(domain),
+        dnssecStore.fetchDnssec(domain),
         certStore.fetchCertificate(domain),
         whoisStore.fetchWhois(domain),
         httpStore.fetchHttp(domain),
