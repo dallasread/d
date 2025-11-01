@@ -1,30 +1,70 @@
+use crate::models::command_log::CommandLog;
 use crate::models::whois::WhoisInfo;
-use std::process::Command;
 use regex::Regex;
+use std::process::Command;
+use std::time::Instant;
+use tauri::{AppHandle, Emitter};
 
-pub struct WhoisAdapter;
+pub struct WhoisAdapter {
+    app_handle: Option<AppHandle>,
+}
 
 impl WhoisAdapter {
     pub fn new() -> Self {
-        WhoisAdapter
+        WhoisAdapter { app_handle: None }
+    }
+
+    pub fn with_app_handle(app_handle: AppHandle) -> Self {
+        WhoisAdapter {
+            app_handle: Some(app_handle),
+        }
+    }
+
+    fn emit_log(&self, log: CommandLog) {
+        if let Some(handle) = &self.app_handle {
+            let _ = handle.emit("command-log", log);
+        }
     }
 
     pub async fn lookup(&self, domain: &str) -> Result<WhoisInfo, String> {
+        let start = Instant::now();
         if !self.is_whois_available() {
             return Err("whois command not found. Please install whois.".to_string());
         }
+
+        let args = vec![domain.to_string()];
 
         let output = Command::new("whois")
             .arg(domain)
             .output()
             .map_err(|e| format!("Failed to execute whois: {}", e))?;
 
+        let query_time = start.elapsed().as_secs_f64();
+        let exit_code = output.status.code().unwrap_or(-1);
+
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+        // Emit command log
+        let log_output = if !stdout.is_empty() {
+            stdout.clone()
+        } else {
+            stderr.clone()
+        };
+
+        self.emit_log(CommandLog::new(
+            "whois".to_string(),
+            args,
+            log_output,
+            exit_code,
+            query_time * 1000.0, // Convert to milliseconds
+            Some(domain.to_string()),
+        ));
+
         if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(format!("whois command failed: {}", stderr));
         }
 
-        let stdout = String::from_utf8_lossy(&output.stdout);
         let whois_info = self.parse_whois_output(&stdout, domain)?;
 
         Ok(whois_info)
@@ -32,9 +72,12 @@ impl WhoisAdapter {
 
     fn parse_whois_output(&self, output: &str, domain: &str) -> Result<WhoisInfo, String> {
         let registrar = self.extract_field(output, &["Registrar:", "registrar:"]);
-        let creation_date = self.extract_field(output, &["Creation Date:", "Created Date:", "created:"]);
-        let expiration_date = self.extract_field(output, &["Expiration Date:", "Expiry Date:", "expires:"]);
-        let updated_date = self.extract_field(output, &["Updated Date:", "Last Updated:", "last-update:"]);
+        let creation_date =
+            self.extract_field(output, &["Creation Date:", "Created Date:", "created:"]);
+        let expiration_date =
+            self.extract_field(output, &["Expiration Date:", "Expiry Date:", "expires:"]);
+        let updated_date =
+            self.extract_field(output, &["Updated Date:", "Last Updated:", "last-update:"]);
         let dnssec = self.extract_field(output, &["DNSSEC:", "dnssec:"]);
 
         let nameservers = self.extract_nameservers(output);
@@ -83,9 +126,6 @@ impl WhoisAdapter {
     }
 
     fn is_whois_available(&self) -> bool {
-        Command::new("whois")
-            .arg("--version")
-            .output()
-            .is_ok()
+        Command::new("whois").arg("--version").output().is_ok()
     }
 }

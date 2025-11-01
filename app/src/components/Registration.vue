@@ -148,16 +148,6 @@ const expiryStatusClass = computed(() => {
           </div>
         </div>
 
-        <!-- Raw WHOIS Data -->
-        <div class="panel">
-          <h2 class="text-xl font-semibold mb-4">Raw WHOIS Data</h2>
-          <div class="bg-[#1e1e1e] rounded p-4 overflow-x-auto">
-            <pre class="text-xs text-[#858585] font-mono whitespace-pre-wrap">{{
-              whoisStore.whoisInfo.raw_output
-            }}</pre>
-          </div>
-        </div>
-
         <!-- Error Display -->
         <div v-if="whoisStore.error" class="panel bg-red-900/20 border-red-800">
           <h3 class="text-lg font-semibold text-red-400 mb-2">Error</h3>

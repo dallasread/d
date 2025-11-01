@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useRoute } from 'vue-router';
 import { useLogsStore } from '../stores/logs';
 import { useAppStore } from '../stores/app';
 
@@ -7,14 +8,36 @@ const emit = defineEmits<{
   click: [];
 }>();
 
+const route = useRoute();
 const logsStore = useLogsStore();
 const appStore = useAppStore();
 
+// Map routes to relevant tools (same as LogsSlideout)
+const routeToolMap: Record<string, string[]> = {
+  '/': [], // Dashboard shows all
+  '/registration': ['whois'],
+  '/dns': ['dig'],
+  '/dnssec': ['dig'],
+  '/certificate': ['openssl'],
+  '/http': ['curl'],
+  '/email': ['dig'],
+};
+
 const logCount = computed(() => {
+  let logs = logsStore.logs;
+
+  // Filter by domain if set
   if (appStore.domain) {
-    return logsStore.getLogsByDomain(appStore.domain).length;
+    logs = logs.filter((log) => log.domain === appStore.domain);
   }
-  return logsStore.logs.length;
+
+  // Filter by current route/panel
+  const tools = routeToolMap[route.path];
+  if (tools && tools.length > 0) {
+    logs = logs.filter((log) => tools.includes(log.tool));
+  }
+
+  return logs.length;
 });
 </script>
 

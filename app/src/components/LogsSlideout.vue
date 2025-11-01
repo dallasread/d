@@ -94,12 +94,8 @@ const getStatusClass = (exitCode: number) => {
 };
 
 const clearLogs = () => {
-  console.log('clearLogs called, current logs count:', logsStore.logs.length);
-  if (confirm('Are you sure you want to clear all logs?')) {
-    logsStore.clearLogs();
-    expandedLogIds.value.clear();
-    console.log('After clear, logs count:', logsStore.logs.length);
-  }
+  logsStore.clearLogs();
+  expandedLogIds.value.clear();
 };
 
 const copyCommand = (log: any) => {
@@ -138,13 +134,6 @@ const copyOutput = (output: string) => {
           </p>
         </div>
         <div class="flex items-center gap-2">
-          <button
-            v-if="filteredLogs.length > 0"
-            @click="clearLogs"
-            class="px-3 py-1.5 bg-red-600/10 hover:bg-red-600/20 border border-red-600/30 text-red-400 text-xs font-medium rounded transition-colors"
-          >
-            Clear ({{ filteredLogs.length }})
-          </button>
           <button
             @click="emit('close')"
             class="p-2 hover:bg-[#3e3e42] rounded transition-colors"
