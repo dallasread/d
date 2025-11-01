@@ -47,6 +47,12 @@ const logCount = computed(() => {
     class="fixed bottom-6 right-6 flex items-center gap-2 px-4 py-3 bg-[#252526] hover:bg-[#2d2d30] border border-[#3e3e42] rounded-lg shadow-lg transition-colors group z-30"
     title="View command logs"
   >
+    <span
+      v-if="logCount > 0"
+      class="px-2 py-0.5 bg-blue-600 text-white text-xs font-semibold rounded-full"
+    >
+      {{ logCount }}
+    </span>
     <span class="text-sm font-medium text-[#858585] group-hover:text-white transition-colors">
       Logs
     </span>
@@ -55,11 +61,5 @@ const logCount = computed(() => {
     >
       L
     </kbd>
-    <span
-      v-if="logCount > 0"
-      class="px-2 py-0.5 bg-blue-600 text-white text-xs font-semibold rounded-full"
-    >
-      {{ logCount }}
-    </span>
   </button>
 </template>
