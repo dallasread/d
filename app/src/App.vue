@@ -4,6 +4,7 @@ import { RouterView } from 'vue-router';
 import { useAppStore } from './stores/app';
 import Navigation from './components/Navigation.vue';
 import RawDataModal from './components/RawDataModal.vue';
+import LoadingProgress from './components/LoadingProgress.vue';
 import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts';
 
 const appStore = useAppStore();
@@ -23,6 +24,7 @@ onMounted(() => {
       <RouterView />
     </main>
     <RawDataModal />
+    <LoadingProgress />
   </div>
 </template>
 
