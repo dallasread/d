@@ -40,6 +40,13 @@ const navigateToTab = (path: string) => {
 const handleSearch = async () => {
   if (domainInput.value.trim()) {
     const domain = domainInput.value.trim();
+
+    // If domain changed, clear all caches
+    if (domain !== appStore.domain) {
+      if (dnsStore.clearCache) dnsStore.clearCache();
+      // Clear other store caches as they're implemented
+    }
+
     appStore.setDomain(domain);
     appStore.setLoading(true);
     appStore.setError(null);
@@ -75,6 +82,10 @@ const handleKeypress = (event: KeyboardEvent) => {
 
 const handleRefresh = () => {
   if (appStore.domain) {
+    // Clear cache on refresh
+    if (dnsStore.clearCache) dnsStore.clearCache();
+    // Clear other store caches as they're implemented
+
     handleSearch();
   }
 };

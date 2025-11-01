@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useAppStore } from '../stores/app';
 import { useDNSStore } from '../stores/dns';
 import { useDnssecStore } from '../stores/dnssec';
@@ -14,45 +14,111 @@ const certStore = useCertificateStore();
 const whoisStore = useWhoisStore();
 const httpStore = useHttpStore();
 
+interface SubQuery {
+  name: string;
+  status: 'pending' | 'loading' | 'completed' | 'failed';
+}
+
 interface QueryStatus {
   name: string;
   loading: boolean;
   error: string | null;
   completed: boolean;
+  subQueries?: SubQuery[];
 }
 
-const queries = computed<QueryStatus[]>(() => [
-  {
-    name: 'DNS Records',
-    loading: dnsStore.loading,
-    error: dnsStore.error,
-    completed: !dnsStore.loading && !dnsStore.error && dnsStore.aRecords.length > 0,
-  },
-  {
-    name: 'DNSSEC Validation',
-    loading: dnssecStore.loading,
-    error: dnssecStore.error,
-    completed: !dnssecStore.loading && !dnssecStore.error && dnssecStore.validation !== null,
-  },
-  {
-    name: 'SSL Certificate',
-    loading: certStore.loading,
-    error: certStore.error,
-    completed: !certStore.loading && !certStore.error && certStore.certificate !== null,
-  },
-  {
-    name: 'WHOIS Registration',
-    loading: whoisStore.loading,
-    error: whoisStore.error,
-    completed: !whoisStore.loading && !whoisStore.error && whoisStore.whois !== null,
-  },
-  {
-    name: 'HTTP/HTTPS',
-    loading: httpStore.loading,
-    error: httpStore.error,
-    completed: !httpStore.loading && !httpStore.error && httpStore.http !== null,
-  },
-]);
+const queries = computed<QueryStatus[]>(() => {
+  // DNS sub-queries
+  const dnsSubQueries: SubQuery[] = [
+    {
+      name: 'A Records',
+      status: dnsStore.loading ? 'loading' : dnsStore.aRecords ? 'completed' : 'pending',
+    },
+    {
+      name: 'AAAA Records',
+      status: dnsStore.loading ? 'loading' : dnsStore.aaaaRecords ? 'completed' : 'pending',
+    },
+    {
+      name: 'MX Records',
+      status: dnsStore.loading ? 'loading' : dnsStore.mxRecords ? 'completed' : 'pending',
+    },
+    {
+      name: 'TXT Records',
+      status: dnsStore.loading ? 'loading' : dnsStore.txtRecords ? 'completed' : 'pending',
+    },
+    {
+      name: 'NS Records',
+      status: dnsStore.loading ? 'loading' : dnsStore.nsRecords ? 'completed' : 'pending',
+    },
+  ];
+
+  // DNSSEC sub-queries - show the chain levels
+  const dnssecSubQueries: SubQuery[] = dnssecStore.loading
+    ? [
+        { name: 'Root Zone (.) DNSKEY', status: 'loading' },
+        { name: 'TLD DS Records', status: 'loading' },
+        { name: 'TLD DNSKEY', status: 'loading' },
+        { name: 'Domain DS Records', status: 'loading' },
+        { name: 'Domain DNSKEY', status: 'loading' },
+      ]
+    : dnssecStore.validation
+      ? [
+          { name: 'Root Zone (.) DNSKEY', status: 'completed' },
+          { name: 'TLD DS Records', status: 'completed' },
+          { name: 'TLD DNSKEY', status: 'completed' },
+          { name: 'Domain DS Records', status: 'completed' },
+          { name: 'Domain DNSKEY', status: 'completed' },
+        ]
+      : [];
+
+  // HTTP sub-queries
+  const httpSubQueries: SubQuery[] = [
+    {
+      name: 'HTTP (port 80)',
+      status: httpStore.loading ? 'loading' : httpStore.http ? 'completed' : 'pending',
+    },
+    {
+      name: 'HTTPS (port 443)',
+      status: httpStore.loading ? 'loading' : httpStore.https ? 'completed' : 'pending',
+    },
+  ];
+
+  return [
+    {
+      name: 'DNS Records',
+      loading: dnsStore.loading,
+      error: dnsStore.error,
+      completed: !dnsStore.loading && !dnsStore.error && dnsStore.aRecords !== null,
+      subQueries: dnsSubQueries,
+    },
+    {
+      name: 'DNSSEC Validation',
+      loading: dnssecStore.loading,
+      error: dnssecStore.error,
+      completed: !dnssecStore.loading && !dnssecStore.error && dnssecStore.validation !== null,
+      subQueries: dnssecSubQueries,
+    },
+    {
+      name: 'SSL Certificate',
+      loading: certStore.loading,
+      error: certStore.error,
+      completed: !certStore.loading && !certStore.error && certStore.certificate !== null,
+    },
+    {
+      name: 'WHOIS Registration',
+      loading: whoisStore.loading,
+      error: whoisStore.error,
+      completed: !whoisStore.loading && !whoisStore.error && whoisStore.whois !== null,
+    },
+    {
+      name: 'HTTP/HTTPS',
+      loading: httpStore.loading,
+      error: httpStore.error,
+      completed: !httpStore.loading && !httpStore.error && httpStore.http !== null,
+      subQueries: httpSubQueries,
+    },
+  ];
+});
 
 const getStatusIcon = (query: QueryStatus) => {
   if (query.completed) return '✓';
@@ -67,6 +133,30 @@ const getStatusColor = (query: QueryStatus) => {
   if (query.loading) return 'text-blue-400';
   return 'text-gray-400';
 };
+
+const getSubQueryIcon = (status: string) => {
+  if (status === 'completed') return '✓';
+  if (status === 'failed') return '✗';
+  if (status === 'loading') return '●';
+  return '○';
+};
+
+const getSubQueryColor = (status: string) => {
+  if (status === 'completed') return 'text-green-400';
+  if (status === 'failed') return 'text-red-400';
+  if (status === 'loading') return 'text-blue-400';
+  return 'text-gray-500';
+};
+
+const expanded = ref<Set<string>>(new Set(['DNSSEC Validation'])); // Expand DNSSEC by default
+
+const toggleExpand = (queryName: string) => {
+  if (expanded.value.has(queryName)) {
+    expanded.value.delete(queryName);
+  } else {
+    expanded.value.add(queryName);
+  }
+};
 </script>
 
 <template>
@@ -74,7 +164,9 @@ const getStatusColor = (query: QueryStatus) => {
     v-if="appStore.loading"
     class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center"
   >
-    <div class="bg-[#1e1e1e] border border-[#3e3e42] rounded-lg p-6 max-w-md w-full mx-4">
+    <div
+      class="bg-[#1e1e1e] border border-[#3e3e42] rounded-lg p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto"
+    >
       <div class="flex items-center gap-3 mb-6">
         <svg
           class="animate-spin h-5 w-5 text-blue-500"
@@ -99,32 +191,58 @@ const getStatusColor = (query: QueryStatus) => {
         <h2 class="text-xl font-semibold text-white">Analyzing {{ appStore.domain }}</h2>
       </div>
 
-      <div class="space-y-2">
-        <div
-          v-for="query in queries"
-          :key="query.name"
-          class="flex items-center gap-3 py-2"
-        >
-          <span
-            :class="[
-              'text-lg font-mono flex-shrink-0 w-6 text-center',
-              getStatusColor(query),
-              query.loading && 'animate-pulse'
-            ]"
+      <div class="space-y-1">
+        <div v-for="query in queries" :key="query.name" class="border border-[#3e3e42] rounded">
+          <!-- Main query -->
+          <div
+            class="flex items-center gap-3 py-2 px-3 hover:bg-[#252526] transition-colors"
+            :class="query.subQueries && 'cursor-pointer'"
+            @click="query.subQueries && toggleExpand(query.name)"
           >
-            {{ getStatusIcon(query) }}
-          </span>
-          <span class="flex-1 text-[#cccccc]">{{ query.name }}</span>
-          <span v-if="query.loading" class="text-xs text-[#858585]">querying...</span>
-          <span v-else-if="query.error" class="text-xs text-red-400">failed</span>
-          <span v-else-if="query.completed" class="text-xs text-green-400">done</span>
-        </div>
-      </div>
+            <span
+              :class="[
+                'text-lg font-mono flex-shrink-0 w-6 text-center',
+                getStatusColor(query),
+                query.loading && 'animate-pulse',
+              ]"
+            >
+              {{ getStatusIcon(query) }}
+            </span>
+            <span class="flex-1 text-[#cccccc] font-medium">{{ query.name }}</span>
 
-      <div class="mt-6 pt-4 border-t border-[#3e3e42]">
-        <p class="text-xs text-[#858585] text-center">
-          DNSSEC validation may take 10-15 seconds
-        </p>
+            <!-- Expand/collapse arrow -->
+            <span v-if="query.subQueries" class="text-[#858585] text-xs mr-2">
+              {{ expanded.has(query.name) ? '▼' : '▶' }}
+            </span>
+
+            <span v-if="query.loading" class="text-xs text-[#858585]">querying...</span>
+            <span v-else-if="query.error" class="text-xs text-red-400">failed</span>
+            <span v-else-if="query.completed" class="text-xs text-green-400">done</span>
+          </div>
+
+          <!-- Sub-queries (collapsible) -->
+          <div
+            v-if="query.subQueries && expanded.has(query.name)"
+            class="px-3 pb-2 space-y-1 bg-[#1a1a1a] border-t border-[#3e3e42]"
+          >
+            <div
+              v-for="subQuery in query.subQueries"
+              :key="subQuery.name"
+              class="flex items-center gap-3 py-1.5 pl-6"
+            >
+              <span
+                :class="[
+                  'text-sm font-mono flex-shrink-0 w-5 text-center',
+                  getSubQueryColor(subQuery.status),
+                  subQuery.status === 'loading' && 'animate-pulse',
+                ]"
+              >
+                {{ getSubQueryIcon(subQuery.status) }}
+              </span>
+              <span class="flex-1 text-sm text-[#999]">{{ subQuery.name }}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

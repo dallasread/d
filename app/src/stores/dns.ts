@@ -13,10 +13,38 @@ export const useDNSStore = defineStore('dns', () => {
   const loading = ref<boolean>(false);
   const error = ref<string | null>(null);
 
+  // Cache
+  const cache = ref<
+    Map<
+      string,
+      {
+        aRecords: DnsResponse | null;
+        aaaaRecords: DnsResponse | null;
+        mxRecords: DnsResponse | null;
+        txtRecords: DnsResponse | null;
+        nsRecords: DnsResponse | null;
+      }
+    >
+  >(new Map());
+  const currentDomain = ref<string>('');
+
   // Actions
   const fetchDnsRecords = async (domain: string) => {
+    // Check cache first
+    if (cache.value.has(domain)) {
+      const cached = cache.value.get(domain)!;
+      aRecords.value = cached.aRecords;
+      aaaaRecords.value = cached.aaaaRecords;
+      mxRecords.value = cached.mxRecords;
+      txtRecords.value = cached.txtRecords;
+      nsRecords.value = cached.nsRecords;
+      currentDomain.value = domain;
+      return;
+    }
+
     loading.value = true;
     error.value = null;
+    currentDomain.value = domain;
 
     try {
       const recordTypes = ['A', 'AAAA', 'MX', 'TXT', 'NS'];
@@ -32,12 +60,25 @@ export const useDNSStore = defineStore('dns', () => {
           setDNSData(recordType, response);
         }
       });
+
+      // Save to cache
+      cache.value.set(domain, {
+        aRecords: aRecords.value,
+        aaaaRecords: aaaaRecords.value,
+        mxRecords: mxRecords.value,
+        txtRecords: txtRecords.value,
+        nsRecords: nsRecords.value,
+      });
     } catch (e) {
       error.value = e as string;
       console.error('Failed to fetch DNS records:', e);
     } finally {
       loading.value = false;
     }
+  };
+
+  const clearCache = () => {
+    cache.value.clear();
   };
 
   const setDNSData = (type: string, data: DnsResponse) => {
@@ -71,6 +112,8 @@ export const useDNSStore = defineStore('dns', () => {
 
   return {
     aRecords,
+    currentDomain,
+    clearCache,
     aaaaRecords,
     mxRecords,
     txtRecords,
