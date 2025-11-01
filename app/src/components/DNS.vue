@@ -65,6 +65,96 @@ const diagnostics = computed(() => {
 
   return { issues, warnings, successes };
 });
+
+// Combine all DNS records into a single array with type information
+const allRecords = computed(() => {
+  const records: Array<{
+    type: string;
+    name: string;
+    ttl: number;
+    value: string;
+    priority?: number;
+  }> = [];
+
+  // A Records
+  if (dnsStore.aRecords?.records) {
+    dnsStore.aRecords.records.forEach((record) => {
+      records.push({
+        type: 'A',
+        name: record.name,
+        ttl: record.ttl,
+        value: record.value,
+      });
+    });
+  }
+
+  // AAAA Records
+  if (dnsStore.aaaaRecords?.records) {
+    dnsStore.aaaaRecords.records.forEach((record) => {
+      records.push({
+        type: 'AAAA',
+        name: record.name,
+        ttl: record.ttl,
+        value: record.value,
+      });
+    });
+  }
+
+  // MX Records
+  if (dnsStore.mxRecords?.records) {
+    dnsStore.mxRecords.records.forEach((record) => {
+      // MX records have format "priority hostname"
+      const parts = record.value.split(' ');
+      const priority = parts.length > 1 ? parseInt(parts[0]) : undefined;
+      const hostname = parts.length > 1 ? parts.slice(1).join(' ') : record.value;
+
+      records.push({
+        type: 'MX',
+        name: record.name,
+        ttl: record.ttl,
+        value: hostname,
+        priority,
+      });
+    });
+  }
+
+  // NS Records
+  if (dnsStore.nsRecords?.records) {
+    dnsStore.nsRecords.records.forEach((record) => {
+      records.push({
+        type: 'NS',
+        name: record.name,
+        ttl: record.ttl,
+        value: record.value,
+      });
+    });
+  }
+
+  // TXT Records
+  if (dnsStore.txtRecords?.records) {
+    dnsStore.txtRecords.records.forEach((record) => {
+      records.push({
+        type: 'TXT',
+        name: record.name,
+        ttl: record.ttl,
+        value: record.value,
+      });
+    });
+  }
+
+  return records;
+});
+
+const getRecordTypeColor = (type: string) => {
+  const colors: Record<string, string> = {
+    A: 'text-blue-400',
+    AAAA: 'text-purple-400',
+    MX: 'text-green-400',
+    NS: 'text-yellow-400',
+    TXT: 'text-cyan-400',
+  };
+  return colors[type] || 'text-gray-400';
+};
 </script>
 
 <template>
@@ -129,201 +219,48 @@ const diagnostics = computed(() => {
             </div>
           </div>
         </div>
-        <!-- A Records -->
+        <!-- All DNS Records in Single Table -->
         <div class="panel py-4">
           <h2 class="text-lg font-semibold mb-3 flex items-center gap-2">
-            A Records
-            <span class="text-sm font-normal text-[#858585]">(IPv4)</span>
-            <span v-if="dnsStore.aRecords" class="text-sm font-normal text-blue-400">
-              {{ dnsStore.aRecords.records.length }}
-            </span>
+            DNS Records
+            <span class="text-sm font-normal text-blue-400">{{ allRecords.length }}</span>
           </h2>
-          <div v-if="dnsStore.aRecords && dnsStore.aRecords.records.length > 0">
+          <div v-if="allRecords.length > 0">
             <table class="w-full text-sm">
               <thead class="border-b border-[#3e3e42]">
                 <tr>
-                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">Name</th>
-                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">TTL</th>
-                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">
-                    IP Address
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="(record, index) in dnsStore.aRecords.records"
-                  :key="index"
-                  class="border-b border-[#3e3e42]/50"
-                >
-                  <td class="py-1.5 px-2">{{ record.name }}</td>
-                  <td class="py-1.5 px-2 text-[#858585]">{{ record.ttl }}</td>
-                  <td class="py-1.5 px-2 font-mono text-blue-400">{{ record.value }}</td>
-                </tr>
-              </tbody>
-            </table>
-            <p class="text-xs text-[#858585] mt-2">
-              Query time: {{ dnsStore.aRecords.query_time.toFixed(3) }}s
-            </p>
-          </div>
-          <p v-else class="text-[#858585]">No A records found</p>
-        </div>
-
-        <!-- AAAA Records -->
-        <div class="panel py-4">
-          <h2 class="text-lg font-semibold mb-3 flex items-center gap-2">
-            AAAA Records
-            <span class="text-sm font-normal text-[#858585]">(IPv6)</span>
-            <span v-if="dnsStore.aaaaRecords" class="text-sm font-normal text-blue-400">
-              {{ dnsStore.aaaaRecords.records.length }}
-            </span>
-          </h2>
-          <div v-if="dnsStore.aaaaRecords && dnsStore.aaaaRecords.records.length > 0">
-            <table class="w-full text-sm">
-              <thead class="border-b border-[#3e3e42]">
-                <tr>
-                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">Name</th>
-                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">TTL</th>
-                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">
-                    IP Address
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="(record, index) in dnsStore.aaaaRecords.records"
-                  :key="index"
-                  class="border-b border-[#3e3e42]/50"
-                >
-                  <td class="py-1.5 px-2">{{ record.name }}</td>
-                  <td class="py-1.5 px-2 text-[#858585]">{{ record.ttl }}</td>
-                  <td class="py-1.5 px-2 font-mono text-blue-400">{{ record.value }}</td>
-                </tr>
-              </tbody>
-            </table>
-            <p class="text-xs text-[#858585] mt-2">
-              Query time: {{ dnsStore.aaaaRecords.query_time.toFixed(3) }}s
-            </p>
-          </div>
-          <p v-else class="text-[#858585]">No AAAA records found</p>
-        </div>
-
-        <!-- MX Records -->
-        <div class="panel py-4">
-          <h2 class="text-lg font-semibold mb-3 flex items-center gap-2">
-            MX Records
-            <span class="text-sm font-normal text-[#858585]">(Mail Exchange)</span>
-            <span v-if="dnsStore.mxRecords" class="text-sm font-normal text-blue-400">
-              {{ dnsStore.mxRecords.records.length }}
-            </span>
-          </h2>
-          <div v-if="dnsStore.mxRecords && dnsStore.mxRecords.records.length > 0">
-            <table class="w-full text-sm">
-              <thead class="border-b border-[#3e3e42]">
-                <tr>
+                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">Type</th>
                   <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">Name</th>
                   <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">TTL</th>
                   <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">Priority</th>
-                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">
-                    Mail Server
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="(record, index) in dnsStore.mxRecords.records"
-                  :key="index"
-                  class="border-b border-[#3e3e42]/50"
-                >
-                  <td class="py-1.5 px-2">{{ record.name }}</td>
-                  <td class="py-1.5 px-2 text-[#858585]">{{ record.ttl }}</td>
-                  <td class="py-1.5 px-2 text-blue-400">{{ record.value.split(' ')[0] }}</td>
-                  <td class="py-1.5 px-2 font-mono">
-                    {{ record.value.split(' ')[1] || record.value }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            <p class="text-xs text-[#858585] mt-2">
-              Query time: {{ dnsStore.mxRecords.query_time.toFixed(3) }}s
-            </p>
-          </div>
-          <p v-else class="text-[#858585]">No MX records found</p>
-        </div>
-
-        <!-- NS Records -->
-        <div class="panel py-4">
-          <h2 class="text-lg font-semibold mb-3 flex items-center gap-2">
-            NS Records
-            <span class="text-sm font-normal text-[#858585]">(Nameservers)</span>
-            <span v-if="dnsStore.nsRecords" class="text-sm font-normal text-blue-400">
-              {{ dnsStore.nsRecords.records.length }}
-            </span>
-          </h2>
-          <div v-if="dnsStore.nsRecords && dnsStore.nsRecords.records.length > 0">
-            <table class="w-full text-sm">
-              <thead class="border-b border-[#3e3e42]">
-                <tr>
-                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">Name</th>
-                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">TTL</th>
-                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">
-                    Nameserver
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="(record, index) in dnsStore.nsRecords.records"
-                  :key="index"
-                  class="border-b border-[#3e3e42]/50"
-                >
-                  <td class="py-1.5 px-2">{{ record.name }}</td>
-                  <td class="py-1.5 px-2 text-[#858585]">{{ record.ttl }}</td>
-                  <td class="py-1.5 px-2 font-mono text-blue-400">{{ record.value }}</td>
-                </tr>
-              </tbody>
-            </table>
-            <p class="text-xs text-[#858585] mt-2">
-              Query time: {{ dnsStore.nsRecords.query_time.toFixed(3) }}s
-            </p>
-          </div>
-          <p v-else class="text-[#858585]">No NS records found</p>
-        </div>
-
-        <!-- TXT Records -->
-        <div class="panel py-4">
-          <h2 class="text-lg font-semibold mb-3 flex items-center gap-2">
-            TXT Records
-            <span class="text-sm font-normal text-[#858585]">(Text)</span>
-            <span v-if="dnsStore.txtRecords" class="text-sm font-normal text-blue-400">
-              {{ dnsStore.txtRecords.records.length }}
-            </span>
-          </h2>
-          <div v-if="dnsStore.txtRecords && dnsStore.txtRecords.records.length > 0">
-            <table class="w-full text-sm">
-              <thead class="border-b border-[#3e3e42]">
-                <tr>
-                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">Name</th>
-                  <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">TTL</th>
                   <th class="text-left py-1.5 px-2 text-[#858585] font-medium text-sm">Value</th>
                 </tr>
               </thead>
               <tbody>
                 <tr
-                  v-for="(record, index) in dnsStore.txtRecords.records"
+                  v-for="(record, index) in allRecords"
                   :key="index"
                   class="border-b border-[#3e3e42]/50"
                 >
-                  <td class="py-1.5 px-2">{{ record.name }}</td>
-                  <td class="py-1.5 px-2 text-[#858585]">{{ record.ttl }}</td>
-                  <td class="py-1.5 px-2 font-mono text-sm break-all">{{ record.value }}</td>
+                  <td class="py-1.5 px-2">
+                    <span
+                      class="font-semibold text-xs px-2 py-0.5 rounded"
+                      :class="getRecordTypeColor(record.type)"
+                    >
+                      {{ record.type }}
+                    </span>
+                  </td>
+                  <td class="py-1.5 px-2 text-sm">{{ record.name }}</td>
+                  <td class="py-1.5 px-2 text-[#858585] text-xs">{{ record.ttl }}</td>
+                  <td class="py-1.5 px-2 text-blue-400 text-xs">
+                    {{ record.priority !== undefined ? record.priority : '' }}
+                  </td>
+                  <td class="py-1.5 px-2 font-mono text-xs break-all">{{ record.value }}</td>
                 </tr>
               </tbody>
             </table>
-            <p class="text-xs text-[#858585] mt-2">
-              Query time: {{ dnsStore.txtRecords.query_time.toFixed(3) }}s
-            </p>
           </div>
-          <p v-else class="text-[#858585]">No TXT records found</p>
+          <p v-else class="text-[#858585]">No DNS records found</p>
         </div>
 
         <!-- Error Display -->
