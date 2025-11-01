@@ -103,7 +103,7 @@ onUnmounted(() => {
 <template>
   <div class="sticky top-0 z-50 bg-[#1e1e1e] border-b border-[#3e3e42]">
     <!-- Top bar with branding and search -->
-    <div class="w-full px-6 py-4">
+    <div class="w-full px-3 md:px-6 py-3 md:py-4">
       <div class="flex items-center gap-6 max-w-full">
         <!-- Branding -->
         <div class="flex-shrink-0">
@@ -163,7 +163,7 @@ onUnmounted(() => {
     </div>
 
     <!-- Navigation tabs -->
-    <div class="w-full px-6 overflow-x-auto overflow-y-hidden">
+    <div class="w-full px-3 md:px-6 overflow-x-auto overflow-y-hidden">
       <nav class="flex gap-1 -mb-px" aria-label="Tabs">
         <button
           v-for="tab in tabs"
