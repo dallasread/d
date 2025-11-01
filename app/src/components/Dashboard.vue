@@ -390,7 +390,7 @@ const overallHealth = computed(() => {
 
         <!-- Existing cards grid -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <!-- Registration Card -->
+          <!-- 1. Registration Card -->
           <div
             class="card cursor-pointer hover:border-blue-500/50 transition-colors"
             @click="router.push('/registration')"
@@ -430,7 +430,7 @@ const overallHealth = computed(() => {
             <p v-else class="text-[#858585] text-sm">No registration data</p>
           </div>
 
-          <!-- DNS Card -->
+          <!-- 2. DNS Card -->
           <div
             class="card cursor-pointer hover:border-blue-500/50 transition-colors"
             @click="router.push('/dns')"
@@ -467,26 +467,7 @@ const overallHealth = computed(() => {
             </div>
           </div>
 
-          <!-- Email Card -->
-          <div
-            class="card cursor-pointer hover:border-blue-500/50 transition-colors"
-            @click="router.push('/email')"
-          >
-            <div class="flex items-start justify-between mb-4">
-              <h2 class="text-xl font-semibold">Email</h2>
-              <kbd
-                class="inline-flex items-center justify-center w-5 h-5 text-[11px] font-medium rounded border bg-[#3e3e42] border-[#5a5a5f] text-[#b0b0b0]"
-              >
-                7
-              </kbd>
-            </div>
-            <div class="text-sm">
-              <p class="text-[#858585]">Email security configuration</p>
-              <p class="text-xs text-[#858585] mt-2">Coming soon</p>
-            </div>
-          </div>
-
-          <!-- DNSSEC Card -->
+          <!-- 3. DNSSEC Card -->
           <div
             class="card cursor-pointer hover:border-blue-500/50 transition-colors"
             @click="router.push('/dnssec')"
@@ -577,6 +558,65 @@ const overallHealth = computed(() => {
               </div>
             </div>
             <p v-else class="text-[#858585] text-sm">No HTTP data</p>
+          </div>
+
+          <!-- 5. Certificate Card -->
+          <div
+            class="card cursor-pointer hover:border-blue-500/50 transition-colors"
+            @click="router.push('/certificate')"
+          >
+            <div class="flex items-start justify-between mb-4">
+              <h2 class="text-xl font-semibold">Certificate</h2>
+              <kbd
+                class="inline-flex items-center justify-center w-5 h-5 text-[11px] font-medium rounded border bg-[#3e3e42] border-[#5a5a5f] text-[#b0b0b0]"
+              >
+                5
+              </kbd>
+            </div>
+            <div v-if="certStore.loading" class="space-y-2">
+              <div class="h-3 bg-[#3e3e42] rounded animate-pulse"></div>
+              <div class="h-3 bg-[#3e3e42] rounded animate-pulse w-3/4"></div>
+            </div>
+            <div v-else-if="leafCert" class="space-y-2 text-sm">
+              <div>
+                <p class="text-xs text-[#858585]">Issued To</p>
+                <p class="text-sm font-medium truncate">
+                  {{ certInfo.subject.common_name || 'N/A' }}
+                </p>
+              </div>
+              <div>
+                <p class="text-xs text-[#858585]">Issued By</p>
+                <p class="text-sm font-medium truncate">
+                  {{ certInfo.issuer.organization || 'N/A' }}
+                </p>
+              </div>
+              <div>
+                <p class="text-xs text-[#858585]">Expires</p>
+                <p :class="['text-sm font-medium', getCertStatusClass(certDaysUntilExpiry)]">
+                  {{ certDaysUntilExpiry !== null ? `${certDaysUntilExpiry} days` : 'N/A' }}
+                </p>
+              </div>
+            </div>
+            <p v-else class="text-[#858585] text-sm">No certificate data</p>
+          </div>
+
+          <!-- 6. Email Card -->
+          <div
+            class="card cursor-pointer hover:border-blue-500/50 transition-colors"
+            @click="router.push('/email')"
+          >
+            <div class="flex items-start justify-between mb-4">
+              <h2 class="text-xl font-semibold">Email</h2>
+              <kbd
+                class="inline-flex items-center justify-center w-5 h-5 text-[11px] font-medium rounded border bg-[#3e3e42] border-[#5a5a5f] text-[#b0b0b0]"
+              >
+                7
+              </kbd>
+            </div>
+            <div class="text-sm">
+              <p class="text-[#858585]">Email security configuration</p>
+              <p class="text-xs text-[#858585] mt-2">Coming soon</p>
+            </div>
           </div>
         </div>
         <!-- End existing cards grid -->
