@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "--name",
-  "version": "0.1.0",
-  "identifier": "com.dread.--name",
+  "productName": "D",
+  "version": "0.1.2",
+  "identifier": "com.dread.d-dns-debugger",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,9 +12,9 @@
   "app": {
     "windows": [
       {
-        "title": "--name",
-        "width": 800,
-        "height": 600
+        "title": "D",
+        "width": 1400,
+        "height": 900
       }
     ],
     "security": {

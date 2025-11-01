@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    __name_lib::run()
+    d_dns_debugger_lib::run()
 }

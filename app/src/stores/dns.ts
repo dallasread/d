@@ -1,30 +1,46 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-
-export interface DNSRecord {
-  name: string;
-  type: string;
-  value: string;
-  ttl: number;
-}
-
-export interface DNSResponse {
-  records: DNSRecord[];
-  query_time: number;
-  resolver: string;
-}
+import { invoke } from '@tauri-apps/api/core';
+import type { DnsResponse } from '../models/dns';
 
 export const useDNSStore = defineStore('dns', () => {
   // State
-  const aRecords = ref<DNSResponse | null>(null);
-  const aaaaRecords = ref<DNSResponse | null>(null);
-  const mxRecords = ref<DNSResponse | null>(null);
-  const txtRecords = ref<DNSResponse | null>(null);
-  const nsRecords = ref<DNSResponse | null>(null);
+  const aRecords = ref<DnsResponse | null>(null);
+  const aaaaRecords = ref<DnsResponse | null>(null);
+  const mxRecords = ref<DnsResponse | null>(null);
+  const txtRecords = ref<DnsResponse | null>(null);
+  const nsRecords = ref<DnsResponse | null>(null);
   const loading = ref<boolean>(false);
+  const error = ref<string | null>(null);
 
   // Actions
-  const setDNSData = (type: string, data: DNSResponse) => {
+  const fetchDnsRecords = async (domain: string) => {
+    loading.value = true;
+    error.value = null;
+
+    try {
+      const recordTypes = ['A', 'AAAA', 'MX', 'TXT', 'NS'];
+      const responses = await invoke<DnsResponse[]>('query_dns_multiple', {
+        domain,
+        recordTypes,
+      });
+
+      // Map responses to individual record types
+      responses.forEach((response) => {
+        if (response.records.length > 0) {
+          const recordType = response.records[0].record_type;
+          setDNSData(recordType, response);
+        }
+      });
+    } catch (e) {
+      error.value = e as string;
+      console.error('Failed to fetch DNS records:', e);
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const setDNSData = (type: string, data: DnsResponse) => {
     switch (type) {
       case 'A':
         aRecords.value = data;
@@ -50,6 +66,7 @@ export const useDNSStore = defineStore('dns', () => {
     mxRecords.value = null;
     txtRecords.value = null;
     nsRecords.value = null;
+    error.value = null;
   };
 
   return {
@@ -59,6 +76,8 @@ export const useDNSStore = defineStore('dns', () => {
     txtRecords,
     nsRecords,
     loading,
+    error,
+    fetchDnsRecords,
     setDNSData,
     clearDNSData,
   };

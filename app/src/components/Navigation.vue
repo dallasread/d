@@ -2,10 +2,18 @@
 import { ref, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAppStore } from '../stores/app';
+import { useDNSStore } from '../stores/dns';
+import { useCertificateStore } from '../stores/certificate';
+import { useWhoisStore } from '../stores/whois';
+import { useHttpStore } from '../stores/http';
 
 const router = useRouter();
 const route = useRoute();
 const appStore = useAppStore();
+const dnsStore = useDNSStore();
+const certStore = useCertificateStore();
+const whoisStore = useWhoisStore();
+const httpStore = useHttpStore();
 
 const domainInput = ref('');
 
@@ -27,17 +35,32 @@ const navigateToTab = (path: string) => {
   router.push(path);
 };
 
-const handleSearch = () => {
+const handleSearch = async () => {
   if (domainInput.value.trim()) {
-    appStore.setDomain(domainInput.value.trim());
+    const domain = domainInput.value.trim();
+    appStore.setDomain(domain);
     appStore.setLoading(true);
-    // TODO: Trigger data fetch
-    console.log('Fetching data for:', domainInput.value);
+    appStore.setError(null);
 
-    // Simulate loading (remove this when real fetch is implemented)
-    setTimeout(() => {
+    try {
+      // Fetch all data in parallel
+      await Promise.all([
+        dnsStore.fetchDnsRecords(domain),
+        certStore.fetchCertificate(domain),
+        whoisStore.fetchWhois(domain),
+        httpStore.fetchHttp(domain),
+      ]);
+
+      // Navigate to dashboard if not already there
+      if (route.path !== '/') {
+        router.push('/');
+      }
+    } catch (error) {
+      console.error('Error fetching domain data:', error);
+      appStore.setError('Failed to fetch domain data. Please try again.');
+    } finally {
       appStore.setLoading(false);
-    }, 2000);
+    }
   }
 };
 
