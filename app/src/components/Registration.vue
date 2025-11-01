@@ -12,25 +12,52 @@ const hasDomain = computed(() => !!appStore.domain);
 
 const expirationDate = computed(() => {
   if (!whoisStore.whoisInfo?.expiration_date) return 'N/A';
-  return new Date(whoisStore.whoisInfo.expiration_date).toLocaleString();
+  try {
+    const date = new Date(whoisStore.whoisInfo.expiration_date);
+    if (isNaN(date.getTime())) return 'N/A';
+    return date.toLocaleString();
+  } catch (e) {
+    console.error('Error parsing expiration date:', e);
+    return 'N/A';
+  }
 });
 
 const creationDate = computed(() => {
   if (!whoisStore.whoisInfo?.creation_date) return 'N/A';
-  return new Date(whoisStore.whoisInfo.creation_date).toLocaleString();
+  try {
+    const date = new Date(whoisStore.whoisInfo.creation_date);
+    if (isNaN(date.getTime())) return 'N/A';
+    return date.toLocaleString();
+  } catch (e) {
+    console.error('Error parsing creation date:', e);
+    return 'N/A';
+  }
 });
 
 const updatedDate = computed(() => {
   if (!whoisStore.whoisInfo?.updated_date) return 'N/A';
-  return new Date(whoisStore.whoisInfo.updated_date).toLocaleString();
+  try {
+    const date = new Date(whoisStore.whoisInfo.updated_date);
+    if (isNaN(date.getTime())) return 'N/A';
+    return date.toLocaleString();
+  } catch (e) {
+    console.error('Error parsing updated date:', e);
+    return 'N/A';
+  }
 });
 
 const daysUntilExpiry = computed(() => {
   if (!whoisStore.whoisInfo?.expiration_date) return null;
-  const expiryDate = new Date(whoisStore.whoisInfo.expiration_date);
-  const now = new Date();
-  const days = Math.floor((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  return days;
+  try {
+    const expiryDate = new Date(whoisStore.whoisInfo.expiration_date);
+    if (isNaN(expiryDate.getTime())) return null;
+    const now = new Date();
+    const days = Math.floor((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    return days;
+  } catch (e) {
+    console.error('Error calculating days until expiry:', e);
+    return null;
+  }
 });
 
 const expiryStatusClass = computed(() => {
