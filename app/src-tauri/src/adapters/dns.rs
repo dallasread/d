@@ -1,4 +1,4 @@
-use crate::models::dns::{DnsRecord, DnsResponse};
+use crate::models::dns::{DnsRecord, DnsResponse, DnskeyRecord, DsRecord, RrsigRecord};
 use std::process::Command;
 use std::time::Instant;
 
@@ -100,51 +100,6 @@ impl DnsAdapter {
 
     fn is_dig_available(&self) -> bool {
         Command::new("dig").arg("-v").output().is_ok()
-    }
-
-    // Query authoritative nameservers directly
-    pub async fn query_authoritative(
-        &self,
-        domain: &str,
-        record_type: &str,
-        nameserver: Option<&str>,
-    ) -> Result<DnsResponse, String> {
-        let start = Instant::now();
-
-        if !self.is_dig_available() {
-            return Err("dig command not found. Please install BIND tools.".to_string());
-        }
-
-        let mut cmd = Command::new("dig");
-        cmd.arg("+noall").arg("+answer").arg("+dnssec"); // Request DNSSEC records
-
-        // If nameserver specified, query it directly
-        if let Some(ns) = nameserver {
-            cmd.arg(format!("@{}", ns));
-        }
-
-        cmd.arg(record_type).arg(domain);
-
-        let output = cmd
-            .output()
-            .map_err(|e| format!("Failed to execute dig: {}", e))?;
-
-        let query_time = start.elapsed().as_secs_f64();
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("dig command failed: {}", stderr));
-        }
-
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let records = self.parse_dig_output(&stdout, record_type)?;
-
-        Ok(DnsResponse {
-            records,
-            query_time,
-            resolver: nameserver.unwrap_or("system").to_string(),
-            raw_output: Some(stdout.to_string()),
-        })
     }
 
     // Get authoritative nameservers for a domain
@@ -262,6 +217,91 @@ impl DnsAdapter {
             resolver: ns.to_string(),
             raw_output: Some(stdout.to_string()),
         })
+    }
+
+    // Parse DNSKEY records from DNS records
+    pub fn parse_dnskey_records(&self, records: &[DnsRecord]) -> Vec<DnskeyRecord> {
+        records
+            .iter()
+            .filter(|r| r.record_type == "DNSKEY")
+            .filter_map(|r| {
+                // DNSKEY format: flags protocol algorithm public_key
+                let parts: Vec<&str> = r.value.split_whitespace().collect();
+                if parts.len() >= 4 {
+                    let flags = parts[0].parse::<u16>().ok()?;
+                    let protocol = parts[1].parse::<u8>().ok()?;
+                    let algorithm = parts[2].parse::<u8>().ok()?;
+                    let public_key = parts[3..].join(" ");
+
+                    // Calculate key tag (simplified - just use flags for now)
+                    let key_tag = flags; // In real implementation, calculate from public key
+
+                    Some(DnskeyRecord {
+                        flags,
+                        protocol,
+                        algorithm,
+                        key_tag,
+                        public_key,
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    // Parse DS records from DNS records
+    pub fn parse_ds_records(&self, records: &[DnsRecord]) -> Vec<DsRecord> {
+        records
+            .iter()
+            .filter(|r| r.record_type == "DS")
+            .filter_map(|r| {
+                // DS format: key_tag algorithm digest_type digest
+                let parts: Vec<&str> = r.value.split_whitespace().collect();
+                if parts.len() >= 4 {
+                    let key_tag = parts[0].parse::<u16>().ok()?;
+                    let algorithm = parts[1].parse::<u8>().ok()?;
+                    let digest_type = parts[2].parse::<u8>().ok()?;
+                    let digest = parts[3..].join("");
+
+                    Some(DsRecord {
+                        key_tag,
+                        algorithm,
+                        digest_type,
+                        digest,
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    // Parse RRSIG records from DNS records
+    pub fn parse_rrsig_records(&self, records: &[DnsRecord]) -> Vec<RrsigRecord> {
+        records
+            .iter()
+            .filter(|r| r.record_type == "RRSIG")
+            .filter_map(|r| {
+                // RRSIG format: type_covered algorithm labels original_ttl expiration inception key_tag signer signature
+                let parts: Vec<&str> = r.value.split_whitespace().collect();
+                if parts.len() >= 9 {
+                    Some(RrsigRecord {
+                        type_covered: parts[0].to_string(),
+                        algorithm: parts[1].parse::<u8>().ok()?,
+                        labels: parts[2].parse::<u8>().ok()?,
+                        original_ttl: parts[3].parse::<u32>().ok()?,
+                        signature_expiration: parts[4].to_string(),
+                        signature_inception: parts[5].to_string(),
+                        key_tag: parts[6].parse::<u16>().ok()?,
+                        signer_name: parts[7].to_string(),
+                        signature: parts[8..].join(" "),
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 }
 

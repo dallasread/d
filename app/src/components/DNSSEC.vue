@@ -35,6 +35,17 @@ const statusIcon = computed(() => {
       return '○';
   }
 });
+
+// Cycle through colors for different keytags
+const getKeytagColor = (keytag: number) => {
+  const colors = ['text-yellow-400', 'text-red-400', 'text-blue-400', 'text-green-400'];
+  return colors[keytag % colors.length];
+};
+
+const getZoneLabel = (zoneName: string) => {
+  if (zoneName === '.') return 'root zone';
+  return `${zoneName} (zone)`;
+};
 </script>
 
 <template>
@@ -91,7 +102,7 @@ const statusIcon = computed(() => {
         <div class="panel">
           <h2 class="text-xl font-semibold mb-4 text-white">Validation Status</h2>
 
-          <div class="flex items-center gap-4 mb-4">
+          <div class="flex items-center gap-4">
             <div
               :class="[
                 'flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm',
@@ -105,19 +116,6 @@ const statusIcon = computed(() => {
             >
               <span class="text-xl">{{ statusIcon }}</span>
               <span>{{ dnssecStore.validation.status }}</span>
-            </div>
-
-            <div class="text-[#858585] text-sm">
-              <span v-if="dnssecStore.validation.status === 'SECURE'">
-                DNSSEC is properly configured and validated
-              </span>
-              <span v-else-if="dnssecStore.validation.status === 'INSECURE'">
-                DNSSEC is not enabled for this domain
-              </span>
-              <span v-else-if="dnssecStore.validation.status === 'BOGUS'">
-                DNSSEC validation failed - potential security issue
-              </span>
-              <span v-else> Could not determine DNSSEC status </span>
             </div>
           </div>
 
@@ -150,137 +148,107 @@ const statusIcon = computed(() => {
             No DNSSEC chain data available
           </div>
 
-          <div v-else class="space-y-4">
+          <div v-else class="space-y-3">
             <div
               v-for="(zone, index) in dnssecStore.validation.chain"
               :key="index"
               class="relative"
             >
-              <!-- Zone Card -->
-              <div class="bg-[#252526] border border-[#3e3e42] rounded-lg p-4">
-                <div class="flex items-center justify-between mb-3">
-                  <h3 class="font-semibold text-white">{{ zone.zone || 'Root Zone' }}</h3>
-                  <span
-                    class="px-2 py-1 bg-blue-500/10 text-blue-400 text-xs rounded border border-blue-500/30"
-                  >
-                    Zone {{ index + 1 }} of {{ dnssecStore.validation.chain.length }}
-                  </span>
-                </div>
-
-                <!-- DNSKEY Records -->
-                <div v-if="zone.dnskey_records && zone.dnskey_records.length > 0" class="mb-3">
-                  <h4 class="text-sm font-medium text-[#cccccc] mb-2">DNSKEY Records</h4>
-                  <div class="space-y-2">
-                    <div
-                      v-for="(dnskey, keyIndex) in zone.dnskey_records"
-                      :key="keyIndex"
-                      class="bg-[#1e1e1e] border border-[#3e3e42] rounded p-3 text-sm"
-                    >
-                      <div class="grid grid-cols-2 gap-2">
-                        <div>
-                          <span class="text-[#858585]">Flags:</span>
-                          <span class="ml-2 text-[#cccccc] font-mono">{{ dnskey.flags }}</span>
-                        </div>
-                        <div>
-                          <span class="text-[#858585]">Protocol:</span>
-                          <span class="ml-2 text-[#cccccc] font-mono">{{ dnskey.protocol }}</span>
-                        </div>
-                        <div>
-                          <span class="text-[#858585]">Algorithm:</span>
-                          <span class="ml-2 text-[#cccccc] font-mono">{{ dnskey.algorithm }}</span>
-                        </div>
-                        <div>
-                          <span class="text-[#858585]">Key Tag:</span>
-                          <span class="ml-2 text-[#cccccc] font-mono">{{ dnskey.key_tag }}</span>
-                        </div>
-                      </div>
-                      <div class="mt-2">
-                        <span class="text-[#858585]">Public Key:</span>
-                        <p class="mt-1 text-[#cccccc] font-mono text-xs break-all">
-                          {{ dnskey.public_key.substring(0, 64) }}...
-                        </p>
-                      </div>
-                    </div>
+              <!-- Zone Header with Tree Connection -->
+              <div class="flex items-start gap-3 mb-2">
+                <div class="flex flex-col items-center pt-1">
+                  <!-- Vertical line from previous zone -->
+                  <div v-if="index > 0" class="w-px h-3 bg-[#3e3e42]"></div>
+                  <!-- Corner and horizontal line -->
+                  <div class="flex items-center">
+                    <div class="w-px h-3 bg-[#3e3e42]"></div>
+                    <div class="w-3 h-px bg-[#3e3e42]"></div>
                   </div>
+                  <!-- Vertical line to content -->
+                  <div class="w-px flex-1 bg-[#3e3e42] min-h-[20px]"></div>
                 </div>
 
-                <!-- DS Records -->
-                <div v-if="zone.ds_records && zone.ds_records.length > 0">
-                  <h4 class="text-sm font-medium text-[#cccccc] mb-2">DS Records</h4>
-                  <div class="space-y-2">
-                    <div
-                      v-for="(ds, dsIndex) in zone.ds_records"
-                      :key="dsIndex"
-                      class="bg-[#1e1e1e] border border-[#3e3e42] rounded p-3 text-sm"
-                    >
-                      <div class="grid grid-cols-2 gap-2">
-                        <div>
-                          <span class="text-[#858585]">Key Tag:</span>
-                          <span class="ml-2 text-[#cccccc] font-mono">{{ ds.key_tag }}</span>
-                        </div>
-                        <div>
-                          <span class="text-[#858585]">Algorithm:</span>
-                          <span class="ml-2 text-[#cccccc] font-mono">{{ ds.algorithm }}</span>
-                        </div>
-                        <div class="col-span-2">
-                          <span class="text-[#858585]">Digest Type:</span>
-                          <span class="ml-2 text-[#cccccc] font-mono">{{ ds.digest_type }}</span>
-                        </div>
-                      </div>
-                      <div class="mt-2">
-                        <span class="text-[#858585]">Digest:</span>
-                        <p class="mt-1 text-[#cccccc] font-mono text-xs break-all">
-                          {{ ds.digest }}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <div class="flex-1">
+                  <h3 class="font-semibold text-cyan-400 mb-2">
+                    {{ getZoneLabel(zone.zone_name) }}
+                  </h3>
 
-                <!-- RRSIG Records -->
-                <div v-if="zone.rrsig_records && zone.rrsig_records.length > 0" class="mt-3">
-                  <h4 class="text-sm font-medium text-[#cccccc] mb-2">RRSIG Records</h4>
-                  <div class="space-y-2">
+                  <div class="border border-[#3e3e42] rounded p-3 bg-[#1a1a1a]">
+                    <!-- DNSKEY Records -->
                     <div
-                      v-for="(rrsig, rrsigIndex) in zone.rrsig_records"
-                      :key="rrsigIndex"
-                      class="bg-[#1e1e1e] border border-[#3e3e42] rounded p-3 text-sm"
+                      v-if="zone.dnskey_records && zone.dnskey_records.length > 0"
+                      class="space-y-1 mb-2"
                     >
-                      <div class="grid grid-cols-2 gap-2">
-                        <div>
-                          <span class="text-[#858585]">Type Covered:</span>
-                          <span class="ml-2 text-[#cccccc] font-mono">{{
-                            rrsig.type_covered
+                      <div
+                        v-for="(dnskey, keyIndex) in zone.dnskey_records"
+                        :key="keyIndex"
+                        class="font-mono text-xs text-[#cccccc] flex items-start gap-2"
+                      >
+                        <span class="text-green-400 flex-shrink-0">✓</span>
+                        <span class="flex-1 break-all">
+                          DNSKEY KEYTAG=<span :class="getKeytagColor(dnskey.key_tag)">{{
+                            dnskey.key_tag
                           }}</span>
-                        </div>
-                        <div>
-                          <span class="text-[#858585]">Algorithm:</span>
-                          <span class="ml-2 text-[#cccccc] font-mono">{{ rrsig.algorithm }}</span>
-                        </div>
-                        <div>
-                          <span class="text-[#858585]">Key Tag:</span>
-                          <span class="ml-2 text-[#cccccc] font-mono">{{ rrsig.key_tag }}</span>
-                        </div>
-                        <div>
-                          <span class="text-[#858585]">Labels:</span>
-                          <span class="ml-2 text-[#cccccc] font-mono">{{ rrsig.labels }}</span>
-                        </div>
-                        <div class="col-span-2">
-                          <span class="text-[#858585]">Signer:</span>
-                          <span class="ml-2 text-[#cccccc] font-mono">{{ rrsig.signer_name }}</span>
-                        </div>
+                          ALGO={{ dnskey.algorithm }} TYPE=<span
+                            :class="dnskey.flags === 257 ? 'text-blue-400' : 'text-cyan-400'"
+                            >{{ dnskey.flags === 257 ? 'KSK' : 'ZSK' }}</span
+                          >
+                          PUBKEY={{ dnskey.public_key.substring(0, 100) }}...
+                        </span>
+                      </div>
+                    </div>
+
+                    <!-- DS Records -->
+                    <div v-if="zone.ds_records && zone.ds_records.length > 0" class="space-y-1">
+                      <div
+                        v-for="(ds, dsIndex) in zone.ds_records"
+                        :key="dsIndex"
+                        class="font-mono text-xs text-[#cccccc] flex items-start gap-2"
+                      >
+                        <span class="text-green-400 flex-shrink-0">✓</span>
+                        <span class="flex-1 break-all">
+                          DS&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;KEYTAG=<span
+                            :class="getKeytagColor(ds.key_tag)"
+                            >{{ ds.key_tag }}</span
+                          >
+                          ALGO={{ ds.algorithm }} HASH={{ ds.digest }}
+                        </span>
+                      </div>
+                    </div>
+
+                    <!-- No DS records warning (only for non-root zones with no child DS records) -->
+                    <div
+                      v-if="
+                        zone.ds_records &&
+                        zone.ds_records.length === 0 &&
+                        zone.zone_name !== '.' &&
+                        index < dnssecStore.validation.chain.length - 1
+                      "
+                      class="mt-2"
+                    >
+                      <div class="font-mono text-xs text-red-400 flex items-start gap-2">
+                        <span class="flex-shrink-0">✗</span>
+                        <span>No DS records found – chain is broken</span>
+                      </div>
+                    </div>
+
+                    <!-- RRSIG indicator -->
+                    <div v-if="zone.rrsig_records && zone.rrsig_records.length > 0" class="mt-2">
+                      <div class="font-mono text-xs text-gray-400 flex items-start gap-2">
+                        <span class="flex-shrink-0">○</span>
+                        <span>RRSIG records found; zone records are signed</span>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <!-- Arrow to next zone -->
+              <!-- Arrow to next zone (if not last) -->
               <div
                 v-if="index < dnssecStore.validation.chain.length - 1"
-                class="flex justify-center my-2"
+                class="flex items-center gap-3 my-1 ml-3"
               >
-                <div class="text-[#858585] text-2xl">↓</div>
+                <div class="w-px h-3 bg-[#3e3e42]"></div>
               </div>
             </div>
           </div>
