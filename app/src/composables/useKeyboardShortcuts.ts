@@ -16,10 +16,7 @@ export function useKeyboardShortcuts() {
 
   const handleKeyDown = (event: KeyboardEvent) => {
     // Ignore if user is typing in an input
-    if (
-      event.target instanceof HTMLInputElement ||
-      event.target instanceof HTMLTextAreaElement
-    ) {
+    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
       return;
     }
 
@@ -29,6 +26,27 @@ export function useKeyboardShortcuts() {
       event.preventDefault();
       router.push(route.path);
       console.log(`Navigating to ${route.name}`);
+      return;
+    }
+
+    // Left/Right arrow keys for panel navigation
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      event.preventDefault();
+      const currentPath = router.currentRoute.value.path;
+      const currentIndex = routes.findIndex((r) => r.path === currentPath);
+
+      if (currentIndex !== -1) {
+        let nextIndex: number;
+        if (event.key === 'ArrowLeft') {
+          // Go to previous panel (wrap around to last if at first)
+          nextIndex = currentIndex === 0 ? routes.length - 1 : currentIndex - 1;
+        } else {
+          // Go to next panel (wrap around to first if at last)
+          nextIndex = currentIndex === routes.length - 1 ? 0 : currentIndex + 1;
+        }
+        router.push(routes[nextIndex].path);
+        console.log(`Navigating to ${routes[nextIndex].name}`);
+      }
       return;
     }
 
