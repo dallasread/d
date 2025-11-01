@@ -3,7 +3,7 @@ import { computed } from 'vue';
 import { useAppStore } from '../stores/app';
 import { useWhoisStore } from '../stores/whois';
 import PanelLoading from './PanelLoading.vue';
-import { CheckIcon, XMarkIcon } from '@heroicons/vue/24/solid';
+// import { CheckIcon, XMarkIcon } from '@heroicons/vue/24/solid';
 
 const appStore = useAppStore();
 const whoisStore = useWhoisStore();

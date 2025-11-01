@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, onMounted, nextTick, watch, onUnmounted } from 'vue';
 import { useAppStore } from '../stores/app';
 import { useDnssecStore } from '../stores/dnssec';
 import PanelLoading from './PanelLoading.vue';
@@ -83,6 +83,89 @@ const dnssecSubQueries = computed(() => [
   { name: 'Domain DS Records', status: 'loading' as const },
   { name: 'Domain DNSKEY', status: 'loading' as const },
 ]);
+
+// Arrow paths for linking DS to DNSKEY records
+const arrowPaths = ref<Array<{ d: string; color: string }>>([]);
+
+// Calculate arrow paths between DS records and matching DNSKEYs
+const calculateArrows = () => {
+  arrowPaths.value = [];
+
+  if (!dnssecStore.validation || !dnssecStore.validation.chain) return;
+
+  const validation = dnssecStore.validation;
+
+  // Wait for DOM to render
+  nextTick(() => {
+    // Iterate through each zone (except the last one which has no children)
+    for (let zoneIndex = 0; zoneIndex < validation.chain.length - 1; zoneIndex++) {
+      const parentZone = validation.chain[zoneIndex];
+      const childZone = validation.chain[zoneIndex + 1];
+
+      if (!parentZone.ds_records || !childZone.dnskey_records) continue;
+
+      // For each DS record in the parent zone
+      parentZone.ds_records.forEach((ds, dsIndex) => {
+        // Find matching DNSKEY in child zone by key_tag
+        const matchingDnskeyIndex = childZone.dnskey_records.findIndex(
+          (key) => key.key_tag === ds.key_tag
+        );
+
+        if (matchingDnskeyIndex === -1) return;
+
+        // Get DOM elements
+        const dsElement = document.getElementById(
+          `ds-zone${zoneIndex}-keytag${ds.key_tag}-index${dsIndex}`
+        );
+        const dnskeyElement = document.getElementById(
+          `dnskey-zone${zoneIndex + 1}-keytag${ds.key_tag}-index${matchingDnskeyIndex}`
+        );
+
+        if (!dsElement || !dnskeyElement) return;
+
+        // Get the container for relative positioning
+        const container = dsElement.closest('.panel');
+        if (!container) return;
+
+        const containerRect = container.getBoundingClientRect();
+        const dsRect = dsElement.getBoundingClientRect();
+        const dnskeyRect = dnskeyElement.getBoundingClientRect();
+
+        // Calculate start and end points (right side of DS, left side of DNSKEY)
+        const x1 = dsRect.right - containerRect.left;
+        const y1 = dsRect.top + dsRect.height / 2 - containerRect.top;
+        const x2 = dnskeyRect.left - containerRect.left - 10;
+        const y2 = dnskeyRect.top + dnskeyRect.height / 2 - containerRect.top;
+
+        // Create a hand-drawn style curved path with slight randomness
+        const dx = x2 - x1;
+        const curve = Math.abs(dx) * 0.3;
+
+        // Add slight randomness for hand-drawn effect
+        const wobble1 = Math.random() * 4 - 2;
+        const wobble2 = Math.random() * 4 - 2;
+
+        const path = `M ${x1} ${y1} C ${x1 + curve} ${y1 + wobble1}, ${x2 - curve} ${y2 + wobble2}, ${x2} ${y2}`;
+
+        // Use orange color for arrows
+        arrowPaths.value.push({ d: path, color: '#fb923c' });
+      });
+    }
+  });
+};
+
+// Watch for changes in validation data
+watch(() => dnssecStore.validation, calculateArrows, { deep: true });
+
+onMounted(() => {
+  calculateArrows();
+  // Recalculate on window resize
+  window.addEventListener('resize', calculateArrows);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', calculateArrows);
+});
 </script>
 
 <template>
@@ -158,14 +241,43 @@ const dnssecSubQueries = computed(() => [
         </div>
 
         <!-- Chain Visualization -->
-        <div class="panel">
+        <div class="panel relative">
           <h2 class="text-xl font-semibold mb-4 text-white">Trust Chain</h2>
 
           <div v-if="dnssecStore.validation.chain.length === 0" class="text-[#858585]">
             No DNSSEC chain data available
           </div>
 
-          <div v-else class="space-y-3">
+          <div v-else class="space-y-3 relative">
+            <!-- SVG overlay for drawing arrows -->
+            <svg
+              class="absolute inset-0 pointer-events-none"
+              style="width: 100%; height: 100%; z-index: 10"
+            >
+              <defs>
+                <marker
+                  id="arrowhead-orange"
+                  markerWidth="10"
+                  markerHeight="10"
+                  refX="9"
+                  refY="3"
+                  orient="auto"
+                >
+                  <polygon points="0 0, 10 3, 0 6" fill="#fb923c" />
+                </marker>
+              </defs>
+              <!-- Draw arrows between DS and DNSKEY records -->
+              <path
+                v-for="(arrow, idx) in arrowPaths"
+                :key="idx"
+                :d="arrow.d"
+                :stroke="arrow.color"
+                stroke-width="2"
+                fill="none"
+                marker-end="url(#arrowhead-orange)"
+                opacity="0.7"
+              />
+            </svg>
             <div
               v-for="(zone, index) in dnssecStore.validation.chain"
               :key="index"
@@ -199,6 +311,7 @@ const dnssecSubQueries = computed(() => [
                       <div
                         v-for="(dnskey, keyIndex) in zone.dnskey_records"
                         :key="keyIndex"
+                        :id="`dnskey-zone${index}-keytag${dnskey.key_tag}-index${keyIndex}`"
                         class="font-mono text-xs text-[#cccccc] flex items-start gap-2"
                       >
                         <CheckIcon class="w-3 h-3 text-green-400 flex-shrink-0 mt-0.5" />
@@ -228,6 +341,7 @@ const dnssecSubQueries = computed(() => [
                       <div
                         v-for="(ds, dsIndex) in zone.ds_records"
                         :key="dsIndex"
+                        :id="`ds-zone${index}-keytag${ds.key_tag}-index${dsIndex}`"
                         class="font-mono text-xs flex items-start gap-2"
                         :class="
                           dsMatchesChild(ds.key_tag, getChildZone(index))
