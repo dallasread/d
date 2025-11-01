@@ -81,6 +81,12 @@ const expiryStatusClass = computed(() => {
       <!-- Loading state -->
       <PanelLoading v-if="whoisStore.loading" title="WHOIS Registration" />
 
+      <!-- Error Display -->
+      <div v-else-if="whoisStore.error" class="panel bg-red-900/20 border-red-800">
+        <h3 class="text-lg font-semibold text-red-400 mb-2">Failed to fetch WHOIS data</h3>
+        <p class="text-sm text-red-300">{{ whoisStore.error }}</p>
+      </div>
+
       <!-- Registration Info -->
       <div v-else-if="whoisStore.whoisInfo" class="space-y-6">
         <!-- Overview Card -->
@@ -173,12 +179,6 @@ const expiryStatusClass = computed(() => {
             <XMarkIcon v-else class="w-5 h-5 text-[#858585]" />
             <span class="font-medium">{{ whoisStore.whoisInfo.dnssec }}</span>
           </div>
-        </div>
-
-        <!-- Error Display -->
-        <div v-if="whoisStore.error" class="panel bg-red-900/20 border-red-800">
-          <h3 class="text-lg font-semibold text-red-400 mb-2">Error</h3>
-          <p class="text-sm text-red-300">{{ whoisStore.error }}</p>
         </div>
       </div>
 
