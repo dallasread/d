@@ -170,7 +170,7 @@ onUnmounted(() => {
           :key="tab.path"
           @click="navigateToTab(tab.path)"
           :class="[
-            'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors',
+            'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2',
             isActiveTab(tab.path)
               ? 'border-blue-500 text-blue-400'
               : 'border-transparent text-[#858585] hover:text-[#cccccc] hover:border-[#3e3e42]',
@@ -178,7 +178,16 @@ onUnmounted(() => {
           :aria-current="isActiveTab(tab.path) ? 'page' : undefined"
         >
           <span>{{ tab.name }}</span>
-          <span class="ml-2 text-xs opacity-60">{{ tab.key }}</span>
+          <kbd
+            class="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 text-[10px] font-semibold bg-[#3e3e42] border border-[#5e5e62] rounded shadow-sm"
+            :class="[
+              isActiveTab(tab.path)
+                ? 'text-blue-300 border-blue-500/50 bg-blue-500/10'
+                : 'text-[#cccccc]',
+            ]"
+          >
+            {{ tab.key }}
+          </kbd>
         </button>
       </nav>
     </div>
