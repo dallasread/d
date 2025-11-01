@@ -80,7 +80,7 @@ const copyOutput = (output: string) => {
 </script>
 
 <template>
-  <div class="min-h-screen p-6">
+  <div class="min-h-screen p-3 md:p-6">
     <div class="max-w-7xl mx-auto">
       <!-- Header -->
       <div class="flex justify-between items-center mb-6">

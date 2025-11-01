@@ -10,7 +10,7 @@ const hasDomain = computed(() => !!appStore.domain);
 </script>
 
 <template>
-  <div class="min-h-screen p-6">
+  <div class="min-h-screen p-3 md:p-6">
     <div class="max-w-7xl mx-auto">
       <h1 class="text-3xl font-bold mb-6">Email Configuration</h1>
 
