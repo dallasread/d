@@ -171,20 +171,8 @@ const dnssecSubQueries = computed(() => [
               :key="index"
               class="relative"
             >
-              <!-- Zone Header with Tree Connection -->
-              <div class="flex items-start gap-3 mb-2">
-                <div class="flex flex-col items-center pt-1">
-                  <!-- Vertical line from previous zone -->
-                  <div v-if="index > 0" class="w-px h-3 bg-[#3e3e42]"></div>
-                  <!-- Corner and horizontal line -->
-                  <div class="flex items-center">
-                    <div class="w-px h-3 bg-[#3e3e42]"></div>
-                    <div class="w-3 h-px bg-[#3e3e42]"></div>
-                  </div>
-                  <!-- Vertical line to content -->
-                  <div class="w-px flex-1 bg-[#3e3e42] min-h-[20px]"></div>
-                </div>
-
+              <!-- Zone Header -->
+              <div class="mb-2">
                 <div class="flex-1">
                   <h3 class="font-semibold text-cyan-400 mb-2">
                     {{ getZoneLabel(zone.zone_name) }}
@@ -198,10 +186,9 @@ const dnssecSubQueries = computed(() => [
                         (!zone.ds_records || zone.ds_records.length === 0) &&
                         (!zone.rrsig_records || zone.rrsig_records.length === 0)
                       "
-                      class="font-mono text-xs text-[#858585] flex items-start gap-2"
+                      class="font-mono text-xs text-[#858585]"
                     >
-                      <span class="flex-shrink-0">○</span>
-                      <span>No DNSSEC records found for this zone</span>
+                      No DNSSEC records found for this zone
                     </div>
 
                     <!-- DNSKEY Records -->
@@ -256,10 +243,9 @@ const dnssecSubQueries = computed(() => [
                           <CheckIcon class="w-3 h-3" />
                         </span>
                         <span class="flex-1 break-all">
-                          DS&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;KEYTAG=<span
-                            :class="getKeytagColor(ds.key_tag)"
-                            >{{ ds.key_tag }}</span
-                          >
+                          DS KEYTAG=<span :class="getKeytagColor(ds.key_tag)">{{
+                            ds.key_tag
+                          }}</span>
                           ALGO={{ ds.algorithm }} HASH={{ ds.digest }}
                         </span>
                       </div>
@@ -275,29 +261,19 @@ const dnssecSubQueries = computed(() => [
                       "
                       class="mt-2"
                     >
-                      <div class="font-mono text-xs text-red-400 flex items-start gap-2">
-                        <span class="flex-shrink-0">✗</span>
-                        <span>No DS records found – chain is broken</span>
+                      <div class="font-mono text-xs text-red-400">
+                        No DS records found – chain is broken
                       </div>
                     </div>
 
                     <!-- RRSIG indicator -->
                     <div v-if="zone.rrsig_records && zone.rrsig_records.length > 0" class="mt-2">
-                      <div class="font-mono text-xs text-gray-400 flex items-start gap-2">
-                        <span class="flex-shrink-0">○</span>
-                        <span>RRSIG records found; zone records are signed</span>
+                      <div class="font-mono text-xs text-gray-400">
+                        RRSIG records found; zone records are signed
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-
-              <!-- Arrow to next zone (if not last) -->
-              <div
-                v-if="index < dnssecStore.validation.chain.length - 1"
-                class="flex items-center gap-3 my-1 ml-3"
-              >
-                <div class="w-px h-3 bg-[#3e3e42]"></div>
               </div>
             </div>
           </div>
