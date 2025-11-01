@@ -163,14 +163,14 @@ onUnmounted(() => {
     </div>
 
     <!-- Navigation tabs -->
-    <div class="w-full px-6">
-      <nav class="flex gap-1 -mb-px max-w-full" aria-label="Tabs">
+    <div class="w-full px-6 overflow-x-auto">
+      <nav class="flex gap-1 -mb-px" aria-label="Tabs">
         <button
           v-for="tab in tabs"
           :key="tab.path"
           @click="navigateToTab(tab.path)"
           :class="[
-            'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 cursor-pointer',
+            'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 cursor-pointer whitespace-nowrap flex-shrink-0',
             isActiveTab(tab.path)
               ? 'border-blue-500 text-blue-400'
               : 'border-transparent text-[#858585] hover:text-[#cccccc] hover:border-[#3e3e42]',
