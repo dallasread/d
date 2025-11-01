@@ -179,7 +179,7 @@ onUnmounted(() => {
         >
           <span>{{ tab.name }}</span>
           <kbd
-            class="inline-flex items-center justify-center w-5 h-5 text-[11px] font-medium rounded border"
+            class="hidden md:inline-flex items-center justify-center w-5 h-5 text-[11px] font-medium rounded border"
             :class="[
               isActiveTab(tab.path)
                 ? 'bg-blue-500/15 border-blue-500/40 text-blue-300'
