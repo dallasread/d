@@ -79,48 +79,66 @@ const healthChecks = computed(() => {
         : 'No A/AAAA records found',
   });
 
+  let nsStatus: 'pass' | 'warn' | 'fail';
+  let nsMessage: string;
+  if (nsRecordCount.value >= 2) {
+    nsStatus = 'pass';
+    nsMessage = `${nsRecordCount.value} nameservers configured`;
+  } else if (nsRecordCount.value > 0) {
+    nsStatus = 'warn';
+    nsMessage = 'Only 1 nameserver (recommend 2+)';
+  } else {
+    nsStatus = 'fail';
+    nsMessage = 'No nameservers found';
+  }
+
   checks.push({
     name: 'Nameservers',
-    status: nsRecordCount.value >= 2 ? 'pass' : nsRecordCount.value > 0 ? 'warn' : 'fail',
-    message:
-      nsRecordCount.value >= 2
-        ? `${nsRecordCount.value} nameservers configured`
-        : nsRecordCount.value > 0
-          ? 'Only 1 nameserver (recommend 2+)'
-          : 'No nameservers found',
+    status: nsStatus,
+    message: nsMessage,
   });
 
   // Certificate checks
   if (certDaysUntilExpiry.value !== null) {
+    let certStatus: 'pass' | 'warn' | 'fail';
+    let certMessage: string;
+    if (certDaysUntilExpiry.value > 30) {
+      certStatus = 'pass';
+      certMessage = `Valid for ${certDaysUntilExpiry.value} days`;
+    } else if (certDaysUntilExpiry.value > 0) {
+      certStatus = 'warn';
+      certMessage = `Expires in ${certDaysUntilExpiry.value} days`;
+    } else {
+      certStatus = 'fail';
+      certMessage = 'Certificate expired';
+    }
+
     checks.push({
       name: 'SSL Certificate',
-      status:
-        certDaysUntilExpiry.value > 30 ? 'pass' : certDaysUntilExpiry.value > 0 ? 'warn' : 'fail',
-      message:
-        certDaysUntilExpiry.value > 30
-          ? `Valid for ${certDaysUntilExpiry.value} days`
-          : certDaysUntilExpiry.value > 0
-            ? `Expires in ${certDaysUntilExpiry.value} days`
-            : 'Certificate expired',
+      status: certStatus,
+      message: certMessage,
     });
   }
 
   // HTTPS checks
   if (httpsStatus.value > 0) {
+    let httpsCheckStatus: 'pass' | 'warn' | 'fail';
+    let httpsMessage: string;
+    if (httpsStatus.value >= 200 && httpsStatus.value < 300) {
+      httpsCheckStatus = 'pass';
+      httpsMessage = `Responding with ${httpsStatus.value}`;
+    } else if (httpsStatus.value >= 300 && httpsStatus.value < 400) {
+      httpsCheckStatus = 'warn';
+      httpsMessage = `Redirecting (${httpsStatus.value})`;
+    } else {
+      httpsCheckStatus = 'fail';
+      httpsMessage = `Error ${httpsStatus.value}`;
+    }
+
     checks.push({
       name: 'HTTPS',
-      status:
-        httpsStatus.value >= 200 && httpsStatus.value < 300
-          ? 'pass'
-          : httpsStatus.value >= 300 && httpsStatus.value < 400
-            ? 'warn'
-            : 'fail',
-      message:
-        httpsStatus.value >= 200 && httpsStatus.value < 300
-          ? `Responding with ${httpsStatus.value}`
-          : httpsStatus.value >= 300 && httpsStatus.value < 400
-            ? `Redirecting (${httpsStatus.value})`
-            : `Error ${httpsStatus.value}`,
+      status: httpsCheckStatus,
+      message: httpsMessage,
     });
   }
 
