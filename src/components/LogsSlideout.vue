@@ -69,7 +69,21 @@ const filteredLogs = computed(() => {
 
   // Filter by domain if set
   if (appStore.domain) {
-    logs = logs.filter((log) => log.domain === appStore.domain);
+    logs = logs.filter((log) => {
+      if (!log.domain) return false;
+
+      // For HTTP logs, also include www subdomain variants
+      if (route.path === '/http' && log.tool === 'curl') {
+        const domain = appStore.domain;
+        return (
+          log.domain === domain ||
+          log.domain === `www.${domain}` ||
+          (domain.startsWith('www.') && log.domain === domain.substring(4))
+        );
+      }
+
+      return log.domain === appStore.domain;
+    });
   }
 
   // Filter by current route/panel
