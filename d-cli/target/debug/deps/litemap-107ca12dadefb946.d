@@ -1,0 +1,10 @@
+/Users/dread/apps/dns/d/d-cli/target/debug/deps/liblitemap-107ca12dadefb946.rmeta: /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/litemap-0.8.1/src/lib.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/litemap-0.8.1/src/map.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/litemap-0.8.1/src/store/mod.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/litemap-0.8.1/src/store/slice_impl.rs
+
+/Users/dread/apps/dns/d/d-cli/target/debug/deps/liblitemap-107ca12dadefb946.rlib: /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/litemap-0.8.1/src/lib.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/litemap-0.8.1/src/map.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/litemap-0.8.1/src/store/mod.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/litemap-0.8.1/src/store/slice_impl.rs
+
+/Users/dread/apps/dns/d/d-cli/target/debug/deps/litemap-107ca12dadefb946.d: /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/litemap-0.8.1/src/lib.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/litemap-0.8.1/src/map.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/litemap-0.8.1/src/store/mod.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/litemap-0.8.1/src/store/slice_impl.rs
+
+/Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/litemap-0.8.1/src/lib.rs:
+/Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/litemap-0.8.1/src/map.rs:
+/Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/litemap-0.8.1/src/store/mod.rs:
+/Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/litemap-0.8.1/src/store/slice_impl.rs:

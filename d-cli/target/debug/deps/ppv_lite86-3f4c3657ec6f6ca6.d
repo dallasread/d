@@ -1,0 +1,10 @@
+/Users/dread/apps/dns/d/d-cli/target/debug/deps/libppv_lite86-3f4c3657ec6f6ca6.rmeta: /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/ppv-lite86-0.2.21/src/lib.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/ppv-lite86-0.2.21/src/soft.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/ppv-lite86-0.2.21/src/types.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/ppv-lite86-0.2.21/src/generic.rs
+
+/Users/dread/apps/dns/d/d-cli/target/debug/deps/libppv_lite86-3f4c3657ec6f6ca6.rlib: /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/ppv-lite86-0.2.21/src/lib.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/ppv-lite86-0.2.21/src/soft.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/ppv-lite86-0.2.21/src/types.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/ppv-lite86-0.2.21/src/generic.rs
+
+/Users/dread/apps/dns/d/d-cli/target/debug/deps/ppv_lite86-3f4c3657ec6f6ca6.d: /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/ppv-lite86-0.2.21/src/lib.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/ppv-lite86-0.2.21/src/soft.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/ppv-lite86-0.2.21/src/types.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/ppv-lite86-0.2.21/src/generic.rs
+
+/Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/ppv-lite86-0.2.21/src/lib.rs:
+/Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/ppv-lite86-0.2.21/src/soft.rs:
+/Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/ppv-lite86-0.2.21/src/types.rs:
+/Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/ppv-lite86-0.2.21/src/generic.rs:

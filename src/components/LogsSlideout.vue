@@ -214,26 +214,8 @@ const copyOutput = (output: string) => {
   <Transition name="slide">
     <div
       v-if="isOpen"
-      class="fixed top-[120px] right-0 h-[calc(100vh-120px)] w-full md:w-2/3 lg:w-1/2 bg-[#1e1e1e] shadow-2xl z-50 flex flex-col"
+      class="fixed top-[120px] right-0 h-[calc(100vh-120px)] w-full md:w-5/6 lg:w-3/4 bg-[#1e1e1e] shadow-2xl z-50 flex flex-col"
     >
-      <!-- Header -->
-      <div class="flex justify-end items-center p-4 border-b border-[#3e3e42]">
-        <button
-          @click="emit('close')"
-          class="p-2 hover:bg-[#3e3e42] rounded transition-colors"
-          aria-label="Close logs"
-        >
-          <svg class="w-5 h-5 text-[#858585]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
-      </div>
-
       <!-- Content -->
       <div class="flex-1 overflow-y-auto p-6">
         <!-- Empty state -->

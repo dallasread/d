@@ -238,18 +238,26 @@ impl CertificateAdapter {
     }
 
     fn extract_field(&self, text: &str, field: &str) -> Option<String> {
-        text.lines().find(|l| l.contains(field)).and_then(|l| {
-            // For date fields, get everything after the field name
-            if field.contains("Not Before") || field.contains("Not After") {
-                // Split on the first colon and take everything after
-                let parts: Vec<&str> = l.splitn(2, ':').collect();
-                if parts.len() > 1 {
-                    return Some(parts[1].trim().to_string());
+        // For date fields, handle both "Not After:" and "Not After :" (with space before colon)
+        let search_term = if field.contains("Not Before") || field.contains("Not After") {
+            field.trim_end_matches(':')
+        } else {
+            field
+        };
+
+        text.lines()
+            .find(|l| l.contains(search_term))
+            .and_then(|l| {
+                // For date fields, get everything after the colon (handle spaces before colon)
+                if field.contains("Not Before") || field.contains("Not After") {
+                    // Find the colon and take everything after it
+                    if let Some(colon_pos) = l.find(':') {
+                        return Some(l[colon_pos + 1..].trim().to_string());
+                    }
                 }
-            }
-            // For other fields, use normal parsing
-            l.split(':').nth(1).map(|s| s.trim().to_string())
-        })
+                // For other fields, use normal parsing
+                l.split(':').nth(1).map(|s| s.trim().to_string())
+            })
     }
 
     fn is_openssl_available(&self) -> bool {

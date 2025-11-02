@@ -17,4 +17,5 @@ pub struct HttpRedirect {
     pub from_url: String,
     pub to_url: String,
     pub status_code: u16,
+    pub response_time: f64,
 }

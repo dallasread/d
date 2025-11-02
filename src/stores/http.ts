@@ -18,21 +18,34 @@ export const useHttpStore = defineStore('http', () => {
     try {
       // Check if domain already has www
       const isWww = domain.startsWith('www.');
-      const wwwDomain = isWww ? domain : `www.${domain}`;
-      const apexDomain = isWww ? domain.substring(4) : domain;
 
-      // Fetch apex domain (HTTP and HTTPS) and www subdomain (HTTP and HTTPS)
-      const [http, https, wwwHttp, wwwHttps] = await Promise.all([
-        invoke<HttpResponse>('fetch_http', { url: `http://${apexDomain}` }).catch(() => null),
-        invoke<HttpResponse>('fetch_http', { url: `https://${apexDomain}` }).catch(() => null),
-        invoke<HttpResponse>('fetch_http', { url: `http://${wwwDomain}` }).catch(() => null),
-        invoke<HttpResponse>('fetch_http', { url: `https://${wwwDomain}` }).catch(() => null),
-      ]);
+      if (isWww) {
+        // If searching for www subdomain, only test www (not apex)
+        const [http, https] = await Promise.all([
+          invoke<HttpResponse>('fetch_http', { url: `http://${domain}` }).catch(() => null),
+          invoke<HttpResponse>('fetch_http', { url: `https://${domain}` }).catch(() => null),
+        ]);
 
-      httpResponse.value = http;
-      httpsResponse.value = https;
-      wwwHttpResponse.value = wwwHttp;
-      wwwHttpsResponse.value = wwwHttps;
+        httpResponse.value = http;
+        httpsResponse.value = https;
+        wwwHttpResponse.value = null;
+        wwwHttpsResponse.value = null;
+      } else {
+        // If searching for apex domain, test both apex and www
+        const wwwDomain = `www.${domain}`;
+
+        const [http, https, wwwHttp, wwwHttps] = await Promise.all([
+          invoke<HttpResponse>('fetch_http', { url: `http://${domain}` }).catch(() => null),
+          invoke<HttpResponse>('fetch_http', { url: `https://${domain}` }).catch(() => null),
+          invoke<HttpResponse>('fetch_http', { url: `http://${wwwDomain}` }).catch(() => null),
+          invoke<HttpResponse>('fetch_http', { url: `https://${wwwDomain}` }).catch(() => null),
+        ]);
+
+        httpResponse.value = http;
+        httpsResponse.value = https;
+        wwwHttpResponse.value = wwwHttp;
+        wwwHttpsResponse.value = wwwHttps;
+      }
     } catch (e) {
       error.value = e as string;
       console.error('Failed to fetch HTTP:', e);

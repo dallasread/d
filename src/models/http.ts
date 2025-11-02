@@ -2,6 +2,7 @@ export interface HttpRedirect {
   from_url: string;
   to_url: string;
   status_code: number;
+  response_time: number;
 }
 
 export interface HttpResponse {

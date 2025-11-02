@@ -1,0 +1,10 @@
+/Users/dread/apps/dns/d/d-cli/target/debug/deps/libtoml_datetime-a55d4dcad849d4f3.rmeta: /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/toml_datetime-0.7.3/src/lib.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/toml_datetime-0.7.3/src/datetime.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/toml_datetime-0.7.3/src/de.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/toml_datetime-0.7.3/src/ser.rs
+
+/Users/dread/apps/dns/d/d-cli/target/debug/deps/libtoml_datetime-a55d4dcad849d4f3.rlib: /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/toml_datetime-0.7.3/src/lib.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/toml_datetime-0.7.3/src/datetime.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/toml_datetime-0.7.3/src/de.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/toml_datetime-0.7.3/src/ser.rs
+
+/Users/dread/apps/dns/d/d-cli/target/debug/deps/toml_datetime-a55d4dcad849d4f3.d: /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/toml_datetime-0.7.3/src/lib.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/toml_datetime-0.7.3/src/datetime.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/toml_datetime-0.7.3/src/de.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/toml_datetime-0.7.3/src/ser.rs
+
+/Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/toml_datetime-0.7.3/src/lib.rs:
+/Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/toml_datetime-0.7.3/src/datetime.rs:
+/Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/toml_datetime-0.7.3/src/de.rs:
+/Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/toml_datetime-0.7.3/src/ser.rs:
