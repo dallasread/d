@@ -455,10 +455,11 @@ onUnmounted(() => {
 
       <!-- Validation Results -->
       <div v-else-if="dnssecStore.validation" class="space-y-6">
-        <!-- Chain Visualization -->
+        <!-- DNSSEC Status -->
         <div class="panel relative">
           <!-- Header with Status -->
           <div class="flex items-center justify-between mb-6">
+            <h2 class="text-xl font-semibold text-white">DNSSEC Status</h2>
             <div
               :class="[
                 'flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm',
