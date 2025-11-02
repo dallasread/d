@@ -1,5 +1,12 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+import { useDNSStore } from './dns';
+import { useDnssecStore } from './dnssec';
+import { useWhoisStore } from './whois';
+import { useCertificateStore } from './certificate';
+import { useHttpStore } from './http';
+import { useEmailStore } from './email';
+import { useLogsStore } from './logs';
 
 export interface AppState {
   domain: string;
@@ -16,6 +23,27 @@ export const useAppStore = defineStore('app', () => {
 
   // Actions
   const setDomain = (newDomain: string) => {
+    // Clear all stores when domain changes
+    if (domain.value !== newDomain) {
+      const dnsStore = useDNSStore();
+      const dnssecStore = useDnssecStore();
+      const whoisStore = useWhoisStore();
+      const certificateStore = useCertificateStore();
+      const httpStore = useHttpStore();
+      const emailStore = useEmailStore();
+      const logsStore = useLogsStore();
+
+      // Clear data from all stores
+      dnsStore.clearDNSData();
+      dnsStore.clearCache();
+      dnssecStore.reset();
+      whoisStore.clear();
+      certificateStore.clear();
+      httpStore.clear();
+      emailStore.clear();
+      logsStore.clearLogs();
+    }
+
     domain.value = newDomain;
   };
 
