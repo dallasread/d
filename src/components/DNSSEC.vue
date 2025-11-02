@@ -281,7 +281,7 @@ const calculateArrowPaths = () => {
           const dnskeyRect = dnskeyEl.getBoundingClientRect();
 
           // Arrow positioning constants
-          const leftX = 20; // Fixed X position from left edge
+          const leftX = -28; // Fixed X position from left edge (negative to account for no padding)
           const arrowLength = 20; // Horizontal arrow length
 
           // Calculate vertical center positions
@@ -364,7 +364,7 @@ const calculateArrowPaths = () => {
           const rrsigRect = rrsigEl.getBoundingClientRect();
 
           // Arrow positioning (same as DS→DNSKEY arrows)
-          const leftX = 20;
+          const leftX = -28;
           const arrowLength = 20;
           const y1 = dnskeyRect.top + dnskeyRect.height / 2 - containerRect.top;
           const y2 = rrsigRect.top + rrsigRect.height / 2 - containerRect.top;
@@ -505,7 +505,7 @@ onUnmounted(() => {
             No DNSSEC chain data available
           </div>
 
-          <div v-else class="space-y-3 relative dnssec-chain-container pl-12">
+          <div v-else class="space-y-3 relative dnssec-chain-container">
             <!-- SVG overlay for arrow connections -->
             <svg
               class="absolute inset-0 pointer-events-none overflow-visible"
@@ -535,11 +535,11 @@ onUnmounted(() => {
                 />
                 <!-- Arrowheads with hand-drawn curved ( shape -->
                 <path
-                  :d="`M ${40 + Math.random() * 2 - 1},${arrow.startY - 8 + Math.random() * 2 - 1} Q ${50 + Math.random() * 3 - 1.5},${arrow.startY - 4 + Math.random() * 2 - 1} ${56 + Math.random() * 2 - 1},${arrow.startY + Math.random() * 2 - 1} Q ${50 + Math.random() * 3 - 1.5},${arrow.startY + 4 + Math.random() * 2 - 1} ${40 + Math.random() * 2 - 1},${arrow.startY + 8 + Math.random() * 2 - 1}`"
+                  :d="`M ${-8 + Math.random() * 2 - 1},${arrow.startY - 8 + Math.random() * 2 - 1} Q ${2 + Math.random() * 3 - 1.5},${arrow.startY - 4 + Math.random() * 2 - 1} ${8 + Math.random() * 2 - 1},${arrow.startY + Math.random() * 2 - 1} Q ${2 + Math.random() * 3 - 1.5},${arrow.startY + 4 + Math.random() * 2 - 1} ${-8 + Math.random() * 2 - 1},${arrow.startY + 8 + Math.random() * 2 - 1}`"
                   :fill="arrow.color"
                 />
                 <path
-                  :d="`M ${40 + Math.random() * 2 - 1},${arrow.endY - 8 + Math.random() * 2 - 1} Q ${50 + Math.random() * 3 - 1.5},${arrow.endY - 4 + Math.random() * 2 - 1} ${56 + Math.random() * 2 - 1},${arrow.endY + Math.random() * 2 - 1} Q ${50 + Math.random() * 3 - 1.5},${arrow.endY + 4 + Math.random() * 2 - 1} ${40 + Math.random() * 2 - 1},${arrow.endY + 8 + Math.random() * 2 - 1}`"
+                  :d="`M ${-8 + Math.random() * 2 - 1},${arrow.endY - 8 + Math.random() * 2 - 1} Q ${2 + Math.random() * 3 - 1.5},${arrow.endY - 4 + Math.random() * 2 - 1} ${8 + Math.random() * 2 - 1},${arrow.endY + Math.random() * 2 - 1} Q ${2 + Math.random() * 3 - 1.5},${arrow.endY + 4 + Math.random() * 2 - 1} ${-8 + Math.random() * 2 - 1},${arrow.endY + 8 + Math.random() * 2 - 1}`"
                   :fill="arrow.color"
                 />
               </g>

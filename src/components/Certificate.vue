@@ -92,122 +92,145 @@ const getStatusClass = computed(() => {
       <!-- Loading state -->
       <PanelLoading v-if="certStore.loading" title="SSL Certificate" />
 
-      <!-- Certificate Info - Terminal Style -->
+      <!-- Certificate Info - Card Layout -->
       <div v-else-if="leafCert" class="space-y-6">
-        <div class="bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg p-6 font-mono text-sm">
-          <!-- Title -->
-          <div class="mb-6">
-            <span class="text-cyan-400 font-bold text-base"
-              >SSL/TLS Certificate for {{ appStore.domain }}</span
-            >
-          </div>
-
-          <div class="space-y-6">
-            <!-- Certificate Details -->
-            <div class="mb-6">
-              <div class="text-yellow-400 font-bold mb-2">Certificate Details:</div>
-              <div class="ml-4 space-y-1">
-                <div class="text-gray-300">
-                  Subject:
-                  <span class="text-white">{{ leafCert.subject.common_name || 'N/A' }}</span>
-                </div>
-                <div class="text-gray-300">
-                  Issuer:
-                  <span class="text-white">{{
-                    leafCert.issuer.organization || leafCert.issuer.common_name || 'N/A'
-                  }}</span>
-                </div>
-                <div class="text-gray-300">
-                  Valid From: <span class="text-white">{{ formatDate(leafCert.not_before) }}</span>
-                </div>
-                <div class="text-gray-300">
-                  Valid Until: <span class="text-white">{{ formatDate(leafCert.not_after) }}</span>
-                </div>
-                <div class="text-gray-300">
-                  Status: <span :class="getStatusClass">{{ getStatusText }}</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Public Key -->
-            <div class="mb-6">
-              <div class="text-yellow-400 font-bold mb-2">Public Key:</div>
-              <div class="ml-4 space-y-1">
-                <div class="text-gray-300">
-                  Algorithm: <span class="text-white">{{ leafCert.public_key_algorithm }}</span>
-                </div>
-                <div v-if="leafCert.public_key_size" class="text-gray-300">
-                  Size: <span class="text-white">{{ leafCert.public_key_size }} bits</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Subject Alternative Names -->
+        <!-- Status Overview Card -->
+        <div class="panel">
+          <h2 class="text-xl font-semibold mb-4 text-white">Certificate Status</h2>
+          <div class="flex items-center gap-4">
             <div
-              v-if="
-                leafCert.subject_alternative_names && leafCert.subject_alternative_names.length > 0
-              "
-              class="mb-6"
+              :class="[
+                'flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm',
+                isExpired && 'bg-red-500/10 text-red-400 border border-red-500/30',
+                !isExpired &&
+                  daysUntilExpiry !== null &&
+                  daysUntilExpiry > 30 &&
+                  'bg-green-500/10 text-green-400 border border-green-500/30',
+                !isExpired &&
+                  daysUntilExpiry !== null &&
+                  daysUntilExpiry <= 30 &&
+                  'bg-yellow-500/10 text-yellow-400 border border-yellow-500/30',
+              ]"
             >
-              <div class="text-yellow-400 font-bold mb-2">Subject Alternative Names:</div>
-              <div class="ml-4 space-y-1">
-                <div
-                  v-for="(san, index) in leafCert.subject_alternative_names"
-                  :key="index"
-                  class="text-gray-300"
-                >
-                  • <span class="text-white">{{ san }}</span>
-                </div>
+              <span>{{ getStatusText }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Certificate Details Card -->
+        <div class="panel">
+          <h2 class="text-xl font-semibold mb-4 text-white">Certificate Details</h2>
+          <div class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p class="text-sm text-[#858585] mb-1">Subject (Issued To)</p>
+                <p class="text-base font-medium text-white">
+                  {{ leafCert.subject.common_name || 'N/A' }}
+                </p>
+              </div>
+              <div>
+                <p class="text-sm text-[#858585] mb-1">Issuer (Certificate Authority)</p>
+                <p class="text-base font-medium text-white">
+                  {{ leafCert.issuer.organization || leafCert.issuer.common_name || 'N/A' }}
+                </p>
               </div>
             </div>
 
-            <!-- Certificate Chain -->
-            <div v-if="certStore.tlsInfo" class="mb-6">
-              <div class="text-yellow-400 font-bold mb-2">Certificate Chain:</div>
-              <div class="ml-4 space-y-1">
-                <div class="text-gray-300">
-                  Chain Length:
-                  <span class="text-white">{{
-                    certStore.tlsInfo.certificate_chain.certificates.length
-                  }}</span>
-                </div>
-                <div class="text-gray-300">
-                  Valid:
-                  <span
-                    :class="
-                      certStore.tlsInfo.certificate_chain.is_valid
-                        ? 'text-green-400'
-                        : 'text-red-400'
-                    "
-                  >
-                    {{ certStore.tlsInfo.certificate_chain.is_valid ? 'Yes' : 'No' }}
-                  </span>
-                </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+              <div>
+                <p class="text-sm text-[#858585] mb-1">Valid From</p>
+                <p class="text-base font-medium text-white">{{ formatDate(leafCert.not_before) }}</p>
+              </div>
+              <div>
+                <p class="text-sm text-[#858585] mb-1">Valid Until</p>
+                <p class="text-base font-medium" :class="getStatusClass">
+                  {{ formatDate(leafCert.not_after) }}
+                </p>
               </div>
             </div>
+          </div>
+        </div>
 
-            <!-- Security Features -->
-            <div class="mb-6">
-              <div class="text-yellow-400 font-bold mb-2">Security Features:</div>
-              <div class="ml-4 space-y-1">
-                <div class="text-gray-300">
-                  OCSP Stapling: <span class="text-gray-400">No</span>
-                </div>
-                <div class="text-gray-300">
-                  Self-Signed:
-                  <span
-                    :class="
-                      leafCert.issuer.common_name === leafCert.subject.common_name
-                        ? 'text-red-400'
-                        : 'text-green-400'
-                    "
-                  >
-                    {{
-                      leafCert.issuer.common_name === leafCert.subject.common_name ? 'Yes' : 'No'
-                    }}
-                  </span>
-                </div>
+        <!-- Public Key Info Card -->
+        <div class="panel">
+          <h2 class="text-xl font-semibold mb-4 text-white">Public Key Information</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p class="text-sm text-[#858585] mb-1">Algorithm</p>
+              <p class="text-base font-medium text-white">{{ leafCert.public_key_algorithm }}</p>
+            </div>
+            <div v-if="leafCert.public_key_size">
+              <p class="text-sm text-[#858585] mb-1">Key Size</p>
+              <p class="text-base font-medium text-white">{{ leafCert.public_key_size }} bits</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Subject Alternative Names Card -->
+        <div
+          v-if="leafCert.subject_alternative_names && leafCert.subject_alternative_names.length > 0"
+          class="panel"
+        >
+          <h2 class="text-xl font-semibold mb-4 text-white flex items-center gap-2">
+            Subject Alternative Names
+            <span class="text-sm font-normal text-blue-400">{{
+              leafCert.subject_alternative_names.length
+            }}</span>
+          </h2>
+          <div class="border border-[#3e3e42] rounded p-3 bg-[#1a1a1a]">
+            <div class="space-y-2">
+              <div
+                v-for="(san, index) in leafCert.subject_alternative_names"
+                :key="index"
+                class="font-mono text-sm text-[#cccccc] flex items-center gap-2"
+              >
+                <span class="text-blue-400">•</span>
+                <span>{{ san }}</span>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Certificate Chain Card -->
+        <div v-if="certStore.tlsInfo" class="panel">
+          <h2 class="text-xl font-semibold mb-4 text-white">Certificate Chain</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p class="text-sm text-[#858585] mb-1">Chain Length</p>
+              <p class="text-base font-medium text-white">
+                {{ certStore.tlsInfo.certificate_chain.certificates.length }} certificate(s)
+              </p>
+            </div>
+            <div>
+              <p class="text-sm text-[#858585] mb-1">Chain Valid</p>
+              <p
+                class="text-base font-medium"
+                :class="
+                  certStore.tlsInfo.certificate_chain.is_valid ? 'text-green-400' : 'text-red-400'
+                "
+              >
+                {{ certStore.tlsInfo.certificate_chain.is_valid ? 'Yes' : 'No' }}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Security Features Card -->
+        <div class="panel">
+          <h2 class="text-xl font-semibold mb-4 text-white">Security Features</h2>
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-sm text-[#858585]">Self-Signed Certificate</span>
+              <span
+                class="text-sm font-medium"
+                :class="
+                  leafCert.issuer.common_name === leafCert.subject.common_name
+                    ? 'text-red-400'
+                    : 'text-green-400'
+                "
+              >
+                {{ leafCert.issuer.common_name === leafCert.subject.common_name ? 'Yes' : 'No' }}
+              </span>
             </div>
           </div>
         </div>
