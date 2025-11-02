@@ -46,6 +46,9 @@ export const useDNSStore = defineStore('dns', () => {
     error.value = null;
     currentDomain.value = domain;
 
+    // Clear existing data to avoid showing stale data from previous domain
+    clearDNSData();
+
     try {
       const recordTypes = ['A', 'AAAA', 'MX', 'TXT', 'NS'];
       const responses = await invoke<DnsResponse[]>('query_dns_multiple', {
@@ -53,12 +56,13 @@ export const useDNSStore = defineStore('dns', () => {
         recordTypes,
       });
 
-      // Map responses to individual record types
-      responses.forEach((response) => {
-        if (response.records.length > 0) {
-          const recordType = response.records[0].record_type;
-          setDNSData(recordType, response);
-        }
+      // Map responses to individual record types (including empty responses)
+      responses.forEach((response, index) => {
+        // Use the record type from the response if available, otherwise from our request
+        const recordType = response.records.length > 0
+          ? response.records[0].record_type
+          : recordTypes[index];
+        setDNSData(recordType, response);
       });
 
       // Save to cache

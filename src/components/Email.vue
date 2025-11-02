@@ -5,74 +5,14 @@ import { useEmailStore } from '../stores/email';
 import { CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon } from '@heroicons/vue/24/solid';
 
 const appStore = useAppStore();
-// @ts-expect-error - Reserved for future email functionality
 const emailStore = useEmailStore();
 
 const hasDomain = computed(() => !!appStore.domain);
 
-interface MxRecord {
-  priority: number;
-  hostname: string;
-  ips: string[];
-}
-
-interface EmailData {
-  securityScore: number;
-  provider: string;
-  mxRecords: MxRecord[];
-  spf: {
-    record: string;
-    policy: string;
-    mechanisms: number;
-    valid: boolean;
-  };
-  dkim: {
-    found: boolean;
-    checkedSelectors: string[];
-  };
-  dmarc: {
-    record: string;
-    policy: string;
-    dkimAlignment: string;
-    spfAlignment: string;
-    aggregateReports: string;
-    forensicReports: string;
-  };
-}
-
-// Mock data for demonstration - will be replaced with real data from emailStore
-// Currently returns empty/placeholder data since email functionality is not yet implemented
-const mockEmailData = computed<EmailData | null>(() => {
-  if (!appStore.domain) return null;
-
-  // Return empty data structure - email functionality to be implemented
-  return {
-    securityScore: 0,
-    provider: 'Not yet implemented',
-    mxRecords: [] as MxRecord[],
-    spf: {
-      record: '',
-      policy: '',
-      mechanisms: 0,
-      valid: false,
-    },
-    dkim: {
-      found: false,
-      checkedSelectors: [] as string[],
-    },
-    dmarc: {
-      record: '',
-      policy: '',
-      dkimAlignment: '',
-      spfAlignment: '',
-      aggregateReports: '',
-      forensicReports: '',
-    },
-  };
-});
+const emailData = computed(() => emailStore.emailConfig);
 
 const diagnostics = computed(() => {
-  const data = mockEmailData.value;
+  const data = emailData.value;
   if (!data) return { issues: [], warnings: [], successes: [] };
 
   const issues = [];
@@ -87,36 +27,33 @@ const diagnostics = computed(() => {
   }
 
   // SPF
-  if (!data.spf.valid) {
+  if (!data.spfRecord) {
     issues.push('SPF record is invalid or missing');
+  } else if (!data.spfRecord.isValid) {
+    issues.push('SPF record is invalid');
   } else {
     successes.push('SPF configured - helps prevent email spoofing');
   }
 
   // DKIM
-  if (!data.dkim.found) {
+  const validDkim = data.dkimRecords.filter((r) => r.isValid);
+  if (validDkim.length === 0) {
     warnings.push('DKIM not found - message signing not verified');
   } else {
     successes.push('DKIM configured - emails are cryptographically signed');
   }
 
   // DMARC
-  if (!data.dmarc.record) {
+  if (!data.dmarcRecord) {
     warnings.push('DMARC not configured - limited email authentication enforcement');
-  } else if (data.dmarc.policy === 'none') {
+  } else if (data.dmarcRecord.policy === 'none') {
     warnings.push('DMARC policy set to "none" - not enforcing authentication');
   } else {
-    successes.push(`DMARC configured with "${data.dmarc.policy}" policy`);
+    successes.push(`DMARC configured with "${data.dmarcRecord.policy}" policy`);
   }
 
   return { issues, warnings, successes };
 });
-
-const getScoreColor = (score: number) => {
-  if (score >= 90) return 'text-green-400';
-  if (score >= 70) return 'text-yellow-400';
-  return 'text-red-400';
-};
 </script>
 
 <template>
@@ -129,18 +66,18 @@ const getScoreColor = (score: number) => {
         <p class="text-[#858585]">Enter a domain to view email configuration</p>
       </div>
 
-      <!-- Email Configuration Display -->
-      <div v-else-if="mockEmailData" class="space-y-6">
-        <!-- Security Score Card -->
-        <div class="panel">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-xl font-semibold">Email Security Score</h2>
-            <span class="text-3xl font-bold" :class="getScoreColor(mockEmailData.securityScore)">
-              {{ mockEmailData.securityScore }}/100
-            </span>
-          </div>
-        </div>
+      <!-- Loading state -->
+      <div v-else-if="emailStore.loading" class="panel">
+        <p class="text-[#858585]">Loading email configuration...</p>
+      </div>
 
+      <!-- Error state -->
+      <div v-else-if="emailStore.error" class="panel">
+        <p class="text-red-400">Error: {{ emailStore.error }}</p>
+      </div>
+
+      <!-- Email Configuration Display -->
+      <div v-else-if="emailData" class="space-y-6">
         <!-- Diagnostic Summary -->
         <div
           class="panel"
@@ -194,11 +131,11 @@ const getScoreColor = (score: number) => {
           <h2 class="text-lg font-semibold mb-3 flex items-center gap-2">
             <span class="text-2xl">📧</span>
             MX Records
-            <span class="text-sm font-normal text-blue-400">{{ mockEmailData.mxRecords.length }}</span>
+            <span class="text-sm font-normal text-blue-400">{{ emailData.mxRecords.length }}</span>
           </h2>
-          <div v-if="mockEmailData.mxRecords.length > 0" class="space-y-3">
+          <div v-if="emailData.mxRecords.length > 0" class="space-y-3">
             <div
-              v-for="(mx, index) in mockEmailData.mxRecords"
+              v-for="(mx, index) in emailData.mxRecords"
               :key="index"
               class="p-3 bg-[#2d2d30] rounded border border-[#3e3e42]"
             >
@@ -224,22 +161,23 @@ const getScoreColor = (score: number) => {
             <span class="text-2xl">🛡️</span>
             SPF (Sender Policy Framework)
           </h2>
-          <div class="space-y-3">
+          <div v-if="emailData.spfRecord" class="space-y-3">
             <div class="p-3 bg-[#2d2d30] rounded border border-[#3e3e42]">
               <div class="text-xs text-[#858585] mb-1">Record</div>
-              <code class="text-sm font-mono break-all">{{ mockEmailData.spf.record }}</code>
+              <code class="text-sm font-mono break-all">{{ emailData.spfRecord.record }}</code>
             </div>
             <div class="grid grid-cols-2 gap-3">
               <div class="p-3 bg-[#2d2d30] rounded border border-[#3e3e42]">
                 <div class="text-xs text-[#858585] mb-1">Policy</div>
-                <span class="text-sm text-green-400 font-semibold">{{ mockEmailData.spf.policy }}</span>
+                <span class="text-sm text-green-400 font-semibold">{{ emailData.spfRecord.policy }}</span>
               </div>
               <div class="p-3 bg-[#2d2d30] rounded border border-[#3e3e42]">
                 <div class="text-xs text-[#858585] mb-1">Mechanisms</div>
-                <span class="text-sm">{{ mockEmailData.spf.mechanisms }}</span>
+                <span class="text-sm">{{ emailData.spfRecord.mechanisms }}</span>
               </div>
             </div>
           </div>
+          <p v-else class="text-[#858585] text-sm">No SPF record found</p>
         </div>
 
         <!-- DKIM Card -->
@@ -248,14 +186,37 @@ const getScoreColor = (score: number) => {
             <span class="text-2xl">🔑</span>
             DKIM (DomainKeys Identified Mail)
           </h2>
-          <div v-if="!mockEmailData.dkim.found" class="space-y-3">
+          <div v-if="emailData.dkimRecords.length > 0" class="space-y-3">
+            <div
+              v-for="(dkim, index) in emailData.dkimRecords"
+              :key="index"
+              class="p-3 bg-[#2d2d30] rounded border border-[#3e3e42]"
+            >
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 font-semibold">
+                  {{ dkim.selector }}
+                </span>
+                <span
+                  v-if="dkim.isValid"
+                  class="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400"
+                >
+                  Valid
+                </span>
+                <span v-else class="text-xs px-2 py-0.5 rounded bg-red-500/20 text-red-400">
+                  Invalid
+                </span>
+              </div>
+              <code v-if="dkim.record" class="text-xs font-mono break-all text-[#858585]">{{
+                dkim.record
+              }}</code>
+              <span v-else class="text-xs text-[#858585]">Not found</span>
+            </div>
+          </div>
+          <div v-else class="space-y-3">
             <div class="flex items-start gap-2 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded">
               <ExclamationTriangleIcon class="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
               <div>
                 <div class="text-sm text-yellow-300 mb-1">No DKIM records found</div>
-                <div class="text-xs text-[#858585]">
-                  Checked selectors: {{ mockEmailData.dkim.checkedSelectors.join(', ') }}
-                </div>
                 <div class="text-xs text-[#858585] mt-1">
                   Note: DKIM selector names are provider-specific
                 </div>
@@ -270,30 +231,33 @@ const getScoreColor = (score: number) => {
             <span class="text-2xl">📋</span>
             DMARC (Domain-based Message Authentication)
           </h2>
-          <div class="space-y-3">
+          <div v-if="emailData.dmarcRecord" class="space-y-3">
             <div class="p-3 bg-[#2d2d30] rounded border border-[#3e3e42]">
               <div class="text-xs text-[#858585] mb-1">Record</div>
-              <code class="text-sm font-mono break-all">{{ mockEmailData.dmarc.record }}</code>
+              <code class="text-sm font-mono break-all">{{ emailData.dmarcRecord.record }}</code>
             </div>
             <div class="grid grid-cols-2 gap-3">
               <div class="p-3 bg-[#2d2d30] rounded border border-[#3e3e42]">
                 <div class="text-xs text-[#858585] mb-1">Policy</div>
-                <span class="text-sm text-yellow-400 font-semibold">{{ mockEmailData.dmarc.policy }}</span>
+                <span class="text-sm text-yellow-400 font-semibold">{{
+                  emailData.dmarcRecord.policy
+                }}</span>
               </div>
               <div class="p-3 bg-[#2d2d30] rounded border border-[#3e3e42]">
                 <div class="text-xs text-[#858585] mb-1">DKIM Alignment</div>
-                <span class="text-sm">{{ mockEmailData.dmarc.dkimAlignment }}</span>
+                <span class="text-sm">{{ emailData.dmarcRecord.dkimAlignment }}</span>
               </div>
               <div class="p-3 bg-[#2d2d30] rounded border border-[#3e3e42]">
                 <div class="text-xs text-[#858585] mb-1">SPF Alignment</div>
-                <span class="text-sm">{{ mockEmailData.dmarc.spfAlignment }}</span>
+                <span class="text-sm">{{ emailData.dmarcRecord.spfAlignment }}</span>
               </div>
               <div class="p-3 bg-[#2d2d30] rounded border border-[#3e3e42]">
                 <div class="text-xs text-[#858585] mb-1">Aggregate Reports</div>
-                <span class="text-sm break-all">{{ mockEmailData.dmarc.aggregateReports }}</span>
+                <span class="text-sm break-all">{{ emailData.dmarcRecord.aggregateReports }}</span>
               </div>
             </div>
           </div>
+          <p v-else class="text-[#858585] text-sm">No DMARC record found</p>
         </div>
       </div>
     </div>

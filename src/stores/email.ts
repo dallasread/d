@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+import { invoke } from '@tauri-apps/api/core';
+import { useDNSStore } from './dns';
 
 export interface MxRecord {
   priority: number;
@@ -43,15 +45,24 @@ export const useEmailStore = defineStore('email', () => {
   const loading = ref<boolean>(false);
   const error = ref<string | null>(null);
 
-  // @ts-expect-error - Reserved for future use
   const fetchEmailConfig = async (domain: string) => {
     loading.value = true;
     error.value = null;
 
     try {
-      // TODO: Implement actual backend calls
-      // For now, set to null to show "Coming soon" state
-      emailConfig.value = null;
+      // Get existing DNS records from DNS store to avoid duplicate queries
+      const dnsStore = useDNSStore();
+
+      // Extract MX and TXT records that are already fetched
+      const existingMxRecords = dnsStore.mxRecords?.records?.map(record => record.value) || [];
+      const existingTxtRecords = dnsStore.txtRecords?.records?.map(record => record.value) || [];
+
+      const result = await invoke<EmailConfig>('fetch_email_config', {
+        domain,
+        existingMxRecords,
+        existingTxtRecords
+      });
+      emailConfig.value = result;
     } catch (e) {
       error.value = e as string;
       console.error('Failed to fetch email config:', e);

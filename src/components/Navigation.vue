@@ -7,6 +7,7 @@ import { useDnssecStore } from '../stores/dnssec';
 import { useCertificateStore } from '../stores/certificate';
 import { useWhoisStore } from '../stores/whois';
 import { useHttpStore } from '../stores/http';
+import { useEmailStore } from '../stores/email';
 import { useLogsStore } from '../stores/logs';
 
 const router = useRouter();
@@ -17,6 +18,7 @@ const dnssecStore = useDnssecStore();
 const certStore = useCertificateStore();
 const whoisStore = useWhoisStore();
 const httpStore = useHttpStore();
+const emailStore = useEmailStore();
 const logsStore = useLogsStore();
 
 const domainInput = ref('');
@@ -53,6 +55,7 @@ const handleSearch = async () => {
       certStore.clear();
       whoisStore.clear();
       httpStore.clear();
+      emailStore.clear();
       dnssecStore.reset();
       logsStore.clearLogs();
     }
@@ -62,13 +65,16 @@ const handleSearch = async () => {
     appStore.setError(null);
 
     try {
-      // Fetch all data in parallel
+      // Fetch DNS records first (needed by email and dnssec)
+      await dnsStore.fetchDnsRecords(domain);
+
+      // Fetch everything else in parallel
       await Promise.all([
-        dnsStore.fetchDnsRecords(domain),
         dnssecStore.fetchDnssec(domain),
         certStore.fetchCertificate(domain),
         whoisStore.fetchWhois(domain),
         httpStore.fetchHttp(domain),
+        emailStore.fetchEmailConfig(domain),
       ]);
 
       // Stay on current page - don't auto-navigate
@@ -99,6 +105,7 @@ const handleRefresh = () => {
     certStore.clear();
     whoisStore.clear();
     httpStore.clear();
+    emailStore.clear();
     dnssecStore.reset();
     logsStore.clearLogs();
 

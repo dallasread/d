@@ -7,6 +7,7 @@ pub mod models;
 use commands::certificate::get_certificate;
 use commands::dns::{query_dns, query_dns_multiple};
 use commands::dnssec::validate_dnssec;
+use commands::email::fetch_email_config;
 use commands::http::fetch_http;
 use commands::whois::lookup_whois;
 
@@ -21,6 +22,7 @@ pub fn run() {
             get_certificate,
             lookup_whois,
             fetch_http,
+            fetch_email_config,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
