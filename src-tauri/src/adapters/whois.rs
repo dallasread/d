@@ -179,3 +179,6 @@ impl WhoisAdapter {
         Command::new("whois").arg("--version").output().is_ok()
     }
 }
+
+#[cfg(test)]
+mod tests;

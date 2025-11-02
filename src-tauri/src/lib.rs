@@ -1,7 +1,7 @@
 // Module declarations
-mod adapters;
-mod commands;
-mod models;
+pub mod adapters;
+pub mod commands;
+pub mod models;
 
 // Re-export commands
 use commands::certificate::get_certificate;

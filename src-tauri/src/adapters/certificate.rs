@@ -256,3 +256,6 @@ impl CertificateAdapter {
         Command::new("openssl").arg("version").output().is_ok()
     }
 }
+
+#[cfg(test)]
+mod tests;

@@ -567,7 +567,10 @@ impl DnsAdapter {
 }
 
 #[cfg(test)]
-mod tests {
+mod tests;
+
+#[cfg(test)]
+mod integration_tests {
     use super::*;
 
     #[tokio::test]
