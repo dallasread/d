@@ -1,251 +1,314 @@
-# Building d-dns-debugger as a Binary
+# Building D DNS Debugger
 
-This document explains how to build and distribute `d` as a standalone binary executable.
+This document explains how to build the D DNS Debugger as a macOS application.
 
 ## Overview
 
-The project uses **PyInstaller** to bundle the Python application and all its dependencies into a single executable binary file.
+The project uses **Tauri** to bundle the Vue.js frontend with a Rust backend into a native macOS application.
+
+## Prerequisites
+
+### Required Tools
+- **Node.js** (v16 or later)
+- **Rust** (latest stable)
+- **Xcode Command Line Tools** (macOS only)
+
+### Install Dependencies
+
+```bash
+# Install Node dependencies
+npm install
+
+# Install Rust (if not already installed)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
 
 ## Quick Start
 
-### One-Command Build & Package
+### Development Build
 ```bash
-./build_and_package.sh
+# Run in development mode
+npm run tauri dev
+```
+
+### Production Build
+```bash
+# Build for current architecture (Apple Silicon or Intel)
+npm run tauri build
 ```
 
 This will:
-1. Build the binary with PyInstaller
-2. Create a distributable tarball
-3. Generate SHA256 checksum
+1. Build the Vue.js frontend with Vite
+2. Compile the Rust backend
+3. Create a macOS application bundle (.app)
+4. Create a DMG installer (if successful)
 
-### Individual Steps
+### Build Output
 
-#### 1. Build Only
+After building, you'll find:
+- `src-tauri/target/release/bundle/macos/D.app` - Application bundle
+- `src-tauri/target/release/bundle/dmg/D_*.dmg` - DMG installer (if created)
+
+## Creating a DMG Installer
+
+If Tauri's automatic DMG creation fails, create it manually:
+
 ```bash
-./build_binary.sh
+# Copy app bundle to dist
+mkdir -p dist
+cp -r src-tauri/target/release/bundle/macos/D.app dist/
+
+# Create DMG
+DMG_DIR=$(mktemp -d)
+cp -r dist/D.app "$DMG_DIR/"
+hdiutil create -volname "D DNS Debugger v0.2.1" \
+  -srcfolder "$DMG_DIR" \
+  -ov -format UDZO \
+  dist/D_v0.2.1_aarch64.dmg
+rm -rf "$DMG_DIR"
+
+echo "DMG created at dist/D_v0.2.1_aarch64.dmg"
 ```
-Output: `dist/d` (17MB standalone executable)
-
-#### 2. Package Only (after building)
-```bash
-./package.sh
-```
-Output: 
-- `packages/d-v0.1.0-darwin-arm64.tar.gz`
-- `packages/d-v0.1.0-darwin-arm64.sha256`
-
-## Files Created
-
-### Build Files
-- **d.spec** - PyInstaller configuration file
-- **build_binary.sh** - Script to build the binary
-- **package.sh** - Script to package the binary for distribution
-- **build_and_package.sh** - Combined build & package script
-
-### Documentation
-- **DISTRIBUTION.md** - Detailed distribution guide for developers
-- **BINARY_INSTALL.md** - Installation guide for end users
-- **BUILD_INSTRUCTIONS.md** - This file
-
-### Output
-- **dist/d** - The standalone binary executable
-- **packages/*.tar.gz** - Compressed binary for distribution
-- **packages/*.sha256** - Checksum file for verification
 
 ## How It Works
 
-### PyInstaller Process
+### Tauri Build Process
 
-1. **Analysis**: PyInstaller analyzes `src/dns_debugger/__main__.py` and discovers all imports
-2. **Collection**: Collects all Python modules, dependencies, and data files (like Textual CSS)
-3. **Bundling**: Bundles everything into a single executable with:
-   - Python interpreter
-   - All dependencies (textual, click, httpx, etc.)
-   - Your application code
-   - Required data files
-4. **Optimization**: Compresses with UPX and optimizes for size
+1. **Frontend Build**: Vite compiles the Vue.js application
+   - TypeScript compilation
+   - Asset optimization
+   - CSS processing
+   - Output to `dist/` directory
 
-### Configuration (d.spec)
+2. **Rust Compilation**: Cargo builds the Tauri backend
+   - Compiles Rust code from `src-tauri/`
+   - Links with system frameworks
+   - Bundles the web assets
 
-The `d.spec` file configures:
-- **Entry point**: `src/dns_debugger/__main__.py`
-- **Hidden imports**: Textual modules and dns_debugger submodules
-- **Data files**: Textual CSS and configuration files
-- **Output name**: `d`
-- **One-file mode**: All bundled into single executable
-- **Console mode**: Runs in terminal (not GUI)
+3. **App Bundling**: Creates macOS application bundle
+   - Packages executable and resources
+   - Creates Info.plist
+   - Adds icon and metadata
 
-## Testing the Binary
+4. **DMG Creation**: Creates disk image installer (optional)
+   - Uses macOS `hdiutil` tool
+   - Creates mountable disk image
+   - Optimized for distribution
+
+### Project Structure
+
+```
+d/
+├── src/                    # Vue.js frontend
+│   ├── components/         # Vue components
+│   ├── stores/            # Pinia state management
+│   └── main.ts            # Entry point
+├── src-tauri/             # Rust backend
+│   ├── src/
+│   │   ├── main.rs        # Tauri entry point
+│   │   ├── adapters/      # DNS, HTTP, WHOIS, etc.
+│   │   └── models/        # Data models
+│   ├── Cargo.toml         # Rust dependencies
+│   └── tauri.conf.json    # Tauri configuration
+├── package.json           # Node.js dependencies
+└── vite.config.ts         # Vite configuration
+```
+
+## Testing the Application
 
 ```bash
-# Test help
-./dist/d --help
+# Run in development mode (live reload)
+npm run tauri dev
 
-# Test version
-./dist/d --version
+# Test the built application
+open dist/D.app
 
-# Test with a domain (CLI mode, doesn't require DNS tools)
-./dist/d example.com --no-tui
-
-# Test full TUI (requires dog or dig installed)
-./dist/d example.com
+# Or from the target directory
+open src-tauri/target/release/bundle/macos/D.app
 ```
 
 ## Distribution
 
-### What to Share with Users
+### What to Distribute
 
-1. **The Package**:
-   - `d-v0.1.0-darwin-arm64.tar.gz`
-   - `d-v0.1.0-darwin-arm64.sha256`
+For GitHub releases, distribute:
+- **DMG Installer**: `D_v0.2.1_aarch64.dmg` (~4MB)
+  - Easy installation for users
+  - Double-click to mount, drag to Applications
+  
+**Alternative:**
+- **Application Bundle**: `D.app`
+  - Can be zipped for distribution
+  - Users copy directly to Applications
 
-2. **Installation Guide**:
-   - Share `BINARY_INSTALL.md` with end users
+### Installation Methods
 
-3. **Platform Notes**:
-   - Binary is built for the platform you're on (macOS arm64 in this case)
-   - Users on different platforms need different builds:
-     - macOS Intel: Build on Intel Mac
-     - Linux: Build on Linux
-     - Windows: Build on Windows (creates d.exe)
+**Method 1: DMG Installer (Recommended)**
+```bash
+# User downloads DMG
+# Double-click to mount
+# Drag D.app to Applications folder
+# Eject DMG
+```
 
-### GitHub Releases (Recommended)
+**Method 2: Direct App Bundle**
+```bash
+# User downloads D.app.zip
+# Unzip
+# Copy D.app to /Applications
+```
 
-1. Create a release tag:
-   ```bash
-   git tag v0.1.0
-   git push origin v0.1.0
-   ```
+### GitHub Releases
 
-2. Go to GitHub → Releases → Create Release
+See `GITHUB_RELEASE_STEPS.md` for detailed release instructions.
 
-3. Upload these files as assets:
-   - `d-v0.1.0-darwin-arm64.tar.gz`
-   - `d-v0.1.0-darwin-arm64.sha256`
-   - `BINARY_INSTALL.md` (renamed to README.md for the release)
-
-4. Users can download directly from releases page
+Quick steps:
+1. Build for the release tag
+2. Create DMG installer
+3. Upload to GitHub releases
+4. Users download and install
 
 ## Platform-Specific Builds
 
-### Current Platform
-- **OS**: macOS (darwin)
-- **Architecture**: ARM64 (M1/M2 Mac)
-- **Binary name**: `d`
+### Building for Different Architectures
 
-### Building for Other Platforms
-
-You need to build on each target platform:
-
-#### Linux (x86_64)
+**Apple Silicon (M1/M2/M3) - Default**
 ```bash
-# On a Linux machine
-./build_and_package.sh
-# Creates: d-v0.1.0-linux-x86_64.tar.gz
+npm run tauri build
+# Creates: D_0.2.0_aarch64.dmg
 ```
 
-#### macOS (Intel)
+**Intel Macs**
 ```bash
-# On an Intel Mac
-./build_and_package.sh
-# Creates: d-v0.1.0-darwin-x86_64.tar.gz
+npm run tauri build -- --target x86_64-apple-darwin
+# Creates: D_0.2.0_x64.dmg
 ```
 
-#### Windows
+**Universal Binary (Both Architectures)**
 ```bash
-# On Windows
-.\build_binary.sh
-# Creates: d.exe and d-v0.1.0-windows-x86_64.zip
+# Install both targets first
+rustup target add aarch64-apple-darwin
+rustup target add x86_64-apple-darwin
+
+# Build universal binary
+npm run tauri build -- --target universal-apple-darwin
+# Creates: D_0.2.0_universal.dmg
 ```
+
+**Note:** Universal binary builds may fail on some systems. If that happens, build for each architecture separately.
 
 ## Troubleshooting Build Issues
 
-### Import Errors
-If the binary fails with missing module errors:
-1. Activate venv: `source .venv/bin/activate`
-2. Edit `d.spec` to add missing modules to `hiddenimports`
-3. Rebuild: `pyinstaller d.spec`
+### Frontend Build Errors
+If the Vue/Vite build fails:
+```bash
+# Clear node_modules and reinstall
+rm -rf node_modules
+npm install
 
-### Missing Data Files
-If CSS or other assets are missing:
-1. Edit `d.spec` to add to `datas` list
-2. Rebuild
+# Check for TypeScript errors
+npm run build
+```
 
-### Large Binary Size
-Current size (~17MB) is reasonable. To reduce:
-- Remove unused dependencies from `pyproject.toml`
-- Use `--exclude-module` in spec file
-- UPX compression (already enabled)
+### Rust Compilation Errors
+If Cargo fails to compile:
+```bash
+# Clean Rust build cache
+cd src-tauri
+cargo clean
 
-### Build Script Issues
-If `build_binary.sh` fails:
-1. Check Python version: `python3 --version` (need 3.8+)
-2. Check venv: `source .venv/bin/activate`
-3. Install manually: `pip install pyinstaller`
-4. Run manually: `pyinstaller d.spec`
+# Update dependencies
+cargo update
+
+# Try building Rust only
+cargo build --release
+```
+
+### DMG Creation Fails
+If Tauri can't create the DMG:
+1. Build with `--bundles app` only
+2. Create DMG manually (see "Creating a DMG Installer" section)
+
+### Universal Binary Build Fails
+This is common - the build may hang during compilation for the second architecture:
+- Build separately for each architecture instead
+- Or build only for your current architecture
+
+### Code Signing / Gatekeeper Issues
+If users can't open the app ("damaged" error):
+```bash
+# Remove quarantine attribute
+xattr -cr /Applications/D.app
+```
+
+For production:
+- Sign the app with an Apple Developer certificate
+- Notarize with Apple for distribution
 
 ## Technical Details
 
-### Binary Contents
-- Python 3.13.7 runtime
-- All packages from pyproject.toml dependencies:
-  - textual (TUI framework)
-  - click (CLI framework)
-  - httpx (HTTP client for RDAP)
-  - whodap (RDAP client)
-  - python-whois (WHOIS client)
-  - cryptography (SSL/TLS validation)
+### Application Stack
+- **Frontend**: Vue 3 + TypeScript + Tailwind CSS
+- **Backend**: Rust + Tauri
+- **Build Tools**: Vite (frontend), Cargo (backend)
+- **State Management**: Pinia
+- **UI Components**: Custom Vue components
 
-### What's NOT Included
-- DNS query tools (dog/dig) - users must install separately
-- System libraries (users need compatible OS)
+### Dependencies
+- **Rust crates**: See `src-tauri/Cargo.toml`
+  - tauri
+  - serde
+  - tokio (async runtime)
+  - chrono (date/time)
+  - regex
+  
+- **Node packages**: See `package.json`
+  - vue
+  - vue-router
+  - pinia
+  - @tauri-apps/api
+  - tailwindcss
+  - heroicons
 
-### Binary Compatibility
-- **macOS ARM64**: Works on M1/M2/M3 Macs with macOS 11+
-- **macOS x86_64**: Works on Intel Macs
-- **Linux**: Requires GLIBC version compatible with build machine
-- **Windows**: Requires Windows 10+
+### System Requirements
+- **macOS**: 10.15 (Catalina) or later
+- **Architecture**: Apple Silicon or Intel
+- **Disk Space**: ~10MB installed
 
 ## Continuous Integration
 
-For automated multi-platform builds, consider GitHub Actions:
+For automated builds with GitHub Actions:
 
 ```yaml
 # .github/workflows/build.yml
-name: Build Binaries
+name: Build macOS App
 on: [push, release]
 jobs:
-  build:
-    strategy:
-      matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+  build-macos:
+    runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
-      - run: ./build_and_package.sh
-      - uses: actions/upload-artifact@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
         with:
-          name: binaries
-          path: packages/*
+          node-version: '18'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install dependencies
+        run: npm install
+      - name: Build app
+        run: npm run tauri build
+      - uses: actions/upload-artifact@v3
+        with:
+          name: macos-dmg
+          path: src-tauri/target/release/bundle/dmg/*.dmg
 ```
 
 ## Version Updates
 
 When releasing a new version:
+1. Update version in `src-tauri/tauri.conf.json`
+2. Update version in `package.json`
+3. Create release notes
+4. Build for the release tag
+5. Upload DMG to GitHub releases
 
-1. Update version in `pyproject.toml`
-2. Run `./build_and_package.sh`
-3. Package name automatically includes new version
-4. Upload to GitHub releases
-
-## Support
-
-For build-related issues:
-- Check `build/d/warn-d.txt` for PyInstaller warnings
-- Check `build/d/xref-d.html` for dependency graph
-- Review PyInstaller docs: https://pyinstaller.org/
-
-## License
-
-This build system is part of d-dns-debugger and uses the same MIT license.
+See `GITHUB_RELEASE_STEPS.md` for detailed release process.

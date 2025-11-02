@@ -4,94 +4,102 @@ This document lists all the files that need to be updated when bumping the versi
 
 ## 📝 Required Version Updates
 
-When releasing a new version (e.g., from 0.1.0 to 0.1.1), update the version in these files:
+When releasing a new version (e.g., from 0.2.0 to 0.2.1), update the version in these files:
 
-### 1. `pyproject.toml`
-**Location:** `/pyproject.toml`  
-**Line:** ~6
+### 1. `package.json`
+**Location:** `/package.json`  
+**Line:** ~4
 
-```toml
-[project]
-name = "d-dns-debugger"
-version = "0.1.1"  # ← Update this
+```json
+{
+  "name": "d-dns-debugger",
+  "version": "0.2.1",  // ← Update this
+  "type": "module",
+  ...
+}
 ```
 
-### 2. `src/dns_debugger/__main__.py`
-**Location:** `/src/dns_debugger/__main__.py`  
-**Line:** ~13
+### 2. `src-tauri/tauri.conf.json`
+**Location:** `/src-tauri/tauri.conf.json`  
+**Line:** ~3
 
-```python
-@click.version_option(version="0.1.1", prog_name="d")  # ← Update this
+```json
+{
+  "$schema": "...",
+  "productName": "D",
+  "version": "0.2.1",  // ← Update this
+  ...
+}
+```
+
+### 3. `src-tauri/Cargo.toml`
+**Location:** `/src-tauri/Cargo.toml`  
+**Line:** ~3
+
+```toml
+[package]
+name = "d-dns-debugger"
+version = "0.2.1"  # ← Update this
 ```
 
 ## 🔨 Build Steps After Version Update
 
-After updating both files above:
+After updating all three files above:
 
-1. **Rebuild the binary:**
+1. **Build the application:**
    ```bash
-   ./build_binary.sh
+   npm run tauri build
    ```
 
-2. **Verify the version:**
-   ```bash
-   ./dist/d --version
-   # Should output: d, version 0.1.1
-   ```
-
-3. **Package for distribution (optional):**
-   ```bash
-   ./package.sh
-   ```
+2. **Verify the build output:**
+   The DMG and app bundle will include the new version number:
+   - `src-tauri/target/release/bundle/dmg/D_0.2.1_aarch64.dmg`
+   - `src-tauri/target/release/bundle/macos/D.app`
 
 ## 📦 Additional Files to Update (For Release)
 
-If you're creating a GitHub release, you may also need to update:
+When creating a GitHub release:
 
-### Optional Release Documentation
+### Release Documentation
 - `RELEASE_NOTES_vX.X.X.md` - Create new release notes for the version
-- `RELEASE_vX.X.X.md` - Create release announcement document
-- `GITHUB_RELEASE_STEPS.md` - Update to reference new version/tag
+- Update DMG creation commands in `GITHUB_RELEASE_STEPS.md` to reference new version
 
 ## ⚠️ Common Mistakes
 
-1. **Forgetting `__main__.py`**: The version in `pyproject.toml` is NOT automatically used by Click's `@click.version_option`. You MUST update both files.
+1. **Forgetting one of the three files**: All three files must be updated - `package.json`, `tauri.conf.json`, AND `Cargo.toml`.
 
-2. **Not rebuilding**: After updating the version, you must rebuild the binary for the changes to take effect.
+2. **Version mismatch**: All three files must have the exact same version number.
 
-3. **Cached builds**: If the version doesn't update after rebuilding, try cleaning first:
-   ```bash
-   make clean
-   ./build_binary.sh
-   ```
+3. **Not rebuilding**: After updating the version, you must rebuild for changes to take effect.
 
 ## ✅ Quick Checklist
 
 Before releasing a new version:
 
-- [ ] Update `pyproject.toml` version
-- [ ] Update `src/dns_debugger/__main__.py` version
-- [ ] Run `./build_binary.sh`
-- [ ] Verify with `./dist/d --version`
-- [ ] Create release notes (if needed)
+- [ ] Update `package.json` version
+- [ ] Update `src-tauri/tauri.conf.json` version
+- [ ] Update `src-tauri/Cargo.toml` version
+- [ ] Verify all three versions match
+- [ ] Run `npm run tauri build`
+- [ ] Create release notes
 - [ ] Commit version changes
 - [ ] Create git tag: `git tag vX.X.X`
 - [ ] Push with tags: `git push origin main --tags`
+- [ ] Build binaries from the tag (see `GITHUB_RELEASE_STEPS.md`)
 
 ## 🔍 Finding All Version References
 
 To search for hardcoded version strings in the codebase:
 
 ```bash
-# Search for version patterns
-grep -r "0\.1\.[0-9]" --include="*.py" --include="*.toml" src/ pyproject.toml
+# Search for version patterns in config files
+grep -r "0\.2\.[0-9]" package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml
 
 # Or use ripgrep (rg) if available
-rg "0\.1\.[0-9]" -t py -t toml
+rg "0\.2\.[0-9]" package.json src-tauri/
 ```
 
 ## 📚 Related Documentation
 
-- `BUILD_INSTRUCTIONS.md` - How to build the binary
-- `DISTRIBUTION.md` - Distribution and packaging process
+- `BUILD_INSTRUCTIONS.md` - How to build the application
 - `GITHUB_RELEASE_STEPS.md` - Creating GitHub releases

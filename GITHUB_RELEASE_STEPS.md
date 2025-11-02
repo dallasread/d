@@ -1,103 +1,140 @@
-# Complete GitHub Release Setup
+# GitHub Release Guide for D DNS Debugger
 
-✅ Tag v0.1.0 has been created and pushed to GitHub!
+This guide walks through creating a GitHub release with the macOS application bundle and DMG installer.
 
-## 📝 Next Steps: Create the GitHub Release
+## Pre-Release Checklist
 
-### 1. Go to GitHub Releases
-Visit: https://github.com/dallasread/d/releases/new?tag=v0.1.0
+Before creating a release, ensure:
+- [ ] All changes are committed and pushed to main
+- [ ] Version numbers are updated (if needed)
+- [ ] Release notes document exists (e.g., `RELEASE_NOTES_v0.2.1.md`)
 
-Or manually:
-1. Go to https://github.com/dallasread/d
-2. Click "Releases" (on the right sidebar)
-3. Click "Draft a new release"
-4. Select tag: **v0.1.0**
+## Step 1: Build the Release Binaries
 
-### 2. Fill in Release Information
-
-**Release Title:**
-```
-v0.1.0 - First Binary Release
-```
-
-**Description:**
-Copy the entire content from `RELEASE_NOTES_v0.1.0.md` into the description field.
-
-### 3. Upload Binary Assets
-
-Click "Attach binaries by dropping them here or selecting them"
-
-Upload these 2 files from the `packages/` directory:
-- ✅ `d-v0.1.0-darwin-arm64.tar.gz` (17 MB)
-- ✅ `d-v0.1.0-darwin-arm64.sha256` (104 bytes)
-
-### 4. Publish
-
-- ✅ Check "Set as the latest release"
-- ✅ Click "Publish release"
-
-## 🎉 Done!
-
-Your release will be live at:
-https://github.com/dallasread/d/releases/tag/v0.1.0
-
-Users can then download the binary directly from GitHub!
-
-## 📤 Alternative: Use GitHub CLI (gh)
-
-If you have GitHub CLI installed:
+### Checkout the Release Tag
 
 ```bash
-# Create release with files
-gh release create v0.1.0 \
-  packages/d-v0.1.0-darwin-arm64.tar.gz \
-  packages/d-v0.1.0-darwin-arm64.sha256 \
-  --title "v0.1.0 - First Binary Release" \
-  --notes-file RELEASE_NOTES_v0.1.0.md
+# Checkout the tag you want to release
+git checkout v0.2.1
+
+# Build for Apple Silicon (current architecture)
+npm run tauri build -- --bundles app
+
+# Create DMG manually
+mkdir -p dist
+cp -r src-tauri/target/release/bundle/macos/D.app dist/
+DMG_DIR=$(mktemp -d)
+cp -r dist/D.app "$DMG_DIR/"
+hdiutil create -volname "D DNS Debugger v0.2.1" \
+  -srcfolder "$DMG_DIR" \
+  -ov -format UDZO \
+  dist/D_v0.2.1_aarch64.dmg
+rm -rf "$DMG_DIR"
+
+# Return to main branch
+git checkout main
 ```
 
-## 📋 What Users Will See
+**Build output:**
+- `dist/D.app` - macOS application bundle (~4MB)
+- `dist/D_v0.2.1_aarch64.dmg` - DMG installer (~4MB)
 
-When users visit the release page, they'll see:
+## Step 2: Create Git Tag (if not already created)
+
+```bash
+# Create and push the tag
+git tag v0.2.1
+git push origin v0.2.1
+```
+
+## Step 3: Create GitHub Release
+
+### Option A: GitHub Web UI
+
+1. Go to https://github.com/dallasread/d/releases/new
+2. Select tag: **v0.2.1**
+3. Release title: `v0.2.1 - [Brief Description]`
+4. Description: Copy content from `RELEASE_NOTES_v0.2.1.md`
+5. Attach binaries:
+   - `dist/D_v0.2.1_aarch64.dmg`
+6. Check "Set as the latest release"
+7. Click "Publish release"
+
+### Option B: GitHub CLI
+
+```bash
+# Create release with DMG file
+gh release create v0.2.1 \
+  dist/D_v0.2.1_aarch64.dmg \
+  --title "v0.2.1 - [Brief Description]" \
+  --notes-file RELEASE_NOTES_v0.2.1.md
+```
+
+## What Users Will See
+
+When users visit the release page:
 1. Release title and tag
-2. Full description with features and installation instructions
-3. Downloadable binary files:
-   - `d-v0.1.0-darwin-arm64.tar.gz`
-   - `d-v0.1.0-darwin-arm64.sha256`
+2. Full description with features and installation instructions  
+3. Downloadable DMG installer
 4. Source code (zip & tar.gz) - automatically added by GitHub
 
-## 🔗 Share Your Release
+## Installation Instructions for Users
 
-Once published, share the release URL:
-- Direct link: https://github.com/dallasread/d/releases/tag/v0.1.0
-- Latest release: https://github.com/dallasread/d/releases/latest
+Users can install by:
 
-## 📊 File Locations
+1. **Download the DMG:**
+   - Click on `D_v0.2.1_aarch64.dmg` from the release assets
+   
+2. **Install:**
+   - Double-click the DMG file
+   - Drag `D.app` to Applications folder
+   - Eject the DMG
 
-For reference, here's where everything is:
+3. **Run:**
+   - Open from Applications folder
+   - On first run, macOS may show security warning - go to System Settings → Privacy & Security to allow
+
+## Platform Support
+
+**Current builds:**
+- macOS Apple Silicon (M1/M2/M3) - `aarch64.dmg`
+
+**Future builds:**
+- macOS Intel - Build with `--target x86_64-apple-darwin`
+- Universal binary - Build with `--target universal-apple-darwin` (Intel + Apple Silicon)
+
+## File Locations
 
 ```
 d/
-├── packages/
-│   ├── d-v0.1.0-darwin-arm64.tar.gz    ← Upload this
-│   └── d-v0.1.0-darwin-arm64.sha256    ← Upload this
 ├── dist/
-│   └── d                                (local binary, not uploaded)
-├── RELEASE_NOTES_v0.1.0.md             ← Copy description from here
-└── GITHUB_RELEASE_STEPS.md             ← This file
+│   ├── D.app                      ← Application bundle
+│   └── D_v0.2.1_aarch64.dmg      ← Upload to GitHub
+├── RELEASE_NOTES_v0.2.1.md       ← Copy description from here
+└── GITHUB_RELEASE_STEPS.md       ← This file
 ```
 
-## ✅ Checklist
+## Troubleshooting
 
-- [x] Tag created and pushed to GitHub
-- [x] Binary built and packaged
-- [x] Release notes prepared
-- [ ] Create GitHub Release (manual step)
-- [ ] Upload binary files (manual step)
-- [ ] Publish release (manual step)
-- [ ] Share release URL
+### DMG Creation Failed
+If Tauri's built-in DMG bundler fails, create manually with `hdiutil` (see Step 1).
 
----
+### Universal Binary Build Issues
+If building for both architectures fails, build separately for each:
+- Apple Silicon: `npm run tauri build` (on Apple Silicon Mac)
+- Intel: `npm run tauri build --target x86_64-apple-darwin` (on Intel Mac)
 
-Ready to complete the release? Visit:
-https://github.com/dallasread/d/releases/new?tag=v0.1.0
+### Gatekeeper Issues
+Users may see "D is damaged and can't be opened" if the app isn't code-signed. To fix:
+```bash
+# Users can run this to bypass Gatekeeper
+xattr -cr /Applications/D.app
+```
+
+For production releases, consider code signing with an Apple Developer certificate.
+
+## Share Your Release
+
+Once published, share the release URL:
+- Direct link: https://github.com/dallasread/d/releases/tag/v0.2.1
+- Latest release: https://github.com/dallasread/d/releases/latest
