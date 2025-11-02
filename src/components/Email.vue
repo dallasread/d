@@ -4,7 +4,7 @@ import { useAppStore } from '../stores/app';
 import { useEmailStore } from '../stores/email';
 
 const appStore = useAppStore();
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// @ts-expect-error - Reserved for future email functionality
 const emailStore = useEmailStore();
 
 const hasDomain = computed(() => !!appStore.domain);
