@@ -77,11 +77,11 @@ const queries = computed<QueryStatus[]>(() => {
   const httpSubQueries: SubQuery[] = [
     {
       name: 'HTTP (port 80)',
-      status: httpStore.loading ? 'loading' : httpStore.http ? 'completed' : 'pending',
+      status: httpStore.loading ? 'loading' : httpStore.httpResponse ? 'completed' : 'pending',
     },
     {
       name: 'HTTPS (port 443)',
-      status: httpStore.loading ? 'loading' : httpStore.https ? 'completed' : 'pending',
+      status: httpStore.loading ? 'loading' : httpStore.httpsResponse ? 'completed' : 'pending',
     },
   ];
 
@@ -104,19 +104,19 @@ const queries = computed<QueryStatus[]>(() => {
       name: 'SSL Certificate',
       loading: certStore.loading,
       error: certStore.error,
-      completed: !certStore.loading && !certStore.error && certStore.certificate !== null,
+      completed: !certStore.loading && !certStore.error && certStore.tlsInfo !== null,
     },
     {
       name: 'WHOIS Registration',
       loading: whoisStore.loading,
       error: whoisStore.error,
-      completed: !whoisStore.loading && !whoisStore.error && whoisStore.whois !== null,
+      completed: !whoisStore.loading && !whoisStore.error && whoisStore.whoisInfo !== null,
     },
     {
       name: 'HTTP/HTTPS',
       loading: httpStore.loading,
       error: httpStore.error,
-      completed: !httpStore.loading && !httpStore.error && httpStore.http !== null,
+      completed: !httpStore.loading && !httpStore.error && httpStore.httpResponse !== null,
       subQueries: httpSubQueries,
     },
   ];

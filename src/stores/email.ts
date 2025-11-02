@@ -43,6 +43,7 @@ export const useEmailStore = defineStore('email', () => {
   const loading = ref<boolean>(false);
   const error = ref<string | null>(null);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const fetchEmailConfig = async (domain: string) => {
     loading.value = true;
     error.value = null;

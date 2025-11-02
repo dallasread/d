@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onUnmounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useLogsStore } from '../stores/logs';
 import { useAppStore } from '../stores/app';
@@ -105,6 +105,7 @@ const isExpanded = (logId: string) => {
   return expandedLogIds.value.has(logId);
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const formatTime = (date: Date) => {
   return new Intl.DateTimeFormat('en-US', {
     hour: '2-digit',
@@ -185,16 +186,19 @@ const getStatusClass = (log: any) => {
   return getStatus(log) === 'success' ? 'status-pass' : 'status-fail';
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const clearLogs = () => {
   logsStore.clearLogs();
   expandedLogIds.value.clear();
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const copyCommand = (log: any) => {
   const fullCommand = `${log.tool} ${log.args.join(' ')}`;
   navigator.clipboard.writeText(fullCommand);
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const copyOutput = (output: string) => {
   navigator.clipboard.writeText(output);
 };

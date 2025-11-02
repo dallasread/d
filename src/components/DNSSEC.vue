@@ -93,6 +93,7 @@ const getKeytagColor = (keytag: number) => {
  * Note: Record types now use dim bold gray instead of colors.
  * Kept for potential future use.
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const getRecordTypeColor = (type: string) => {
   const colorMap: Record<string, string> = {
     DNSKEY: 'text-cyan-400',
@@ -130,6 +131,7 @@ const getZoneLabel = (zoneName: string) => {
  *
  * Note: Currently unused as checkmarks were removed, but kept for potential future validation indicators.
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const dsMatchesChild = (dsKeytag: number, childZone: any) => {
   if (!childZone || !childZone.dnskey_records) return false;
   return childZone.dnskey_records.some((key: any) => key.key_tag === dsKeytag);
@@ -146,6 +148,7 @@ const dsMatchesChild = (dsKeytag: number, childZone: any) => {
  * - getChildZone(1) returns meat.io (zone 2)
  * - getChildZone(2) returns null (no child)
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const getChildZone = (index: number) => {
   if (!dnssecStore.validation || !dnssecStore.validation.chain) return null;
   return index < dnssecStore.validation.chain.length - 1

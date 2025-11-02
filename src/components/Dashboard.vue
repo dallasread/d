@@ -226,12 +226,11 @@ const healthChecks = computed(() => {
   }
 
   // WWW subdomain check
-  if (httpStore.wwwHttpsResponse && httpStore.apexHttpsResponse) {
+  if (httpStore.wwwHttpsResponse && httpStore.httpsResponse) {
     const wwwWorks =
       httpStore.wwwHttpsResponse.status_code >= 200 && httpStore.wwwHttpsResponse.status_code < 400;
     const apexWorks =
-      httpStore.apexHttpsResponse.status_code >= 200 &&
-      httpStore.apexHttpsResponse.status_code < 400;
+      httpStore.httpsResponse.status_code >= 200 && httpStore.httpsResponse.status_code < 400;
 
     if (wwwWorks && apexWorks) {
       checks.push({
