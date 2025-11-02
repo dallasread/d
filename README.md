@@ -355,16 +355,16 @@ This script leverages Tauri's native bundling to:
 1. Check and install required Rust targets (aarch64-apple-darwin, x86_64-apple-darwin)
 2. Clean previous builds
 3. Build a universal binary (x86_64 + arm64)
-4. Create a DMG installer using Tauri's built-in DMG bundler
+4. Create a DMG installer using macOS's built-in `hdiutil`
 5. Copy outputs to `dist/` directory
 6. Create a ZIP archive for distribution
 
 **Outputs:**
 - `dist/D.app` - Universal macOS application bundle
-- `dist/D_0.2.0_universal.dmg` - DMG installer (created by Tauri)
+- `dist/D_0.2.0_universal.dmg` - DMG installer (created with hdiutil)
 - `dist/D-macos-universal.zip` - ZIP archive for distribution
 
-**No additional tools required** - Tauri handles DMG creation natively!
+**No additional tools required** - uses macOS's built-in `hdiutil` for DMG creation!
 
 #### Manual Build
 

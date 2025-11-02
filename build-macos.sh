@@ -30,12 +30,12 @@ rm -rf dist
 mkdir -p dist
 
 echo ""
-echo "📦 Building universal binary (Intel + Apple Silicon) with DMG..."
+echo "📦 Building universal binary (Intel + Apple Silicon)..."
 echo "   This may take a few minutes..."
 echo ""
 
-# Build universal binary with DMG using Tauri's native bundling
-npm run tauri build -- --target universal-apple-darwin --bundles dmg,app
+# Build universal binary with app bundle (skip DMG as it can be flaky)
+npm run tauri build -- --target universal-apple-darwin --bundles app
 
 # Copy outputs to dist directory
 echo ""
@@ -47,10 +47,25 @@ if [ -d "src-tauri/target/universal-apple-darwin/release/bundle/macos/D.app" ]; 
     echo "   ✓ D.app"
 fi
 
-# Copy DMG
-if [ -f "src-tauri/target/universal-apple-darwin/release/bundle/dmg/D_0.2.0_universal.dmg" ]; then
-    cp src-tauri/target/universal-apple-darwin/release/bundle/dmg/D_0.2.0_universal.dmg dist/
-    echo "   ✓ DMG installer"
+# Create DMG manually using hdiutil (more reliable than Tauri's bundler)
+echo ""
+echo "💿 Creating DMG installer..."
+if [ -d "dist/D.app" ]; then
+    # Create a temporary directory for DMG contents
+    DMG_DIR=$(mktemp -d)
+    cp -r dist/D.app "$DMG_DIR/"
+
+    # Create DMG
+    hdiutil create -volname "D DNS Debugger" \
+        -srcfolder "$DMG_DIR" \
+        -ov -format UDZO \
+        dist/D_0.2.0_universal.dmg
+
+    # Clean up temp directory
+    rm -rf "$DMG_DIR"
+    echo "   ✓ DMG installer created"
+else
+    echo "   ⚠️  D.app not found, skipping DMG creation"
 fi
 
 # Create a versioned zip archive
