@@ -9,40 +9,156 @@ const whoisStore = useWhoisStore();
 
 const hasDomain = computed(() => !!appStore.domain);
 
-// Enhanced date parsing that handles multiple formats
+// Enhanced date parsing that handles multiple WHOIS date formats
 const parseWhoisDate = (dateStr: string | undefined): Date | null => {
   if (!dateStr) return null;
 
+  // Trim whitespace
+  const trimmed = dateStr.trim();
+  if (!trimmed) return null;
+
   try {
-    // Try parsing as ISO date first
-    let date = new Date(dateStr);
-    if (!isNaN(date.getTime())) return date;
+    // Month name mapping for various formats
+    const monthNames: Record<string, number> = {
+      jan: 0, january: 0,
+      feb: 1, february: 1,
+      mar: 2, march: 2,
+      apr: 3, april: 3,
+      may: 4,
+      jun: 5, june: 5,
+      jul: 6, july: 6,
+      aug: 7, august: 7,
+      sep: 8, september: 8,
+      oct: 9, october: 9,
+      nov: 10, november: 10,
+      dec: 11, december: 11,
+    };
 
-    // Try common WHOIS date formats
-    // Format: "2024-11-02T18:42:00Z" or "2024-11-02 18:42:00"
-    const isoMatch = dateStr.match(/(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2}):(\d{2})/);
-    if (isoMatch) {
-      date = new Date(dateStr.replace(' ', 'T'));
-      if (!isNaN(date.getTime())) return date;
+    // Format 1: ISO 8601 with timezone - "2024-11-02T18:42:00Z" or "2024-11-02T18:42:00.000Z"
+    let match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?Z?$/i);
+    if (match) {
+      const [, year, month, day, hour, minute, second] = match;
+      return new Date(Date.UTC(+year, +month - 1, +day, +hour, +minute, +second));
     }
 
-    // Format: "02-Nov-2024"
-    const shortMatch = dateStr.match(/(\d{2})-([A-Za-z]{3})-(\d{4})/);
-    if (shortMatch) {
-      date = new Date(dateStr);
-      if (!isNaN(date.getTime())) return date;
+    // Format 2: ISO date with space separator - "2024-11-02 18:42:00"
+    match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/);
+    if (match) {
+      const [, year, month, day, hour, minute, second] = match;
+      return new Date(+year, +month - 1, +day, +hour, +minute, +second);
     }
 
-    // Format: "2024/11/02"
-    const slashMatch = dateStr.match(/(\d{4})\/(\d{2})\/(\d{2})/);
-    if (slashMatch) {
-      date = new Date(dateStr.replace(/\//g, '-'));
-      if (!isNaN(date.getTime())) return date;
+    // Format 3: ISO date only - "2024-11-02"
+    match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (match) {
+      const [, year, month, day] = match;
+      return new Date(+year, +month - 1, +day);
+    }
+
+    // Format 4: DD-MMM-YYYY - "02-Nov-2024" or "02-nov-2024"
+    match = trimmed.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/);
+    if (match) {
+      const [, day, monthStr, year] = match;
+      const month = monthNames[monthStr.toLowerCase()];
+      if (month !== undefined) {
+        return new Date(+year, month, +day);
+      }
+    }
+
+    // Format 5: DD-MMM-YYYY HH:MM:SS - "02-Nov-2024 18:42:00"
+    match = trimmed.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})\s+(\d{2}):(\d{2}):(\d{2})$/);
+    if (match) {
+      const [, day, monthStr, year, hour, minute, second] = match;
+      const month = monthNames[monthStr.toLowerCase()];
+      if (month !== undefined) {
+        return new Date(+year, month, +day, +hour, +minute, +second);
+      }
+    }
+
+    // Format 6: YYYY/MM/DD - "2024/11/02"
+    match = trimmed.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
+    if (match) {
+      const [, year, month, day] = match;
+      return new Date(+year, +month - 1, +day);
+    }
+
+    // Format 7: DD/MM/YYYY - "02/11/2024"
+    match = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (match) {
+      const [, day, month, year] = match;
+      return new Date(+year, +month - 1, +day);
+    }
+
+    // Format 8: MM/DD/YYYY - US format "11/02/2024"
+    // Note: This is ambiguous with DD/MM/YYYY, so we try both and see which makes sense
+    match = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (match) {
+      const [, first, second, year] = match;
+      // If first number > 12, it must be day (DD/MM/YYYY)
+      if (+first > 12) {
+        return new Date(+year, +second - 1, +first);
+      }
+      // If second number > 12, it must be day (MM/DD/YYYY)
+      if (+second > 12) {
+        return new Date(+year, +first - 1, +second);
+      }
+      // Ambiguous - default to DD/MM/YYYY (international standard)
+      return new Date(+year, +second - 1, +first);
+    }
+
+    // Format 9: DD.MM.YYYY - "02.11.2024" (European format)
+    match = trimmed.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+    if (match) {
+      const [, day, month, year] = match;
+      return new Date(+year, +month - 1, +day);
+    }
+
+    // Format 10: YYYYMMDD - "20241102"
+    match = trimmed.match(/^(\d{4})(\d{2})(\d{2})$/);
+    if (match) {
+      const [, year, month, day] = match;
+      return new Date(+year, +month - 1, +day);
+    }
+
+    // Format 11: DD Month YYYY - "02 November 2024" or "2 Nov 2024"
+    match = trimmed.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
+    if (match) {
+      const [, day, monthStr, year] = match;
+      const month = monthNames[monthStr.toLowerCase()];
+      if (month !== undefined) {
+        return new Date(+year, month, +day);
+      }
+    }
+
+    // Format 12: Month DD, YYYY - "November 02, 2024" or "Nov 2, 2024"
+    match = trimmed.match(/^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})$/);
+    if (match) {
+      const [, monthStr, day, year] = match;
+      const month = monthNames[monthStr.toLowerCase()];
+      if (month !== undefined) {
+        return new Date(+year, month, +day);
+      }
+    }
+
+    // Format 13: RFC 2822 / RFC 822 - "Sat, 02 Nov 2024 18:42:00 GMT"
+    match = trimmed.match(/^[A-Za-z]{3},?\s+(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})\s+(\d{2}):(\d{2}):(\d{2})\s+(?:GMT|UTC|[+-]\d{4})$/);
+    if (match) {
+      const [, day, monthStr, year, hour, minute, second] = match;
+      const month = monthNames[monthStr.toLowerCase()];
+      if (month !== undefined) {
+        return new Date(Date.UTC(+year, month, +day, +hour, +minute, +second));
+      }
+    }
+
+    // Last resort: Try native Date parsing
+    const nativeDate = new Date(trimmed);
+    if (!isNaN(nativeDate.getTime())) {
+      return nativeDate;
     }
 
     return null;
   } catch (e) {
-    console.error('Error parsing date:', dateStr, e);
+    console.error('Error parsing WHOIS date:', dateStr, e);
     return null;
   }
 };
