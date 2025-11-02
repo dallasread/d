@@ -1,6 +1,25 @@
-# Application Panels Guide
+# Application Architecture Guide
 
-This document describes each panel in the DNS debugger application. Always read/write code comments for implementation details.
+This document describes the architecture and panels of the DNS debugger project.
+
+## Architecture Philosophy
+
+**Core:** Rust bindings in `src-tauri/src/` provide the foundational DNS debugging capabilities through:
+- **Commands** (`src-tauri/src/commands/`) - High-level diagnostic operations
+- **Adapters** (`src-tauri/src/adapters/`) - System tool wrappers (dig, openssl, whois, curl)
+- **Models** (`src-tauri/src/models/`) - Structured data types for DNS, DNSSEC, certificates, etc.
+
+**Multiple Frontends:** The Rust core supports multiple application types:
+1. **Tauri GUI** (current, v0.2.0) - Vue 3 + TypeScript desktop application
+2. **Charm/Lipgloss TUI** (planned) - Go-based terminal UI via FFI bindings
+
+This separation allows us to build different user experiences while sharing the same battle-tested diagnostic logic.
+
+---
+
+## Application Panels Guide
+
+This section describes each panel/feature in the DNS debugger. Always read/write code comments for implementation details.
 
 ## General Principles
 
