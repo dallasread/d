@@ -79,16 +79,16 @@ const expiryStatusClass = computed(() => {
       </div>
 
       <!-- Loading state -->
-      <PanelLoading v-if="whoisStore.loading" title="WHOIS Registration" />
+      <PanelLoading v-if="hasDomain && whoisStore.loading" title="WHOIS Registration" />
 
       <!-- Error Display -->
-      <div v-else-if="whoisStore.error" class="panel bg-red-900/20 border-red-800">
+      <div v-else-if="hasDomain && whoisStore.error" class="panel bg-red-900/20 border-red-800">
         <h3 class="text-lg font-semibold text-red-400 mb-2">Failed to fetch WHOIS data</h3>
         <p class="text-sm text-red-300">{{ whoisStore.error }}</p>
       </div>
 
       <!-- Registration Info -->
-      <div v-else-if="whoisStore.whoisInfo" class="space-y-6">
+      <div v-else-if="hasDomain && whoisStore.whoisInfo" class="space-y-6">
         <!-- Overview Card -->
         <div class="panel">
           <h2 class="text-xl font-semibold mb-4">Overview</h2>
@@ -167,11 +167,6 @@ const expiryStatusClass = computed(() => {
             </span>
           </div>
         </div>
-      </div>
-
-      <!-- No Data -->
-      <div v-else class="panel">
-        <p class="text-[#858585]">No registration data available</p>
       </div>
     </div>
   </div>

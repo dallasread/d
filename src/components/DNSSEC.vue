@@ -593,11 +593,18 @@ onUnmounted(() => {
                       </div>
                     </div>
 
-                    <!-- DS Records -->
+                    <!-- DS Records Section (includes warning for missing DS records) -->
                     <div
-                      v-if="zone.ds_records && zone.ds_records.length > 0"
+                      v-if="
+                        (zone.ds_records && zone.ds_records.length > 0) ||
+                        (zone.ds_records &&
+                          zone.ds_records.length === 0 &&
+                          zone.zone_name !== '.' &&
+                          index < dnssecStore.validation.chain.length - 1)
+                      "
                       class="space-y-1 mt-3 pt-3 -mx-3 -mb-3 px-3 pb-3 bg-[#0d0d0d] border-t border-[#2a2a2a]"
                     >
+                      <!-- DS Records (when present) -->
                       <div
                         v-for="(ds, dsIndex) in zone.ds_records"
                         :key="dsIndex"
@@ -614,19 +621,17 @@ onUnmounted(() => {
                           ALGO={{ ds.algorithm }} HASH={{ ds.digest }}
                         </span>
                       </div>
-                    </div>
 
-                    <!-- No DS records warning (only for non-root zones with no child DS records) -->
-                    <div
-                      v-if="
-                        zone.ds_records &&
-                        zone.ds_records.length === 0 &&
-                        zone.zone_name !== '.' &&
-                        index < dnssecStore.validation.chain.length - 1
-                      "
-                      class="mt-2"
-                    >
-                      <div class="font-mono text-xs text-red-400">
+                      <!-- No DS records warning (when DS section exists but empty) -->
+                      <div
+                        v-if="
+                          zone.ds_records &&
+                          zone.ds_records.length === 0 &&
+                          zone.zone_name !== '.' &&
+                          index < dnssecStore.validation.chain.length - 1
+                        "
+                        class="font-mono text-xs text-red-400"
+                      >
                         No DS records found – chain is broken
                       </div>
                     </div>

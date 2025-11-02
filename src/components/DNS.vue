@@ -168,10 +168,10 @@ const getRecordTypeColor = (type: string) => {
       </div>
 
       <!-- Loading state -->
-      <PanelLoading v-if="dnsStore.loading" title="DNS Records" :sub-queries="dnsSubQueries" />
+      <PanelLoading v-if="hasDomain && dnsStore.loading" title="DNS Records" :sub-queries="dnsSubQueries" />
 
       <!-- DNS Records -->
-      <div v-else class="space-y-6">
+      <div v-else-if="hasDomain" class="space-y-6">
         <!-- Diagnostic Summary -->
         <div
           class="panel"
