@@ -10,16 +10,46 @@ const emailStore = useEmailStore();
 
 const hasDomain = computed(() => !!appStore.domain);
 
+interface MxRecord {
+  priority: number;
+  hostname: string;
+  ips: string[];
+}
+
+interface EmailData {
+  securityScore: number;
+  provider: string;
+  mxRecords: MxRecord[];
+  spf: {
+    record: string;
+    policy: string;
+    mechanisms: number;
+    valid: boolean;
+  };
+  dkim: {
+    found: boolean;
+    checkedSelectors: string[];
+  };
+  dmarc: {
+    record: string;
+    policy: string;
+    dkimAlignment: string;
+    spfAlignment: string;
+    aggregateReports: string;
+    forensicReports: string;
+  };
+}
+
 // Mock data for demonstration - will be replaced with real data from emailStore
 // Currently returns empty/placeholder data since email functionality is not yet implemented
-const mockEmailData = computed(() => {
+const mockEmailData = computed<EmailData | null>(() => {
   if (!appStore.domain) return null;
 
   // Return empty data structure - email functionality to be implemented
   return {
     securityScore: 0,
     provider: 'Not yet implemented',
-    mxRecords: [],
+    mxRecords: [] as MxRecord[],
     spf: {
       record: '',
       policy: '',
@@ -28,7 +58,7 @@ const mockEmailData = computed(() => {
     },
     dkim: {
       found: false,
-      checkedSelectors: [],
+      checkedSelectors: [] as string[],
     },
     dmarc: {
       record: '',
