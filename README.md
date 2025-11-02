@@ -58,18 +58,16 @@ sudo dnf install bind-utils openssl whois curl
 
 **Development mode:**
 ```bash
-cd app
 npm install
 npm run tauri dev
 ```
 
 **Build for production:**
 ```bash
-cd app
 npm run tauri build
 ```
 
-The built application will be in `app/src-tauri/target/release/bundle/`.
+The built application will be in `src-tauri/target/release/bundle/`.
 
 ## Usage
 
@@ -254,7 +252,7 @@ Useful for debugging and understanding what queries are being made.
 ### Project Structure
 
 ```
-app/
+d/                           # Repository root
 ├── src/                      # Vue 3 frontend
 │   ├── components/           # Vue components
 │   │   ├── Dashboard.vue     # Overview cards
@@ -298,6 +296,11 @@ app/
 │   │       └── whois.rs
 │   └── Cargo.toml           # Rust dependencies
 │
+├── legacy/                  # Legacy Python TUI (deprecated)
+│   ├── src/                 # Python source
+│   ├── tests/               # Python tests
+│   └── README.md            # Python TUI docs
+│
 └── package.json             # Node dependencies
 ```
 
@@ -318,7 +321,6 @@ app/
 
 ```bash
 # Install Node.js dependencies
-cd app
 npm install
 
 # Install Rust toolchain (if not already installed)
@@ -331,7 +333,6 @@ npm install -g @tauri-apps/cli
 ### Running in Development
 
 ```bash
-cd app
 npm run tauri dev
 ```
 
@@ -343,7 +344,6 @@ This starts:
 ### Building for Production
 
 ```bash
-cd app
 npm run tauri build
 ```
 
@@ -371,7 +371,7 @@ cargo clippy      # Rust linter
 
 ## Legacy Python TUI
 
-The original Python terminal UI application is still available in the root directory for those who prefer command-line interfaces. See `PYTHON_TUI.md` for documentation.
+The original Python terminal UI application is still available in the `legacy/` directory for those who prefer command-line interfaces. See `legacy/README.md` for documentation.
 
 ## Contributing
 
@@ -401,7 +401,6 @@ MIT License - see LICENSE file for details
 **Quick Start:**
 ```bash
 # Development
-cd app
 npm install
 npm run tauri dev
 
