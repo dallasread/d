@@ -647,15 +647,15 @@ onUnmounted(() => {
                           :id="`rrsig-zone${index}-keytag${rrsig.key_tag}-idx${rrsigIndex}`"
                           class="flex-1 break-all"
                         >
-                          <span class="font-semibold text-[#858585]">RRSIG</span> TYPE={{
-                            rrsig.type_covered
-                          }}
-                          KEYTAG=<span :class="getKeytagColor(rrsig.key_tag)">{{
-                            rrsig.key_tag
-                          }}</span>
-                          ALGO={{ rrsig.algorithm }} SIGNER={{ rrsig.signer_name }} EXPIRES={{
-                            rrsig.signature_expiration
-                          }}
+                          <span class="font-semibold text-[#858585]">RRSIG</span> KEYTAG=<span
+                            :class="getKeytagColor(rrsig.key_tag)"
+                            >{{ rrsig.key_tag }}</span
+                          >
+                          ALGO={{ rrsig.algorithm }} TYPE=<span
+                            :class="getKeytagColor(rrsig.type_covered.charCodeAt(0))"
+                            >{{ rrsig.type_covered }}</span
+                          >
+                          SIGNER={{ rrsig.signer_name }} EXPIRES={{ rrsig.signature_expiration }}
                         </span>
                       </div>
                     </div>
