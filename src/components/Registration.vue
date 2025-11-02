@@ -34,11 +34,25 @@ const parseWhoisDate = (dateStr: string | undefined): Date | null => {
       dec: 11, december: 11,
     };
 
-    // Format 1: ISO 8601 with timezone - "2024-11-02T18:42:00Z" or "2024-11-02T18:42:00.000Z"
-    let match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?Z?$/i);
+    // Format 1: ISO 8601 with full time - "2024-11-02T18:42:00Z" or "2024-11-02T18:42:00.000Z" or "2024-11-02T18:42:00+0000"
+    let match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-]\d{4})?$/i);
     if (match) {
       const [, year, month, day, hour, minute, second] = match;
       return new Date(Date.UTC(+year, +month - 1, +day, +hour, +minute, +second));
+    }
+
+    // Format 1a: ISO 8601 with hour and minute only - "2024-11-02T18:42" or "2010-04-07T17"
+    match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):?(\d{2})?(?:Z|[+-]\d{4})?$/i);
+    if (match) {
+      const [, year, month, day, hour, minute] = match;
+      return new Date(Date.UTC(+year, +month - 1, +day, +hour, minute ? +minute : 0, 0));
+    }
+
+    // Format 1b: ISO 8601 with hour only - "2024-11-02T18"
+    match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2})$/);
+    if (match) {
+      const [, year, month, day, hour] = match;
+      return new Date(Date.UTC(+year, +month - 1, +day, +hour, 0, 0));
     }
 
     // Format 2: ISO date with space separator - "2024-11-02 18:42:00"
@@ -174,17 +188,26 @@ const formatDate = (date: Date | null): string => {
 };
 
 const expirationDate = computed(() => {
-  const date = parseWhoisDate(whoisStore.whoisInfo?.expiration_date);
+  const dateStr = whoisStore.whoisInfo?.expiration_date;
+  console.log('Parsing expiration_date:', dateStr);
+  const date = parseWhoisDate(dateStr);
+  console.log('Parsed expiration_date:', date);
   return formatDate(date);
 });
 
 const creationDate = computed(() => {
-  const date = parseWhoisDate(whoisStore.whoisInfo?.creation_date);
+  const dateStr = whoisStore.whoisInfo?.creation_date;
+  console.log('Parsing creation_date:', dateStr);
+  const date = parseWhoisDate(dateStr);
+  console.log('Parsed creation_date:', date);
   return formatDate(date);
 });
 
 const updatedDate = computed(() => {
-  const date = parseWhoisDate(whoisStore.whoisInfo?.updated_date);
+  const dateStr = whoisStore.whoisInfo?.updated_date;
+  console.log('Parsing updated_date:', dateStr);
+  const date = parseWhoisDate(dateStr);
+  console.log('Parsed updated_date:', date);
   return formatDate(date);
 });
 
