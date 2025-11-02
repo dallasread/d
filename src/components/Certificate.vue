@@ -11,30 +11,49 @@ const hasDomain = computed(() => !!appStore.domain);
 
 const leafCert = computed(() => certStore.tlsInfo?.certificate_chain.certificates[0]);
 
-const daysUntilExpiry = computed(() => {
-  if (!leafCert.value || !leafCert.value.not_after) return null;
+const parseDate = (dateString: string | undefined): Date | null => {
+  if (!dateString) return null;
+
   try {
-    // Try parsing the date string
-    let expiryDate = new Date(leafCert.value.not_after);
+    // Try parsing directly
+    let date = new Date(dateString);
 
-    // If direct parsing fails, try cleaning up the format
-    if (isNaN(expiryDate.getTime())) {
-      const cleaned = leafCert.value.not_after.replace(/\s+/g, ' ').replace(' GMT', '').trim();
-      expiryDate = new Date(cleaned);
+    // If that fails, clean up the format and try again
+    if (isNaN(date.getTime())) {
+      const cleaned = dateString.replace(/\s+/g, ' ').replace(' GMT', '').trim();
+      date = new Date(cleaned);
     }
 
-    if (isNaN(expiryDate.getTime())) {
-      console.warn('Could not parse expiry date:', leafCert.value.not_after);
-      return null;
-    }
-
-    const now = new Date();
-    const days = Math.floor((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    return days;
+    return isNaN(date.getTime()) ? null : date;
   } catch (e) {
-    console.error('Error calculating days until expiry:', e, leafCert.value.not_after);
+    console.error('Error parsing date:', dateString, e);
     return null;
   }
+};
+
+const daysUntilExpiry = computed(() => {
+  if (!leafCert.value) {
+    console.log('No leaf certificate');
+    return null;
+  }
+
+  if (!leafCert.value.not_after) {
+    console.warn('Leaf cert missing not_after date');
+    return null;
+  }
+
+  console.log('Parsing not_after date:', leafCert.value.not_after);
+  const expiryDate = parseDate(leafCert.value.not_after);
+
+  if (!expiryDate) {
+    console.warn('Could not parse expiry date:', leafCert.value.not_after);
+    return null;
+  }
+
+  const now = new Date();
+  const days = Math.floor((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  console.log('Calculated days until expiry:', days);
+  return days;
 });
 
 const isExpired = computed(() => {
@@ -43,30 +62,25 @@ const isExpired = computed(() => {
   return days < 0;
 });
 
-const formatDate = (dateString: string) => {
-  if (!dateString) return 'N/A';
-  try {
-    // OpenSSL outputs dates in format like "Jan  1 00:00:00 2024 GMT"
-    // Try to parse it directly first
-    let date = new Date(dateString);
-
-    // If that fails, try to clean up the format
-    if (isNaN(date.getTime())) {
-      // Remove extra spaces and GMT
-      const cleaned = dateString.replace(/\s+/g, ' ').replace(' GMT', '').trim();
-      date = new Date(cleaned);
-    }
-
-    if (isNaN(date.getTime())) {
-      console.warn('Could not parse date:', dateString);
-      return dateString; // Return the original string if we can't parse it
-    }
-
-    return date.toISOString().split('T')[0]; // YYYY-MM-DD format
-  } catch (e) {
-    console.error('Error formatting date:', e, 'for dateString:', dateString);
-    return dateString; // Return original string on error
+const formatDate = (dateString: string | undefined) => {
+  if (!dateString) {
+    console.warn('formatDate called with empty dateString');
+    return 'N/A';
   }
+
+  const date = parseDate(dateString);
+
+  if (!date) {
+    console.warn('Could not parse date for formatting:', dateString);
+    return dateString; // Return the original string if we can't parse it
+  }
+
+  // Format as human-readable date
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
 };
 
 const getStatusText = computed(() => {
