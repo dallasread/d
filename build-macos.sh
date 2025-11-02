@@ -48,8 +48,8 @@ if [ -d "src-tauri/target/universal-apple-darwin/release/bundle/macos/D.app" ]; 
 fi
 
 # Copy DMG
-if [ -f "src-tauri/target/universal-apple-darwin/release/bundle/dmg/D_0.1.2_universal.dmg" ]; then
-    cp src-tauri/target/universal-apple-darwin/release/bundle/dmg/D_0.1.2_universal.dmg dist/
+if [ -f "src-tauri/target/universal-apple-darwin/release/bundle/dmg/D_0.2.0_universal.dmg" ]; then
+    cp src-tauri/target/universal-apple-darwin/release/bundle/dmg/D_0.2.0_universal.dmg dist/
     echo "   ✓ DMG installer"
 fi
 
@@ -70,7 +70,7 @@ echo "📦 Output files in dist/:"
 ls -lh dist/ | grep -v "^total" | awk '{print "   - " $9 " (" $5 ")"}'
 echo ""
 echo "🚀 Installation options:"
-echo "   1. Double-click dist/D_0.1.2_universal.dmg to install via DMG"
+echo "   1. Double-click dist/D_0.2.0_universal.dmg to install via DMG"
 echo "   2. Copy dist/D.app to /Applications manually"
 echo "   3. Distribute dist/D-macos-universal.zip"
 echo ""

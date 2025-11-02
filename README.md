@@ -361,7 +361,7 @@ This script leverages Tauri's native bundling to:
 
 **Outputs:**
 - `dist/D.app` - Universal macOS application bundle
-- `dist/D_0.1.2_universal.dmg` - DMG installer (created by Tauri)
+- `dist/D_0.2.0_universal.dmg` - DMG installer (created by Tauri)
 - `dist/D-macos-universal.zip` - ZIP archive for distribution
 
 **No additional tools required** - Tauri handles DMG creation natively!
