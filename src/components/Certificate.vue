@@ -14,27 +14,33 @@ const leafCert = computed(() => certStore.tlsInfo?.certificate_chain.certificate
 const daysUntilExpiry = computed(() => {
   if (!leafCert.value || !leafCert.value.not_after) return null;
   try {
-    const expiryDate = new Date(leafCert.value.not_after);
-    if (isNaN(expiryDate.getTime())) return null;
+    // Try parsing the date string
+    let expiryDate = new Date(leafCert.value.not_after);
+
+    // If direct parsing fails, try cleaning up the format
+    if (isNaN(expiryDate.getTime())) {
+      const cleaned = leafCert.value.not_after.replace(/\s+/g, ' ').replace(' GMT', '').trim();
+      expiryDate = new Date(cleaned);
+    }
+
+    if (isNaN(expiryDate.getTime())) {
+      console.warn('Could not parse expiry date:', leafCert.value.not_after);
+      return null;
+    }
+
     const now = new Date();
     const days = Math.floor((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     return days;
   } catch (e) {
-    console.error('Error calculating days until expiry:', e);
+    console.error('Error calculating days until expiry:', e, leafCert.value.not_after);
     return null;
   }
 });
 
 const isExpired = computed(() => {
-  if (!leafCert.value || !leafCert.value.not_after) return false;
-  try {
-    const expiryDate = new Date(leafCert.value.not_after);
-    if (isNaN(expiryDate.getTime())) return false;
-    return expiryDate < new Date();
-  } catch (e) {
-    console.error('Error checking expiration:', e);
-    return false;
-  }
+  const days = daysUntilExpiry.value;
+  if (days === null) return false;
+  return days < 0;
 });
 
 const formatDate = (dateString: string) => {
@@ -64,18 +70,39 @@ const formatDate = (dateString: string) => {
 };
 
 const getStatusText = computed(() => {
-  if (isExpired.value) return 'Expired';
-  if (daysUntilExpiry.value !== null) {
-    return `Valid (${daysUntilExpiry.value} days remaining)`;
+  // No certificate data
+  if (!leafCert.value) return 'No Certificate';
+
+  // Certificate exists but date couldn't be parsed
+  if (daysUntilExpiry.value === null) {
+    return 'Valid (Unable to determine expiry)';
   }
-  return 'Unknown';
+
+  // Certificate is expired
+  if (isExpired.value) {
+    const daysExpired = Math.abs(daysUntilExpiry.value);
+    return `Expired (${daysExpired} days ago)`;
+  }
+
+  // Certificate is valid
+  return `Valid (${daysUntilExpiry.value} days remaining)`;
 });
 
 const getStatusClass = computed(() => {
+  // No certificate
+  if (!leafCert.value) return 'text-gray-400';
+
+  // Date parsing failed
+  if (daysUntilExpiry.value === null) return 'text-yellow-400';
+
+  // Expired
   if (isExpired.value) return 'text-red-400';
-  if (daysUntilExpiry.value !== null && daysUntilExpiry.value > 30) return 'text-green-400';
-  if (daysUntilExpiry.value !== null && daysUntilExpiry.value > 0) return 'text-yellow-400';
-  return 'text-gray-400';
+
+  // Expiring soon (30 days or less)
+  if (daysUntilExpiry.value <= 30) return 'text-yellow-400';
+
+  // Valid
+  return 'text-green-400';
 });
 </script>
 
