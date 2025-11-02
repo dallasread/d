@@ -13,7 +13,7 @@ This document describes the architecture and panels of the DNS debugger project.
 1. **Tauri GUI** (current, v0.2.0) - Vue 3 + TypeScript desktop application
 2. **Charm/Lipgloss TUI** (planned) - Go-based terminal UI via FFI bindings
 
-This separation allows us to build different user experiences while sharing the same battle-tested diagnostic logic.
+This separation allows us to build different user experiences while sharing the same battle-tested diagnostic logic. We must always keep the features in sync across the different platforms.
 
 ---
 
