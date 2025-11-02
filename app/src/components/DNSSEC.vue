@@ -3,13 +3,7 @@ import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import { useAppStore } from '../stores/app';
 import { useDnssecStore } from '../stores/dnssec';
 import PanelLoading from './PanelLoading.vue';
-import {
-  CheckCircleIcon,
-  XCircleIcon,
-  ExclamationTriangleIcon,
-  CheckIcon,
-  ArrowRightIcon,
-} from '@heroicons/vue/24/solid';
+import { CheckCircleIcon, XCircleIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/solid';
 
 const appStore = useAppStore();
 const dnssecStore = useDnssecStore();
@@ -50,9 +44,19 @@ const getKeytagColor = (keytag: number) => {
   return colors[keytag % colors.length];
 };
 
+// Color for DNSSEC record types
+const getRecordTypeColor = (type: string) => {
+  const colorMap: Record<string, string> = {
+    DNSKEY: 'text-cyan-400',
+    DS: 'text-yellow-400',
+    RRSIG: 'text-purple-400',
+  };
+  return colorMap[type] || 'text-blue-400';
+};
+
 const getZoneLabel = (zoneName: string) => {
-  if (zoneName === '.') return 'root zone';
-  return `${zoneName} (zone)`;
+  if (zoneName === '.') return '. (root zone)';
+  return `${zoneName}. (zone)`;
 };
 
 // Check if a DS record key tag matches any DNSKEY in the child zone
@@ -173,8 +177,69 @@ const calculateArrowPaths = () => {
           arrowConnections.value.push({
             path,
             color: '#858585', // dim gray (matches app theme)
-            dsY: y1,
-            dnskeyY: y2,
+            startY: y1,
+            endY: y2,
+          });
+        });
+      }
+
+      // Add arrows from DNSKEY to RRSIG in target zone
+      const targetZone = chain[chain.length - 1];
+      if (targetZone.dnskey_records?.length && targetZone.rrsig_records?.length) {
+        targetZone.dnskey_records.forEach((dnskey, dnskeyIndex) => {
+          // Find matching RRSIG by key_tag
+          const matchingRrsigIndex = targetZone.rrsig_records.findIndex(
+            (rrsig) => rrsig.key_tag === dnskey.key_tag
+          );
+
+          if (matchingRrsigIndex === -1) return;
+
+          const dnskeyEl = document.getElementById(
+            `dnskey-zone${chain.length - 1}-keytag${dnskey.key_tag}-idx${dnskeyIndex}`
+          );
+          const rrsigEl = document.getElementById(
+            `rrsig-zone${chain.length - 1}-keytag${dnskey.key_tag}-idx${matchingRrsigIndex}`
+          );
+
+          if (!dnskeyEl || !rrsigEl) return;
+
+          const container = document.querySelector('.dnssec-chain-container');
+          if (!container) return;
+
+          const containerRect = container.getBoundingClientRect();
+          const dnskeyRect = dnskeyEl.getBoundingClientRect();
+          const rrsigRect = rrsigEl.getBoundingClientRect();
+
+          const leftX = 20;
+          const y1 = dnskeyRect.top + dnskeyRect.height / 2 - containerRect.top;
+          const y2 = rrsigRect.top + rrsigRect.height / 2 - containerRect.top;
+          const arrowLength = 20;
+
+          const wobble = () => (Math.random() - 0.5) * 6;
+          const wobbleSmall = () => (Math.random() - 0.5) * 3;
+
+          const w1 = wobble();
+          const w2 = wobble();
+          const w3 = wobble();
+          const w4 = wobbleSmall();
+          const w5 = wobbleSmall();
+
+          const path = `
+            M ${leftX + w4} ${y1 + w5}
+            C ${leftX + 15 + w2} ${y1 + w1}, ${leftX + 15 + w3} ${y1 + wobble()}, ${leftX + arrowLength} ${y1 + wobbleSmall()}
+            M ${leftX + wobbleSmall()} ${y1 + wobbleSmall()}
+            C ${leftX + 8 + w4} ${y1 + 20 + w1}, ${leftX + 8 + w5} ${y2 - 20 + w2}, ${leftX + wobbleSmall()} ${y2 + wobbleSmall()}
+            M ${leftX + w4} ${y2 + w5}
+            C ${leftX + 15 + w3} ${y2 + w1}, ${leftX + 15 + w2} ${y2 + wobble()}, ${leftX + arrowLength} ${y2 + wobbleSmall()}
+          `
+            .trim()
+            .replace(/\s+/g, ' ');
+
+          arrowConnections.value.push({
+            path,
+            color: '#858585',
+            startY: y1,
+            endY: y2,
           });
         });
       }
@@ -305,11 +370,11 @@ onUnmounted(() => {
                 />
                 <!-- Arrowheads with hand-drawn curved ( shape -->
                 <path
-                  :d="`M ${40 + Math.random() * 2 - 1},${arrow.dsY - 8 + Math.random() * 2 - 1} Q ${50 + Math.random() * 3 - 1.5},${arrow.dsY - 4 + Math.random() * 2 - 1} ${56 + Math.random() * 2 - 1},${arrow.dsY + Math.random() * 2 - 1} Q ${50 + Math.random() * 3 - 1.5},${arrow.dsY + 4 + Math.random() * 2 - 1} ${40 + Math.random() * 2 - 1},${arrow.dsY + 8 + Math.random() * 2 - 1}`"
+                  :d="`M ${40 + Math.random() * 2 - 1},${arrow.startY - 8 + Math.random() * 2 - 1} Q ${50 + Math.random() * 3 - 1.5},${arrow.startY - 4 + Math.random() * 2 - 1} ${56 + Math.random() * 2 - 1},${arrow.startY + Math.random() * 2 - 1} Q ${50 + Math.random() * 3 - 1.5},${arrow.startY + 4 + Math.random() * 2 - 1} ${40 + Math.random() * 2 - 1},${arrow.startY + 8 + Math.random() * 2 - 1}`"
                   :fill="arrow.color"
                 />
                 <path
-                  :d="`M ${40 + Math.random() * 2 - 1},${arrow.dnskeyY - 8 + Math.random() * 2 - 1} Q ${50 + Math.random() * 3 - 1.5},${arrow.dnskeyY - 4 + Math.random() * 2 - 1} ${56 + Math.random() * 2 - 1},${arrow.dnskeyY + Math.random() * 2 - 1} Q ${50 + Math.random() * 3 - 1.5},${arrow.dnskeyY + 4 + Math.random() * 2 - 1} ${40 + Math.random() * 2 - 1},${arrow.dnskeyY + 8 + Math.random() * 2 - 1}`"
+                  :d="`M ${40 + Math.random() * 2 - 1},${arrow.endY - 8 + Math.random() * 2 - 1} Q ${50 + Math.random() * 3 - 1.5},${arrow.endY - 4 + Math.random() * 2 - 1} ${56 + Math.random() * 2 - 1},${arrow.endY + Math.random() * 2 - 1} Q ${50 + Math.random() * 3 - 1.5},${arrow.endY + 4 + Math.random() * 2 - 1} ${40 + Math.random() * 2 - 1},${arrow.endY + 8 + Math.random() * 2 - 1}`"
                   :fill="arrow.color"
                 />
               </g>
@@ -319,7 +384,7 @@ onUnmounted(() => {
               <!-- Zone Header -->
               <div class="mb-2">
                 <div class="flex-1">
-                  <h3 class="font-semibold text-cyan-400 mb-2">
+                  <h3 class="font-semibold text-white mb-2">
                     {{ getZoneLabel(zone.zone_name) }}
                   </h3>
 
@@ -346,14 +411,14 @@ onUnmounted(() => {
                         :key="keyIndex"
                         class="font-mono text-xs text-[#cccccc] flex items-start gap-2"
                       >
-                        <CheckIcon class="w-3 h-3 text-green-400 flex-shrink-0 mt-0.5" />
                         <span
                           :id="`dnskey-zone${index}-keytag${dnskey.key_tag}-idx${keyIndex}`"
                           class="flex-1 break-all"
                         >
-                          DNSKEY KEYTAG=<span :class="getKeytagColor(dnskey.key_tag)">{{
-                            dnskey.key_tag
-                          }}</span>
+                          <span class="font-semibold text-[#858585]">DNSKEY</span> KEYTAG=<span
+                            :class="getKeytagColor(dnskey.key_tag)"
+                            >{{ dnskey.key_tag }}</span
+                          >
                           ALGO={{ dnskey.algorithm }} TYPE=<span
                             :class="dnskey.flags === 257 ? 'text-blue-400' : 'text-cyan-400'"
                             >{{ dnskey.flags === 257 ? 'KSK' : 'ZSK' }}</span
@@ -371,27 +436,16 @@ onUnmounted(() => {
                       <div
                         v-for="(ds, dsIndex) in zone.ds_records"
                         :key="dsIndex"
-                        class="font-mono text-xs flex items-start gap-2"
-                        :class="
-                          dsMatchesChild(ds.key_tag, getChildZone(index))
-                            ? 'text-green-400'
-                            : 'text-[#cccccc]'
-                        "
+                        class="font-mono text-xs text-[#cccccc] flex items-start gap-2"
                       >
-                        <span class="flex-shrink-0 flex items-center gap-0.5 mt-0.5">
-                          <CheckIcon
-                            v-if="dsMatchesChild(ds.key_tag, getChildZone(index))"
-                            class="w-3 h-3 text-green-400"
-                          />
-                          <XCircleIcon v-else class="w-3 h-3 text-red-400" />
-                        </span>
                         <span
                           :id="`ds-zone${index}-keytag${ds.key_tag}-idx${dsIndex}`"
                           class="flex-1 break-all"
                         >
-                          DS KEYTAG=<span :class="getKeytagColor(ds.key_tag)">{{
-                            ds.key_tag
-                          }}</span>
+                          <span class="font-semibold text-[#858585]">DS</span> KEYTAG=<span
+                            :class="getKeytagColor(ds.key_tag)"
+                            >{{ ds.key_tag }}</span
+                          >
                           ALGO={{ ds.algorithm }} HASH={{ ds.digest }}
                         </span>
                       </div>
@@ -427,12 +481,16 @@ onUnmounted(() => {
                         :key="rrsigIndex"
                         class="font-mono text-xs text-[#cccccc] flex items-start gap-2"
                       >
-                        <CheckIcon class="w-3 h-3 text-purple-400 flex-shrink-0 mt-0.5" />
-                        <span class="flex-1 break-all">
-                          RRSIG TYPE={{ rrsig.type_covered }} KEYTAG=<span
-                            :class="getKeytagColor(rrsig.key_tag)"
-                            >{{ rrsig.key_tag }}</span
-                          >
+                        <span
+                          :id="`rrsig-zone${index}-keytag${rrsig.key_tag}-idx${rrsigIndex}`"
+                          class="flex-1 break-all"
+                        >
+                          <span class="font-semibold text-[#858585]">RRSIG</span> TYPE={{
+                            rrsig.type_covered
+                          }}
+                          KEYTAG=<span :class="getKeytagColor(rrsig.key_tag)">{{
+                            rrsig.key_tag
+                          }}</span>
                           ALGO={{ rrsig.algorithm }} SIGNER={{ rrsig.signer_name }} EXPIRES={{
                             rrsig.signature_expiration
                           }}
