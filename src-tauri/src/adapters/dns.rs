@@ -290,12 +290,12 @@ impl DnsAdapter {
             return Err("dig command not found".to_string());
         }
 
-        let args = vec![".".to_string(), "DNSKEY".to_string(), "+short".to_string()];
+        let args = vec![".".to_string(), "DNSKEY".to_string(), "+multi".to_string()];
 
         let output = Command::new("dig")
             .arg(".")
             .arg("DNSKEY")
-            .arg("+short")
+            .arg("+multi")
             .output()
             .map_err(|e| format!("Failed to execute dig: {}", e))?;
 

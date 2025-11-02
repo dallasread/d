@@ -111,26 +111,29 @@ const expiryStatusClass = computed(() => {
       <div v-else-if="hasDomain && whoisStore.whoisInfo" class="panel">
         <h2 class="text-xl font-semibold mb-6">Domain Registration Information</h2>
 
-        <!-- Registrar -->
-        <div class="mb-6 pb-6 border-b border-[#3e3e42]">
-          <p class="text-xs text-[#858585] mb-1">Registrar</p>
-          <p class="text-lg font-semibold">{{ whoisStore.whoisInfo.registrar || 'N/A' }}</p>
-        </div>
+        <!-- Registrar and Status Row -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 pb-6 border-b border-[#3e3e42]">
+          <!-- Registrar -->
+          <div>
+            <p class="text-xs text-[#858585] mb-1">Registrar</p>
+            <p class="text-lg font-semibold">{{ whoisStore.whoisInfo.registrar || 'N/A' }}</p>
+          </div>
 
-        <!-- Domain Status -->
-        <div v-if="whoisStore.whoisInfo.status.length > 0" class="mb-6 pb-6 border-b border-[#3e3e42]">
-          <h3 class="text-sm font-semibold text-[#858585] mb-4">
-            DOMAIN STATUS
-            <span class="text-blue-400 ml-1">({{ whoisStore.whoisInfo.status.length }})</span>
-          </h3>
-          <div class="flex flex-wrap gap-2">
-            <span
-              v-for="(status, index) in whoisStore.whoisInfo.status"
-              :key="index"
-              class="px-3 py-1.5 bg-[#2d2d30] border border-[#3e3e42] text-sm rounded-md"
-            >
-              {{ status }}
-            </span>
+          <!-- Domain Status -->
+          <div v-if="whoisStore.whoisInfo.status.length > 0">
+            <p class="text-xs text-[#858585] mb-2">
+              Status
+              <span class="text-blue-400 ml-1">({{ whoisStore.whoisInfo.status.length }})</span>
+            </p>
+            <div class="flex flex-wrap gap-2">
+              <span
+                v-for="(status, index) in whoisStore.whoisInfo.status"
+                :key="index"
+                class="px-3 py-1.5 bg-[#2d2d30] border border-[#3e3e42] text-sm rounded-md"
+              >
+                {{ status }}
+              </span>
+            </div>
           </div>
         </div>
 
