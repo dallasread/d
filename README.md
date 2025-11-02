@@ -343,16 +343,53 @@ This starts:
 
 ### Building for Production
 
+#### macOS Universal Binary (Recommended)
+
+Use the included build script for macOS to create a universal binary (Intel + Apple Silicon):
+
+```bash
+./build-macos.sh
+```
+
+This script leverages Tauri's native bundling to:
+1. Check and install required Rust targets (aarch64-apple-darwin, x86_64-apple-darwin)
+2. Clean previous builds
+3. Build a universal binary (x86_64 + arm64)
+4. Create a DMG installer using Tauri's built-in DMG bundler
+5. Copy outputs to `dist/` directory
+6. Create a ZIP archive for distribution
+
+**Outputs:**
+- `dist/D.app` - Universal macOS application bundle
+- `dist/D_0.1.2_universal.dmg` - DMG installer (created by Tauri)
+- `dist/D-macos-universal.zip` - ZIP archive for distribution
+
+**No additional tools required** - Tauri handles DMG creation natively!
+
+#### Manual Build
+
+For platform-specific builds or other operating systems:
+
 ```bash
 npm run tauri build
 ```
 
-Outputs:
-- macOS: `.app` bundle and `.dmg` installer
-- Linux: `.deb`, `.AppImage`
-- Windows: `.exe`, `.msi`
+**Outputs:**
+- macOS: `.app` bundle and `.dmg` installer in `src-tauri/target/release/bundle/macos/`
+- Linux: `.deb`, `.AppImage` in `src-tauri/target/release/bundle/`
+- Windows: `.exe`, `.msi` in `src-tauri/target/release/bundle/`
 
-Located in `src-tauri/target/release/bundle/`
+**Build for specific architecture:**
+```bash
+# macOS Apple Silicon only
+npm run tauri build -- --target aarch64-apple-darwin
+
+# macOS Intel only
+npm run tauri build -- --target x86_64-apple-darwin
+
+# Universal (both architectures)
+npm run tauri build -- --target universal-apple-darwin
+```
 
 ### Code Style
 
