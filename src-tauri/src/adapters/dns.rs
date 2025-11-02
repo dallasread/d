@@ -328,25 +328,10 @@ impl DnsAdapter {
             return Err(format!("dig command failed: {}", stderr));
         }
 
-        // Parse +short format: "flags protocol algorithm public_key"
-        let mut records = Vec::new();
-        for line in stdout.lines() {
-            let line = line.trim();
-            if line.is_empty() {
-                continue;
-            }
-
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() >= 4 {
-                // Build a DnsRecord in standard format for consistency
-                records.push(DnsRecord {
-                    name: ".".to_string(),
-                    record_type: "DNSKEY".to_string(),
-                    value: line.to_string(),
-                    ttl: 0, // +short doesn't include TTL
-                });
-            }
-        }
+        // Parse +multi format using standard parser
+        let records = self
+            .parse_dig_output(&stdout, "DNSKEY")
+            .unwrap_or_else(|_| Vec::new());
 
         if records.is_empty() {
             return Err("No root DNSKEY records found".to_string());
