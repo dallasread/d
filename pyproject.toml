@@ -5,8 +5,8 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "d-dns-debugger"
 version = "0.1.2"
-description = "A powerful TUI for debugging DNS, domain registration, and SSL/TLS certificates"
-readme = "README.md"
+description = "[LEGACY] Python TUI for debugging DNS - The main app is now a Tauri GUI (see app/ directory)"
+readme = "PYTHON_TUI.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
 authors = [
