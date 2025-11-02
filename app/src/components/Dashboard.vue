@@ -480,9 +480,41 @@ const overallHealth = computed(() => {
                 4
               </kbd>
             </div>
-            <div class="text-sm">
-              <p class="text-[#858585]">DNSSEC validation status</p>
-              <p class="text-xs text-[#858585] mt-2">Coming soon</p>
+            <div v-if="dnssecStore.loading" class="space-y-2">
+              <div class="h-3 bg-[#3e3e42] rounded animate-pulse"></div>
+              <div class="h-3 bg-[#3e3e42] rounded animate-pulse w-3/4"></div>
+            </div>
+            <div v-else-if="dnssecStore.validation" class="space-y-2 text-sm">
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-[#858585]">Status:</span>
+                <span
+                  :class="[
+                    'text-sm font-medium',
+                    dnssecStore.validation.status === 'SECURE' && 'status-pass',
+                    dnssecStore.validation.status === 'INSECURE' && 'status-warn',
+                    dnssecStore.validation.status === 'BOGUS' && 'status-fail',
+                    !['SECURE', 'INSECURE', 'BOGUS'].includes(dnssecStore.validation.status) &&
+                      'text-[#858585]',
+                  ]"
+                >
+                  {{ dnssecStore.validation.status }}
+                </span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-[#858585]">Chain Depth:</span>
+                <span class="text-white">{{ dnssecStore.validation.chain.length }} zones</span>
+              </div>
+              <div v-if="dnssecStore.validation.warnings.length > 0" class="pt-1">
+                <p class="text-xs status-warn">
+                  {{ dnssecStore.validation.warnings.length }} warning(s)
+                </p>
+              </div>
+            </div>
+            <div v-else-if="hasDomain" class="text-sm">
+              <p class="text-[#858585]">No DNSSEC data</p>
+            </div>
+            <div v-else class="text-sm">
+              <p class="text-[#858585]">DNSSEC validation</p>
             </div>
           </div>
 
@@ -573,9 +605,25 @@ const overallHealth = computed(() => {
                 7
               </kbd>
             </div>
-            <div class="text-sm">
-              <p class="text-[#858585]">Email security configuration</p>
-              <p class="text-xs text-[#858585] mt-2">Coming soon</p>
+            <div v-if="hasDomain && mxRecordCount > 0" class="text-sm space-y-2">
+              <div class="flex items-center gap-2">
+                <span class="font-medium text-white">MX Records:</span>
+                <span :class="getStatusClass(mxRecordCount, 1)">{{ mxRecordCount }}</span>
+              </div>
+              <div class="text-xs text-[#858585] space-y-1">
+                <div v-for="(record, i) in dnsStore.mxRecords?.records.slice(0, 2)" :key="i">
+                  {{ record.value }}
+                </div>
+                <div v-if="mxRecordCount > 2" class="text-[#656565]">
+                  +{{ mxRecordCount - 2 }} more
+                </div>
+              </div>
+            </div>
+            <div v-else-if="hasDomain" class="text-sm">
+              <p class="text-[#858585]">No MX records configured</p>
+            </div>
+            <div v-else class="text-sm">
+              <p class="text-[#858585]">Email configuration</p>
             </div>
           </div>
         </div>
