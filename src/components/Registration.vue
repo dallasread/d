@@ -188,26 +188,17 @@ const formatDate = (date: Date | null): string => {
 };
 
 const expirationDate = computed(() => {
-  const dateStr = whoisStore.whoisInfo?.expiration_date;
-  console.log('Parsing expiration_date:', dateStr);
-  const date = parseWhoisDate(dateStr);
-  console.log('Parsed expiration_date:', date);
+  const date = parseWhoisDate(whoisStore.whoisInfo?.expiration_date);
   return formatDate(date);
 });
 
 const creationDate = computed(() => {
-  const dateStr = whoisStore.whoisInfo?.creation_date;
-  console.log('Parsing creation_date:', dateStr);
-  const date = parseWhoisDate(dateStr);
-  console.log('Parsed creation_date:', date);
+  const date = parseWhoisDate(whoisStore.whoisInfo?.creation_date);
   return formatDate(date);
 });
 
 const updatedDate = computed(() => {
-  const dateStr = whoisStore.whoisInfo?.updated_date;
-  console.log('Parsing updated_date:', dateStr);
-  const date = parseWhoisDate(dateStr);
-  console.log('Parsed updated_date:', date);
+  const date = parseWhoisDate(whoisStore.whoisInfo?.updated_date);
   return formatDate(date);
 });
 

@@ -455,11 +455,10 @@ onUnmounted(() => {
 
       <!-- Validation Results -->
       <div v-else-if="dnssecStore.validation" class="space-y-6">
-        <!-- Status Overview -->
-        <div class="panel">
-          <h2 class="text-xl font-semibold mb-4 text-white">Validation Status</h2>
-
-          <div class="flex items-center gap-4">
+        <!-- Chain Visualization -->
+        <div class="panel relative">
+          <!-- Header with Status -->
+          <div class="flex items-center justify-between mb-6">
             <div
               :class="[
                 'flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm',
@@ -479,7 +478,7 @@ onUnmounted(() => {
           <!-- Warnings -->
           <div
             v-if="dnssecStore.validation.warnings.length > 0"
-            class="mt-4 p-3 bg-yellow-500/5 border border-yellow-500/30 rounded-lg"
+            class="mb-6 p-3 bg-yellow-500/5 border border-yellow-500/30 rounded-lg"
           >
             <h3 class="text-yellow-400 font-semibold mb-2 flex items-center gap-2">
               <span>⚠</span>
@@ -495,11 +494,6 @@ onUnmounted(() => {
               </li>
             </ul>
           </div>
-        </div>
-
-        <!-- Chain Visualization -->
-        <div class="panel relative">
-          <h2 class="text-xl font-semibold mb-4 text-white">Trust Chain</h2>
 
           <div v-if="dnssecStore.validation.chain.length === 0" class="text-[#858585]">
             No DNSSEC chain data available
