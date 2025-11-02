@@ -1,1 +1,0 @@
-"""Email configuration adapters."""

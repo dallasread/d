@@ -1,8 +1,0 @@
-/Users/dread/apps/dns/d/d-cli/target/debug/deps/libserde_with_macros-5cd8ce1d85d91ef3.dylib: /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/serde_with_macros-3.15.1/src/lib.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/serde_with_macros-3.15.1/src/apply.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/serde_with_macros-3.15.1/src/lazy_bool.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/serde_with_macros-3.15.1/src/utils.rs
-
-/Users/dread/apps/dns/d/d-cli/target/debug/deps/serde_with_macros-5cd8ce1d85d91ef3.d: /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/serde_with_macros-3.15.1/src/lib.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/serde_with_macros-3.15.1/src/apply.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/serde_with_macros-3.15.1/src/lazy_bool.rs /Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/serde_with_macros-3.15.1/src/utils.rs
-
-/Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/serde_with_macros-3.15.1/src/lib.rs:
-/Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/serde_with_macros-3.15.1/src/apply.rs:
-/Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/serde_with_macros-3.15.1/src/lazy_bool.rs:
-/Users/dread/.asdf/installs/rust/1.83/registry/src/index.crates.io-6f17d22bba15001f/serde_with_macros-3.15.1/src/utils.rs:
