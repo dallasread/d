@@ -543,7 +543,9 @@ impl DnsAdapter {
             .filter(|r| r.record_type == "RRSIG")
             .filter_map(|r| {
                 // RRSIG format: type_covered algorithm labels original_ttl expiration inception key_tag signer signature
-                let parts: Vec<&str> = r.value.split_whitespace().collect();
+                // Clean parentheses from multi-line format
+                let cleaned_value = r.value.replace('(', "").replace(')', "");
+                let parts: Vec<&str> = cleaned_value.split_whitespace().collect();
                 if parts.len() >= 9 {
                     Some(RrsigRecord {
                         type_covered: parts[0].to_string(),

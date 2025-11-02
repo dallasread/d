@@ -69,12 +69,6 @@ const getChildZone = (index: number) => {
     : null;
 };
 
-// Get the child zone name for DS record label
-const getChildZoneName = (index: number) => {
-  const child = getChildZone(index);
-  return child ? child.zone_name : null;
-};
-
 // DNSSEC sub-queries for loading state
 const dnssecSubQueries = computed(() => [
   { name: 'Root Zone (.) DNSKEY', status: 'loading' as const },
@@ -84,12 +78,12 @@ const dnssecSubQueries = computed(() => [
   { name: 'Domain DNSKEY', status: 'loading' as const },
 ]);
 
-// Arrow connections linking DS records to matching DNSKEY records
+// Arrow connections linking DS records to matching DNSKEY records and DNSKEY to RRSIG
 interface ArrowConnection {
   path: string;
   color: string;
-  dsY: number;
-  dnskeyY: number;
+  startY: number;
+  endY: number;
 }
 
 const arrowConnections = ref<ArrowConnection[]>([]);
@@ -165,8 +159,6 @@ const calculateArrowPaths = () => {
 
           // Create one continuous flowing arc from DS through vertical to DNSKEY
           // Using cubic bezier for smooth S-curve with no sharp corners
-          const midY = (y1 + y2) / 2;
-
           const path = `
             M ${leftX + w4} ${y1 + w5}
             C ${leftX + 15 + w2} ${y1 + w1}, ${leftX + 15 + w3} ${y1 + wobble()}, ${leftX + arrowLength} ${y1 + wobbleSmall()}
@@ -352,11 +344,13 @@ onUnmounted(() => {
                       <div
                         v-for="(dnskey, keyIndex) in zone.dnskey_records"
                         :key="keyIndex"
-                        :id="`dnskey-zone${index}-keytag${dnskey.key_tag}-idx${keyIndex}`"
                         class="font-mono text-xs text-[#cccccc] flex items-start gap-2"
                       >
                         <CheckIcon class="w-3 h-3 text-green-400 flex-shrink-0 mt-0.5" />
-                        <span class="flex-1 break-all">
+                        <span
+                          :id="`dnskey-zone${index}-keytag${dnskey.key_tag}-idx${keyIndex}`"
+                          class="flex-1 break-all"
+                        >
                           DNSKEY KEYTAG=<span :class="getKeytagColor(dnskey.key_tag)">{{
                             dnskey.key_tag
                           }}</span>
@@ -372,20 +366,11 @@ onUnmounted(() => {
                     <!-- DS Records -->
                     <div
                       v-if="zone.ds_records && zone.ds_records.length > 0"
-                      class="space-y-1 mt-3"
+                      class="space-y-1 mt-3 pt-3 -mx-3 -mb-3 px-3 pb-3 bg-[#0d0d0d] border-t border-[#2a2a2a]"
                     >
-                      <!-- DS Records Header -->
-                      <div class="text-xs text-[#858585] mb-1 flex items-center gap-1">
-                        <ArrowRightIcon class="w-3 h-3" />
-                        <span v-if="getChildZoneName(index)"
-                          >DS records for child zone: {{ getChildZoneName(index) }}</span
-                        >
-                        <span v-else>DS records (delegation to child zone)</span>
-                      </div>
                       <div
                         v-for="(ds, dsIndex) in zone.ds_records"
                         :key="dsIndex"
-                        :id="`ds-zone${index}-keytag${ds.key_tag}-idx${dsIndex}`"
                         class="font-mono text-xs flex items-start gap-2"
                         :class="
                           dsMatchesChild(ds.key_tag, getChildZone(index))
@@ -394,9 +379,16 @@ onUnmounted(() => {
                         "
                       >
                         <span class="flex-shrink-0 flex items-center gap-0.5 mt-0.5">
-                          <CheckIcon class="w-3 h-3" />
+                          <CheckIcon
+                            v-if="dsMatchesChild(ds.key_tag, getChildZone(index))"
+                            class="w-3 h-3 text-green-400"
+                          />
+                          <XCircleIcon v-else class="w-3 h-3 text-red-400" />
                         </span>
-                        <span class="flex-1 break-all">
+                        <span
+                          :id="`ds-zone${index}-keytag${ds.key_tag}-idx${dsIndex}`"
+                          class="flex-1 break-all"
+                        >
                           DS KEYTAG=<span :class="getKeytagColor(ds.key_tag)">{{
                             ds.key_tag
                           }}</span>
@@ -421,42 +413,31 @@ onUnmounted(() => {
                     </div>
 
                     <!-- RRSIG Records (show details only for target zone) -->
+                    <!-- Target zone: dark bg as bottom of card -->
                     <div
-                      v-if="zone.rrsig_records && zone.rrsig_records.length > 0"
-                      class="space-y-1 mt-3"
+                      v-if="
+                        zone.rrsig_records &&
+                        zone.rrsig_records.length > 0 &&
+                        zone.zone_name === appStore.domain
+                      "
+                      class="space-y-1 mt-3 pt-3 -mx-3 -mb-3 px-3 pb-3 bg-[#0d0d0d] border-t border-[#2a2a2a]"
                     >
-                      <!-- Show full details for target zone (last zone in chain) -->
-                      <template v-if="index === dnssecStore.validation.chain.length - 1">
-                        <div class="text-xs text-[#858585] mb-1 flex items-center gap-1">
-                          <ArrowRightIcon class="w-3 h-3" />
-                          <span>RRSIG records (signatures)</span>
-                        </div>
-                        <div
-                          v-for="(rrsig, rrsigIndex) in zone.rrsig_records"
-                          :key="rrsigIndex"
-                          class="font-mono text-xs text-purple-400 flex items-start gap-2"
-                        >
-                          <CheckIcon class="w-3 h-3 flex-shrink-0 mt-0.5" />
-                          <span class="flex-1 break-all">
-                            RRSIG TYPE={{ rrsig.type_covered }} KEYTAG=<span
-                              :class="getKeytagColor(rrsig.key_tag)"
-                              >{{ rrsig.key_tag }}</span
-                            >
-                            ALGO={{ rrsig.algorithm }} SIGNER={{ rrsig.signer_name }} EXPIRES={{
-                              rrsig.signature_expiration
-                            }}
-                          </span>
-                        </div>
-                      </template>
-                      <!-- Show compact indicator for other zones -->
-                      <template v-else>
-                        <div class="font-mono text-xs text-gray-400">
-                          {{ zone.rrsig_records.length }} RRSIG record{{
-                            zone.rrsig_records.length !== 1 ? 's' : ''
+                      <div
+                        v-for="(rrsig, rrsigIndex) in zone.rrsig_records"
+                        :key="rrsigIndex"
+                        class="font-mono text-xs text-[#cccccc] flex items-start gap-2"
+                      >
+                        <CheckIcon class="w-3 h-3 text-purple-400 flex-shrink-0 mt-0.5" />
+                        <span class="flex-1 break-all">
+                          RRSIG TYPE={{ rrsig.type_covered }} KEYTAG=<span
+                            :class="getKeytagColor(rrsig.key_tag)"
+                            >{{ rrsig.key_tag }}</span
+                          >
+                          ALGO={{ rrsig.algorithm }} SIGNER={{ rrsig.signer_name }} EXPIRES={{
+                            rrsig.signature_expiration
                           }}
-                          found
-                        </div>
-                      </template>
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
