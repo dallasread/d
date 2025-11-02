@@ -1,6 +1,6 @@
 # Application Panels Guide
 
-This document describes each panel in the DNS debugger application.
+This document describes each panel in the DNS debugger application. Always read/write code comments for implementation details.
 
 ## General Principles
 

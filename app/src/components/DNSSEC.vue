@@ -1,4 +1,26 @@
 <script setup lang="ts">
+/**
+ * DNSSEC Validation Chain Visualization Component
+ *
+ * Displays the complete DNSSEC chain of trust from root zone down to the target domain.
+ * Shows DNSKEY, DS, and RRSIG records at each level with visual arrows connecting
+ * parent DS records to child DNSKEY records, and DNSKEY to RRSIG signatures.
+ *
+ * DNSSEC Chain Structure:
+ * - Root zone (.): Contains root DNSKEYs and DS records pointing to TLD
+ * - TLD zone (e.g., io.): Contains TLD DNSKEYs and DS records pointing to domain
+ * - Domain zone (e.g., meat.io.): Contains domain DNSKEYs and RRSIG signatures
+ *
+ * Record Types:
+ * - DNSKEY: Public keys used to verify DNS records (KSK = Key Signing Key, ZSK = Zone Signing Key)
+ * - DS (Delegation Signer): Hash of child zone's DNSKEY, stored in parent zone
+ * - RRSIG: Cryptographic signature proving record authenticity
+ *
+ * Key Tags:
+ * - Unique identifiers for keys, used to match DS → DNSKEY and DNSKEY → RRSIG
+ * - NOT the same as flags (256 = ZSK, 257 = KSK)
+ * - Extracted from dig +multi output comments (e.g., "; key id = 5116")
+ */
 import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import { useAppStore } from '../stores/app';
 import { useDnssecStore } from '../stores/dnssec';
@@ -8,6 +30,15 @@ import { CheckCircleIcon, XCircleIcon, ExclamationTriangleIcon } from '@heroicon
 const appStore = useAppStore();
 const dnssecStore = useDnssecStore();
 
+/**
+ * DNSSEC Validation Status Color Mapping
+ *
+ * Maps validation status to visual colors:
+ * - SECURE: Domain has valid DNSSEC chain (DS records match DNSKEYs)
+ * - INSECURE: Domain not signed with DNSSEC (no DNSKEYs or DS records)
+ * - BOGUS: DNSSEC chain broken (DS key tags don't match DNSKEY key tags)
+ * - INDETERMINATE: Unable to determine status (query failures)
+ */
 const statusColor = computed(() => {
   if (!dnssecStore.validation) return 'gray';
 
@@ -23,6 +54,10 @@ const statusColor = computed(() => {
   }
 });
 
+/**
+ * Status Icon Component Mapping
+ * Maps validation status to HeroIcons components for visual indicators
+ */
 const statusIconComponent = computed(() => {
   if (!dnssecStore.validation) return null;
 
@@ -38,13 +73,26 @@ const statusIconComponent = computed(() => {
   }
 });
 
-// Cycle through colors for different keytags
+/**
+ * Key Tag Color Assignment
+ *
+ * Assigns rotating colors to key tags for visual distinction.
+ * Key tags are unique identifiers for DNSSEC keys (e.g., 5116, 55759).
+ * Using modulo ensures consistent colors for the same key tag across the page.
+ *
+ * Example: If key_tag = 5116, color = colors[5116 % 4] = colors[0] = yellow
+ */
 const getKeytagColor = (keytag: number) => {
   const colors = ['text-yellow-400', 'text-red-400', 'text-blue-400', 'text-green-400'];
   return colors[keytag % colors.length];
 };
 
-// Color for DNSSEC record types
+/**
+ * Record Type Color Map (Currently Unused)
+ *
+ * Note: Record types now use dim bold gray instead of colors.
+ * Kept for potential future use.
+ */
 const getRecordTypeColor = (type: string) => {
   const colorMap: Record<string, string> = {
     DNSKEY: 'text-cyan-400',
@@ -54,18 +102,50 @@ const getRecordTypeColor = (type: string) => {
   return colorMap[type] || 'text-blue-400';
 };
 
+/**
+ * Zone Label Formatter
+ *
+ * Formats zone names with trailing dots (FQDN notation):
+ * - Root zone: "." → ". (root zone)"
+ * - TLD: "io" → "io. (zone)"
+ * - Domain: "meat.io" → "meat.io. (zone)"
+ *
+ * Trailing dots indicate fully qualified domain names in DNS.
+ */
 const getZoneLabel = (zoneName: string) => {
   if (zoneName === '.') return '. (root zone)';
   return `${zoneName}. (zone)`;
 };
 
-// Check if a DS record key tag matches any DNSKEY in the child zone
+/**
+ * DS Record Validation Helper
+ *
+ * Checks if a DS record's key tag matches any DNSKEY in the child zone.
+ * This is the core of DNSSEC chain validation:
+ * - Parent zone DS record contains key_tag pointing to child zone DNSKEY
+ * - If key tags match, the chain link is valid
+ * - If no match, the chain is broken (BOGUS status)
+ *
+ * Example: DS in "io." zone with key_tag=5116 should match DNSKEY in "meat.io." zone with key_tag=5116
+ *
+ * Note: Currently unused as checkmarks were removed, but kept for potential future validation indicators.
+ */
 const dsMatchesChild = (dsKeytag: number, childZone: any) => {
   if (!childZone || !childZone.dnskey_records) return false;
   return childZone.dnskey_records.some((key: any) => key.key_tag === dsKeytag);
 };
 
-// Get the child zone for a given zone index
+/**
+ * Child Zone Lookup Helper
+ *
+ * Given a zone index in the chain, returns the next zone (child).
+ * Used for DS → DNSKEY matching across parent/child zones.
+ *
+ * Example chain: [root(0), io(1), meat.io(2)]
+ * - getChildZone(0) returns io (zone 1)
+ * - getChildZone(1) returns meat.io (zone 2)
+ * - getChildZone(2) returns null (no child)
+ */
 const getChildZone = (index: number) => {
   if (!dnssecStore.validation || !dnssecStore.validation.chain) return null;
   return index < dnssecStore.validation.chain.length - 1
@@ -73,7 +153,12 @@ const getChildZone = (index: number) => {
     : null;
 };
 
-// DNSSEC sub-queries for loading state
+/**
+ * Loading State Sub-Queries
+ *
+ * Displayed during DNSSEC validation to show progress.
+ * Each query fetches a different piece of the DNSSEC chain.
+ */
 const dnssecSubQueries = computed(() => [
   { name: 'Root Zone (.) DNSKEY', status: 'loading' as const },
   { name: 'TLD DS Records', status: 'loading' as const },
@@ -82,7 +167,20 @@ const dnssecSubQueries = computed(() => [
   { name: 'Domain DNSKEY', status: 'loading' as const },
 ]);
 
-// Arrow connections linking DS records to matching DNSKEY records and DNSKEY to RRSIG
+/**
+ * Arrow Connection Interface
+ *
+ * Represents a visual arrow connecting related DNSSEC records.
+ * Arrows connect:
+ * 1. DS records in parent zone → matching DNSKEY records in child zone
+ * 2. DNSKEY records → matching RRSIG records (in target zone only)
+ *
+ * Properties:
+ * - path: SVG path data (hand-drawn style with bezier curves)
+ * - color: Arrow stroke/fill color (dim gray #858585)
+ * - startY: Y position of arrow start (DS or DNSKEY record)
+ * - endY: Y position of arrow end (DNSKEY or RRSIG record)
+ */
 interface ArrowConnection {
   path: string;
   color: string;
@@ -90,39 +188,76 @@ interface ArrowConnection {
   endY: number;
 }
 
+/**
+ * Arrow Connections Array
+ *
+ * Reactive array storing all arrow paths to be rendered in SVG overlay.
+ * Recalculated whenever the DNSSEC validation data changes.
+ */
 const arrowConnections = ref<ArrowConnection[]>([]);
 
-// Calculate arrow paths between DS records and their matching DNSKEY records
-// Visual style: vertical lines on the left with horizontal arrows pointing to records
-// Example:  |->  DS record
-//           |
-//           |->  DNSKEY record
+/**
+ * Calculate Arrow Paths for DNSSEC Chain Visualization
+ *
+ * Draws hand-drawn style arrows connecting related DNSSEC records:
+ * 1. DS records (parent zone) → DNSKEY records (child zone) with matching key_tag
+ * 2. DNSKEY records → RRSIG records (target zone only) with matching key_tag
+ *
+ * Visual Style:
+ * - Arrows on left side of cards (20px from container edge)
+ * - Vertical line connecting records with horizontal arrows pointing to each
+ * - Hand-drawn appearance using cubic bezier curves with randomized wobble
+ * - Curved arrowheads shaped like "(" instead of sharp triangles
+ *
+ * Example ASCII representation:
+ *   |->  DS record (key_tag=5116)
+ *   |
+ *   |->  DNSKEY record (key_tag=5116)
+ *   |
+ *   |->  RRSIG record (key_tag=5116)
+ *
+ * Technical Details:
+ * - Uses DOM element positioning via getBoundingClientRect()
+ * - Requires unique IDs on record elements for targeting
+ * - Runs after nextTick + 100ms timeout to ensure DOM is fully rendered
+ * - Recalculates on window resize and validation data changes
+ */
 const calculateArrowPaths = () => {
+  // Clear existing arrows
   arrowConnections.value = [];
 
   if (!dnssecStore.validation?.chain) return;
 
+  // Wait for DOM to fully render before calculating positions
   nextTick(() => {
     setTimeout(() => {
       const chain = dnssecStore.validation!.chain;
 
-      // Iterate through each zone (parent) that has DS records
+      // ========================================================================
+      // PART 1: Draw arrows from DS records to matching DNSKEY records
+      // ========================================================================
+      // Iterate through parent/child zone pairs in the DNSSEC chain
+      // Example: [root, io, meat.io] → pairs: (root→io), (io→meat.io)
       for (let parentIndex = 0; parentIndex < chain.length - 1; parentIndex++) {
         const parentZone = chain[parentIndex];
         const childZone = chain[parentIndex + 1];
 
+        // Skip if either zone is missing required records
         if (!parentZone.ds_records?.length || !childZone.dnskey_records?.length) continue;
 
-        // For each DS record in parent zone
+        // For each DS record in the parent zone
         parentZone.ds_records.forEach((ds, dsIndex) => {
-          // Find matching DNSKEY in child zone by key_tag
+          // Find the matching DNSKEY in child zone by key_tag
+          // Example: DS with key_tag=5116 should match DNSKEY with key_tag=5116
           const matchingDnskeyIndex = childZone.dnskey_records.findIndex(
             (dnskey) => dnskey.key_tag === ds.key_tag
           );
 
+          // Skip if no matching DNSKEY found (broken chain)
           if (matchingDnskeyIndex === -1) return;
 
-          // Get DOM elements
+          // Get DOM elements by their unique IDs
+          // IDs are set on the <span> elements containing record text
           const dsEl = document.getElementById(
             `ds-zone${parentIndex}-keytag${ds.key_tag}-idx${dsIndex}`
           );
@@ -130,30 +265,30 @@ const calculateArrowPaths = () => {
             `dnskey-zone${parentIndex + 1}-keytag${ds.key_tag}-idx${matchingDnskeyIndex}`
           );
 
+          // Skip if elements not found in DOM (shouldn't happen)
           if (!dsEl || !dnskeyEl) return;
 
+          // Get container for relative positioning
           const container = document.querySelector('.dnssec-chain-container');
           if (!container) return;
 
+          // Calculate Y positions relative to container
           const containerRect = container.getBoundingClientRect();
           const dsRect = dsEl.getBoundingClientRect();
           const dnskeyRect = dnskeyEl.getBoundingClientRect();
 
-          // Fixed X position on the left side (20px from container left)
-          const leftX = 20;
+          // Arrow positioning constants
+          const leftX = 20; // Fixed X position from left edge
+          const arrowLength = 20; // Horizontal arrow length
 
-          // Start point: DS record center
-          const y1 = dsRect.top + dsRect.height / 2 - containerRect.top;
+          // Calculate vertical center positions
+          const y1 = dsRect.top + dsRect.height / 2 - containerRect.top; // DS record Y
+          const y2 = dnskeyRect.top + dnskeyRect.height / 2 - containerRect.top; // DNSKEY record Y
 
-          // End point: DNSKEY record center
-          const y2 = dnskeyRect.top + dnskeyRect.height / 2 - containerRect.top;
-
-          // Horizontal arrow length
-          const arrowLength = 20;
-
-          // Add more pronounced randomness for hand-drawn effect
-          const wobble = () => (Math.random() - 0.5) * 6;
-          const wobbleSmall = () => (Math.random() - 0.5) * 3;
+          // Hand-drawn wobble effect
+          // Adds random variation to create organic, hand-drawn appearance
+          const wobble = () => (Math.random() - 0.5) * 6; // ±3px variation
+          const wobbleSmall = () => (Math.random() - 0.5) * 3; // ±1.5px variation
 
           const w1 = wobble();
           const w2 = wobble();
@@ -161,8 +296,14 @@ const calculateArrowPaths = () => {
           const w4 = wobbleSmall();
           const w5 = wobbleSmall();
 
-          // Create one continuous flowing arc from DS through vertical to DNSKEY
-          // Using cubic bezier for smooth S-curve with no sharp corners
+          // SVG Path Construction
+          // Creates three segments:
+          // 1. Horizontal arrow at DS record (pointing right)
+          // 2. Vertical line connecting DS to DNSKEY
+          // 3. Horizontal arrow at DNSKEY record (pointing right)
+          //
+          // Using cubic bezier curves (C command) for smooth, organic curves
+          // M = moveto, C = cubic bezier curve
           const path = `
             M ${leftX + w4} ${y1 + w5}
             C ${leftX + 15 + w2} ${y1 + w1}, ${leftX + 15 + w3} ${y1 + wobble()}, ${leftX + arrowLength} ${y1 + wobbleSmall()}
@@ -174,26 +315,34 @@ const calculateArrowPaths = () => {
             .trim()
             .replace(/\s+/g, ' ');
 
+          // Add arrow to render queue
           arrowConnections.value.push({
             path,
-            color: '#858585', // dim gray (matches app theme)
+            color: '#858585', // Dim gray matching app theme
             startY: y1,
             endY: y2,
           });
         });
       }
 
-      // Add arrows from DNSKEY to RRSIG in target zone
+      // ========================================================================
+      // PART 2: Draw arrows from DNSKEY to RRSIG in target zone only
+      // ========================================================================
+      // RRSIG records are only shown for the target domain (last zone in chain)
+      // These signatures prove that the DNSKEY records are authentic
       const targetZone = chain[chain.length - 1];
       if (targetZone.dnskey_records?.length && targetZone.rrsig_records?.length) {
         targetZone.dnskey_records.forEach((dnskey, dnskeyIndex) => {
-          // Find matching RRSIG by key_tag
+          // Find matching RRSIG signature by key_tag
+          // RRSIG.key_tag indicates which DNSKEY was used to sign the record
           const matchingRrsigIndex = targetZone.rrsig_records.findIndex(
             (rrsig) => rrsig.key_tag === dnskey.key_tag
           );
 
+          // Skip if no matching signature found
           if (matchingRrsigIndex === -1) return;
 
+          // Get DOM elements for DNSKEY and RRSIG
           const dnskeyEl = document.getElementById(
             `dnskey-zone${chain.length - 1}-keytag${dnskey.key_tag}-idx${dnskeyIndex}`
           );
@@ -206,15 +355,18 @@ const calculateArrowPaths = () => {
           const container = document.querySelector('.dnssec-chain-container');
           if (!container) return;
 
+          // Calculate positions
           const containerRect = container.getBoundingClientRect();
           const dnskeyRect = dnskeyEl.getBoundingClientRect();
           const rrsigRect = rrsigEl.getBoundingClientRect();
 
+          // Arrow positioning (same as DS→DNSKEY arrows)
           const leftX = 20;
+          const arrowLength = 20;
           const y1 = dnskeyRect.top + dnskeyRect.height / 2 - containerRect.top;
           const y2 = rrsigRect.top + rrsigRect.height / 2 - containerRect.top;
-          const arrowLength = 20;
 
+          // Hand-drawn wobble effect
           const wobble = () => (Math.random() - 0.5) * 6;
           const wobbleSmall = () => (Math.random() - 0.5) * 3;
 
@@ -224,6 +376,7 @@ const calculateArrowPaths = () => {
           const w4 = wobbleSmall();
           const w5 = wobbleSmall();
 
+          // SVG path (same structure as DS→DNSKEY arrows)
           const path = `
             M ${leftX + w4} ${y1 + w5}
             C ${leftX + 15 + w2} ${y1 + w1}, ${leftX + 15 + w3} ${y1 + wobble()}, ${leftX + arrowLength} ${y1 + wobbleSmall()}
@@ -235,6 +388,7 @@ const calculateArrowPaths = () => {
             .trim()
             .replace(/\s+/g, ' ');
 
+          // Add DNSKEY→RRSIG arrow to render queue
           arrowConnections.value.push({
             path,
             color: '#858585',
@@ -243,18 +397,26 @@ const calculateArrowPaths = () => {
           });
         });
       }
-    }, 100);
+    }, 100); // 100ms timeout ensures DOM is fully rendered
   });
 };
 
-// Watch for validation changes
+/**
+ * Lifecycle Hooks and Watchers
+ */
+
+// Recalculate arrows whenever DNSSEC validation data changes
+// Deep watch ensures nested changes (like new records) trigger recalculation
 watch(() => dnssecStore.validation, calculateArrowPaths, { deep: true });
 
+// Calculate arrows on component mount and set up resize listener
 onMounted(() => {
   calculateArrowPaths();
+  // Recalculate on window resize to maintain correct positioning
   window.addEventListener('resize', calculateArrowPaths);
 });
 
+// Clean up resize listener when component unmounts
 onUnmounted(() => {
   window.removeEventListener('resize', calculateArrowPaths);
 });
