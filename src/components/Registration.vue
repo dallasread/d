@@ -111,20 +111,52 @@ const expiryStatusClass = computed(() => {
       <div v-else-if="hasDomain && whoisStore.whoisInfo" class="panel">
         <h2 class="text-xl font-semibold mb-6">Domain Registration Information</h2>
 
-        <!-- Domain and Registrar -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 pb-6 border-b border-[#3e3e42]">
-          <div>
-            <p class="text-xs text-[#858585] mb-1">Domain</p>
-            <p class="text-lg font-semibold">{{ whoisStore.whoisInfo.domain }}</p>
-          </div>
-          <div>
-            <p class="text-xs text-[#858585] mb-1">Registrar</p>
-            <p class="text-lg font-semibold">{{ whoisStore.whoisInfo.registrar || 'N/A' }}</p>
+        <!-- Registrar -->
+        <div class="mb-6 pb-6 border-b border-[#3e3e42]">
+          <p class="text-xs text-[#858585] mb-1">Registrar</p>
+          <p class="text-lg font-semibold">{{ whoisStore.whoisInfo.registrar || 'N/A' }}</p>
+        </div>
+
+        <!-- Domain Status -->
+        <div v-if="whoisStore.whoisInfo.status.length > 0" class="mb-6 pb-6 border-b border-[#3e3e42]">
+          <h3 class="text-sm font-semibold text-[#858585] mb-4">
+            DOMAIN STATUS
+            <span class="text-blue-400 ml-1">({{ whoisStore.whoisInfo.status.length }})</span>
+          </h3>
+          <div class="flex flex-wrap gap-2">
+            <span
+              v-for="(status, index) in whoisStore.whoisInfo.status"
+              :key="index"
+              class="px-3 py-1.5 bg-[#2d2d30] border border-[#3e3e42] text-sm rounded-md"
+            >
+              {{ status }}
+            </span>
           </div>
         </div>
 
-        <!-- Important Dates -->
+        <!-- Nameservers -->
         <div class="mb-6 pb-6 border-b border-[#3e3e42]">
+          <h3 class="text-sm font-semibold text-[#858585] mb-4">
+            NAMESERVERS
+            <span class="text-blue-400 ml-1">({{ whoisStore.whoisInfo.nameservers.length }})</span>
+          </h3>
+          <div v-if="whoisStore.whoisInfo.nameservers.length > 0">
+            <ul class="space-y-2">
+              <li
+                v-for="(ns, index) in whoisStore.whoisInfo.nameservers"
+                :key="index"
+                class="flex items-center gap-2"
+              >
+                <span class="text-blue-400 text-xs">▸</span>
+                <span class="font-mono text-sm">{{ ns }}</span>
+              </li>
+            </ul>
+          </div>
+          <p v-else class="text-[#858585] text-sm">No nameservers found</p>
+        </div>
+
+        <!-- Important Dates -->
+        <div>
           <h3 class="text-sm font-semibold text-[#858585] mb-4">IMPORTANT DATES</h3>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
@@ -142,44 +174,6 @@ const expiryStatusClass = computed(() => {
                 {{ daysUntilExpiry > 0 ? `${daysUntilExpiry} days remaining` : 'Expired' }}
               </p>
             </div>
-          </div>
-        </div>
-
-        <!-- Nameservers -->
-        <div class="mb-6 pb-6 border-b border-[#3e3e42]">
-          <h3 class="text-sm font-semibold text-[#858585] mb-4">
-            NAMESERVERS
-            <span class="text-blue-400 ml-1">({{ whoisStore.whoisInfo.nameservers.length }})</span>
-          </h3>
-          <div v-if="whoisStore.whoisInfo.nameservers.length > 0">
-            <ul class="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <li
-                v-for="(ns, index) in whoisStore.whoisInfo.nameservers"
-                :key="index"
-                class="flex items-center gap-2"
-              >
-                <span class="text-blue-400 text-xs">▸</span>
-                <span class="font-mono text-sm">{{ ns }}</span>
-              </li>
-            </ul>
-          </div>
-          <p v-else class="text-[#858585] text-sm">No nameservers found</p>
-        </div>
-
-        <!-- Domain Status -->
-        <div v-if="whoisStore.whoisInfo.status.length > 0">
-          <h3 class="text-sm font-semibold text-[#858585] mb-4">
-            DOMAIN STATUS
-            <span class="text-blue-400 ml-1">({{ whoisStore.whoisInfo.status.length }})</span>
-          </h3>
-          <div class="flex flex-wrap gap-2">
-            <span
-              v-for="(status, index) in whoisStore.whoisInfo.status"
-              :key="index"
-              class="px-3 py-1.5 bg-[#2d2d30] border border-[#3e3e42] text-sm rounded-md"
-            >
-              {{ status }}
-            </span>
           </div>
         </div>
       </div>
