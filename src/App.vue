@@ -13,6 +13,7 @@ const appStore = useAppStore();
 const logsStore = useLogsStore();
 
 const isLogsOpen = ref(false);
+const expandLogId = ref<string | null>(null);
 
 let unlistenCommandLog: UnlistenFn | null = null;
 
@@ -21,10 +22,19 @@ useKeyboardShortcuts();
 
 const toggleLogs = () => {
   isLogsOpen.value = !isLogsOpen.value;
+  if (!isLogsOpen.value) {
+    expandLogId.value = null;
+  }
+};
+
+const openLogsWithExpanded = (logId: string) => {
+  expandLogId.value = logId;
+  isLogsOpen.value = true;
 };
 
 const closeLogs = () => {
   isLogsOpen.value = false;
+  expandLogId.value = null;
 };
 
 onMounted(async () => {
@@ -37,6 +47,13 @@ onMounted(async () => {
 
   // Listen for keyboard shortcut to toggle logs
   window.addEventListener('app:toggle-logs', toggleLogs);
+
+  // Listen for open logs with specific log expanded
+  window.addEventListener('app:open-logs', ((event: CustomEvent) => {
+    if (event.detail?.logId) {
+      openLogsWithExpanded(event.detail.logId);
+    }
+  }) as EventListener);
 });
 
 onUnmounted(() => {
@@ -44,6 +61,11 @@ onUnmounted(() => {
     unlistenCommandLog();
   }
   window.removeEventListener('app:toggle-logs', toggleLogs);
+  window.removeEventListener('app:open-logs', ((event: CustomEvent) => {
+    if (event.detail?.logId) {
+      openLogsWithExpanded(event.detail.logId);
+    }
+  }) as EventListener);
 });
 </script>
 
@@ -56,7 +78,7 @@ onUnmounted(() => {
     <RawDataModal />
 
     <!-- Logs slideout -->
-    <LogsSlideout :is-open="isLogsOpen" @close="closeLogs" />
+    <LogsSlideout :isOpen="isLogsOpen" :expandLogId="expandLogId" @close="closeLogs" />
   </div>
 </template>
 

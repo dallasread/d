@@ -10,6 +10,7 @@ const appStore = useAppStore();
 
 const props = defineProps<{
   isOpen: boolean;
+  expandLogId?: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -33,6 +34,17 @@ watch(
       window.removeEventListener('keydown', handleKeyDown);
     }
   }
+);
+
+// Watch for expandLogId changes to auto-expand the log
+watch(
+  () => props.expandLogId,
+  (logId) => {
+    if (logId && props.isOpen) {
+      expandedLogIds.value.add(logId);
+    }
+  },
+  { immediate: true }
 );
 
 onUnmounted(() => {
@@ -186,6 +198,11 @@ const getStatusClass = (log: any) => {
   return getStatus(log) === 'success' ? 'status-pass' : 'status-fail';
 };
 
+const getCommandString = (log: any) => {
+  // Force Vue to track each log's args individually by creating a new string
+  return `${log.tool} ${log.args.join(' ')}`;
+};
+
 // @ts-expect-error - Reserved for future use
 const clearLogs = () => {
   logsStore.clearLogs();
@@ -245,8 +262,8 @@ const copyOutput = (output: string) => {
         <!-- Logs accordion -->
         <div v-else class="space-y-2">
           <div
-            v-for="log in filteredLogs"
-            :key="log.id"
+            v-for="(log, index) in filteredLogs"
+            :key="`${log.id}-${index}-${log.args[log.args.length - 1]}`"
             class="bg-[#252526] border border-[#3e3e42] rounded-lg overflow-hidden transition-all"
           >
             <!-- Accordion header -->
@@ -263,9 +280,9 @@ const copyOutput = (output: string) => {
                   <div class="flex items-center gap-2 flex-wrap">
                     <code
                       class="text-sm text-white font-mono truncate flex-1 min-w-0"
-                      :title="`${log.tool} ${log.args.join(' ')}`"
+                      :title="getCommandString(log)"
                     >
-                      {{ log.tool }} {{ log.args.join(' ') }}
+                      {{ getCommandString(log) }}
                     </code>
                     <span
                       :class="['text-xs px-2 py-0.5 rounded flex-shrink-0', getStatusClass(log)]"
