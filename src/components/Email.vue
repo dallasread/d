@@ -11,41 +11,32 @@ const emailStore = useEmailStore();
 const hasDomain = computed(() => !!appStore.domain);
 
 // Mock data for demonstration - will be replaced with real data from emailStore
+// Currently returns empty/placeholder data since email functionality is not yet implemented
 const mockEmailData = computed(() => {
   if (!appStore.domain) return null;
 
+  // Return empty data structure - email functionality to be implemented
   return {
-    securityScore: 75,
-    provider: 'Unknown / Self-hosted',
-    mxRecords: [
-      {
-        priority: 10,
-        hostname: 'in1-smtp.messagingengine.com',
-        ips: ['103.168.172.222', '103.168.172.218'],
-      },
-      {
-        priority: 20,
-        hostname: 'in2-smtp.messagingengine.com',
-        ips: ['202.12.124.216', '202.12.124.217'],
-      },
-    ],
+    securityScore: 0,
+    provider: 'Not yet implemented',
+    mxRecords: [],
     spf: {
-      record: 'v=spf1 include:spf.messagingengine.com ~all',
-      policy: '~all',
-      mechanisms: 2,
-      valid: true,
+      record: '',
+      policy: '',
+      mechanisms: 0,
+      valid: false,
     },
     dkim: {
       found: false,
-      checkedSelectors: ['default', 'google', 'k1', 's1', 's2', 'selector1', 'selector2'],
+      checkedSelectors: [],
     },
     dmarc: {
-      record: `v=DMARC1; p=quarantine; rua=mailto:postmaster@${appStore.domain}; ruf=mailto:postmaster@${appStore.domain}`,
-      policy: 'quarantine',
-      dkimAlignment: 'strict',
-      spfAlignment: 'strict',
-      aggregateReports: `postmaster@${appStore.domain}`,
-      forensicReports: `postmaster@${appStore.domain}`,
+      record: '',
+      policy: '',
+      dkimAlignment: '',
+      spfAlignment: '',
+      aggregateReports: '',
+      forensicReports: '',
     },
   };
 });
