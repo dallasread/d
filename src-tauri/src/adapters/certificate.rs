@@ -103,12 +103,28 @@ impl CertificateAdapter {
     }
 
     fn parse_single_certificate(&self, pem: &str) -> Result<CertificateInfo, String> {
-        // Save PEM to temp file and parse with openssl
-        let output = Command::new("sh")
-            .arg("-c")
-            .arg(format!("echo '{}' | openssl x509 -text -noout", pem))
-            .output()
-            .map_err(|e| format!("Failed to parse certificate: {}", e))?;
+        // Parse certificate using openssl x509 with stdin
+        use std::io::Write;
+        use std::process::Stdio;
+
+        let mut child = Command::new("openssl")
+            .args(&["x509", "-text", "-noout"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| format!("Failed to spawn openssl: {}", e))?;
+
+        // Write PEM to stdin
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin
+                .write_all(pem.as_bytes())
+                .map_err(|e| format!("Failed to write to stdin: {}", e))?;
+        }
+
+        let output = child
+            .wait_with_output()
+            .map_err(|e| format!("Failed to read openssl output: {}", e))?;
 
         let text = String::from_utf8_lossy(&output.stdout);
 

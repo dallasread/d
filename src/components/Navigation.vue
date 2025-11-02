@@ -50,8 +50,11 @@ const handleSearch = async () => {
     // If domain changed, clear all caches and logs
     if (domain !== appStore.domain) {
       if (dnsStore.clearCache) dnsStore.clearCache();
+      certStore.clear();
+      whoisStore.clear();
+      httpStore.clear();
+      dnssecStore.reset();
       logsStore.clearLogs();
-      // Clear other store caches as they're implemented
     }
 
     appStore.setDomain(domain);
@@ -93,8 +96,11 @@ const handleRefresh = () => {
 
     // Clear cache and logs on refresh
     if (dnsStore.clearCache) dnsStore.clearCache();
+    certStore.clear();
+    whoisStore.clear();
+    httpStore.clear();
+    dnssecStore.reset();
     logsStore.clearLogs();
-    // Clear other store caches as they're implemented
 
     handleSearch();
   }
