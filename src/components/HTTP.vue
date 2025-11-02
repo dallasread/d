@@ -14,36 +14,6 @@ const httpSubQueries = computed(() => [
   { name: 'HTTP (port 80)', status: 'loading' as const },
   { name: 'HTTPS (port 443)', status: 'loading' as const },
 ]);
-
-const getStatusBadgeClass = (status: number) => {
-  if (status >= 200 && status < 300) return 'bg-green-500/20 text-green-400 border-green-500/30';
-  if (status >= 300 && status < 400)
-    return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
-  if (status >= 400 && status < 500) return 'bg-red-500/20 text-red-400 border-red-500/30';
-  if (status >= 500) return 'bg-red-500/20 text-red-400 border-red-500/30';
-  return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-};
-
-const getStatusMessage = (status: number) => {
-  const messages: Record<number, string> = {
-    200: 'OK',
-    201: 'Created',
-    204: 'No Content',
-    301: 'Moved Permanently',
-    302: 'Found',
-    304: 'Not Modified',
-    307: 'Temporary Redirect',
-    308: 'Permanent Redirect',
-    400: 'Bad Request',
-    401: 'Unauthorized',
-    403: 'Forbidden',
-    404: 'Not Found',
-    500: 'Internal Server Error',
-    502: 'Bad Gateway',
-    503: 'Service Unavailable',
-  };
-  return messages[status] || 'Unknown';
-};
 </script>
 
 <template>
