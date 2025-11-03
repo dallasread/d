@@ -88,6 +88,17 @@ const getKeytagColor = (keytag: number) => {
 };
 
 /**
+ * Get Arrow/Stroke Color for Key Tag
+ *
+ * Converts text color classes to hex colors for SVG stroke/fill.
+ * Maps the same color scheme as getKeytagColor for consistency.
+ */
+const getKeytagArrowColor = (keytag: number) => {
+  const colors = ['#fbbf24', '#f87171', '#60a5fa', '#4ade80']; // yellow, red, blue, green
+  return colors[keytag % colors.length];
+};
+
+/**
  * Record Type Color Map (Currently Unused)
  *
  * Note: Record types now use dim bold gray instead of colors.
@@ -180,15 +191,17 @@ const dnssecSubQueries = computed(() => [
  *
  * Properties:
  * - path: SVG path data (hand-drawn style with bezier curves)
- * - color: Arrow stroke/fill color (dim gray #858585)
+ * - color: Arrow stroke/fill color (based on keytag)
  * - startY: Y position of arrow start (DS or DNSKEY record)
  * - endY: Y position of arrow end (DNSKEY or RRSIG record)
+ * - keytag: Key tag number for color assignment
  */
 interface ArrowConnection {
   path: string;
   color: string;
   startY: number;
   endY: number;
+  keytag: number;
 }
 
 /**
@@ -248,6 +261,9 @@ const calculateArrowPaths = () => {
         // Skip if either zone is missing required records
         if (!parentZone.ds_records?.length || !childZone.dnskey_records?.length) continue;
 
+        // Track how many arrows we've drawn for this zone pair (for horizontal offset)
+        let arrowCount = 0;
+
         // For each DS record in the parent zone
         parentZone.ds_records.forEach((ds, dsIndex) => {
           // Find the matching DNSKEY in child zone by key_tag
@@ -280,8 +296,10 @@ const calculateArrowPaths = () => {
           const dsRect = dsEl.getBoundingClientRect();
           const dnskeyRect = dnskeyEl.getBoundingClientRect();
 
-          // Arrow positioning constants
-          const leftX = -28; // Fixed X position from left edge (negative to account for no padding)
+          // Arrow positioning constants with horizontal offset for multiple arrows
+          const baseLeftX = -28; // Base X position from left edge
+          const horizontalOffset = arrowCount * 8; // Offset each arrow 8px left for visibility
+          const leftX = baseLeftX - horizontalOffset;
           const arrowLength = 20; // Horizontal arrow length
 
           // Calculate vertical center positions
@@ -318,13 +336,16 @@ const calculateArrowPaths = () => {
             .trim()
             .replace(/\s+/g, ' ');
 
-          // Add arrow to render queue
+          // Add arrow to render queue with keytag-based color
           arrowConnections.value.push({
             path,
-            color: '#858585', // Dim gray matching app theme
+            color: getKeytagArrowColor(ds.key_tag),
             startY: y1,
             endY: y2,
+            keytag: ds.key_tag,
           });
+
+          arrowCount++;
         });
       }
 
@@ -335,6 +356,9 @@ const calculateArrowPaths = () => {
       // These signatures prove that the DNSKEY records are authentic
       const targetZone = chain[chain.length - 1];
       if (targetZone.dnskey_records?.length && targetZone.rrsig_records?.length) {
+        // Track arrow count for horizontal offset
+        let arrowCount = 0;
+
         targetZone.dnskey_records.forEach((dnskey, dnskeyIndex) => {
           // Find matching RRSIG signature by key_tag
           // RRSIG.key_tag indicates which DNSKEY was used to sign the record
@@ -363,8 +387,10 @@ const calculateArrowPaths = () => {
           const dnskeyRect = dnskeyEl.getBoundingClientRect();
           const rrsigRect = rrsigEl.getBoundingClientRect();
 
-          // Arrow positioning (same as DS→DNSKEY arrows)
-          const leftX = -28;
+          // Arrow positioning with horizontal offset for multiple arrows
+          const baseLeftX = -28;
+          const horizontalOffset = arrowCount * 8; // Offset each arrow 8px left for visibility
+          const leftX = baseLeftX - horizontalOffset;
           const arrowLength = 20;
           const y1 = dnskeyRect.top + dnskeyRect.height / 2 - containerRect.top;
           const y2 = rrsigRect.top + rrsigRect.height / 2 - containerRect.top;
@@ -391,13 +417,16 @@ const calculateArrowPaths = () => {
             .trim()
             .replace(/\s+/g, ' ');
 
-          // Add DNSKEY→RRSIG arrow to render queue
+          // Add DNSKEY→RRSIG arrow to render queue with keytag-based color
           arrowConnections.value.push({
             path,
-            color: '#858585',
+            color: getKeytagArrowColor(dnskey.key_tag),
             startY: y1,
             endY: y2,
+            keytag: dnskey.key_tag,
           });
+
+          arrowCount++;
         });
       }
     }, 100); // 100ms timeout ensures DOM is fully rendered
@@ -454,13 +483,14 @@ onUnmounted(() => {
       </div>
 
       <!-- Validation Results -->
-      <div v-else-if="dnssecStore.validation" class="space-y-6">
+      <div v-else-if="dnssecStore.validation || appStore.domain" class="space-y-6">
         <!-- DNSSEC Status -->
         <div class="panel relative">
           <!-- Header with Status -->
           <div class="flex items-center justify-between mb-6">
             <h2 class="text-xl font-semibold text-white">DNSSEC Status</h2>
             <div
+              v-if="dnssecStore.validation"
               :class="[
                 'flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm',
                 statusColor === 'green' &&
@@ -474,11 +504,17 @@ onUnmounted(() => {
               <component v-if="statusIconComponent" :is="statusIconComponent" class="w-5 h-5" />
               <span>{{ dnssecStore.validation.status }}</span>
             </div>
+            <div
+              v-else
+              class="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm bg-gray-500/10 text-gray-400 border border-gray-500/30"
+            >
+              <span>INACTIVE</span>
+            </div>
           </div>
 
           <!-- Warnings -->
           <div
-            v-if="dnssecStore.validation.warnings.length > 0"
+            v-if="dnssecStore.validation && dnssecStore.validation.warnings.length > 0"
             class="mb-6 p-3 bg-yellow-500/5 border border-yellow-500/30 rounded-lg"
           >
             <h3 class="text-yellow-400 font-semibold mb-2 flex items-center gap-2">
@@ -496,7 +532,11 @@ onUnmounted(() => {
             </ul>
           </div>
 
-          <div v-if="dnssecStore.validation.chain.length === 0" class="text-[#858585]">
+          <div v-if="!dnssecStore.validation" class="text-[#858585]">
+            Domain is not registered or zone is inactive
+          </div>
+
+          <div v-else-if="dnssecStore.validation.chain.length === 0" class="text-[#858585]">
             No DNSSEC chain data available
           </div>
 
